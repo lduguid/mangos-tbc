@@ -518,6 +518,8 @@ Player::Player(WorldSession* session): Unit(), m_taxiTracker(*this), m_mover(thi
     m_lastFallZ = 0;
 
     m_createdInstanceClearTimer = MINUTE * IN_MILLISECONDS;
+
+    m_cinematicMgr = nullptr;
 }
 
 Player::~Player()
@@ -1141,6 +1143,19 @@ void Player::Update(uint32 update_diff, uint32 p_time)
     // Update player only attacks
     if (uint32 ranged_att = getAttackTimer(RANGED_ATTACK))
         setAttackTimer(RANGED_ATTACK, (update_diff >= ranged_att ? 0 : ranged_att - update_diff));
+
+    // Update cinematic location
+    if (m_cinematicMgr)
+    {
+        m_cinematicMgr->m_cinematicDiff += p_time;
+        // update only if CINEMATIC_UPDATEDIFF have passed
+        if (WorldTimer::getMSTimeDiff(m_cinematicMgr->m_lastCinematicCheck, WorldTimer::getMSTime()) > CINEMATIC_UPDATEDIFF)
+        {
+            m_cinematicMgr->m_lastCinematicCheck = WorldTimer::getMSTime();
+            if (!m_cinematicMgr->UpdateCinematicLocation(p_time))
+                m_cinematicMgr.reset(nullptr);             // if any problem occur during cinematic update we can delete it
+        }
+    }
 
     // Used to implement delayed far teleports
     SetCanDelayTeleport(true);
@@ -5922,11 +5937,18 @@ void Player::SendDirectMessage(WorldPacket const& data) const
     GetSession()->SendPacket(data);
 }
 
-void Player::SendCinematicStart(uint32 CinematicSequenceId) const
+void Player::SendCinematicStart(uint32 CinematicSequenceId)
 {
     WorldPacket data(SMSG_TRIGGER_CINEMATIC, 4);
     data << uint32(CinematicSequenceId);
     SendDirectMessage(data);
+
+    if (CinematicSequencesEntry const* sequence = sCinematicSequencesStore.LookupEntry(CinematicSequenceId))
+    {
+        // we can start server side dynamic follow
+        m_cinematicMgr.reset(new CinematicMgr(this));
+        m_cinematicMgr->SetActiveCinematicCamera(sequence->cinematicCamera);
+    }
 }
 
 void Player::CheckAreaExploreAndOutdoor()
@@ -21351,4 +21373,23 @@ void Player::SendPetBar()
         else
             CharmSpellInitialize();
     }
+}
+
+void Player::StartCinematic()
+{
+    // server sent cinematic start?
+    if (!m_cinematicMgr)
+        return;
+
+    m_cinematicMgr->BeginCinematic();
+}
+
+void Player::StopCinematic()
+{
+    // any cinematic started?
+    if (!m_cinematicMgr)
+        return;
+
+    m_cinematicMgr->EndCinematic();
+    m_cinematicMgr.reset(nullptr);
 }
