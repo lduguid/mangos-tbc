@@ -1643,6 +1643,27 @@ void Unit::DealSpellDamage(SpellNonMeleeDamage* damageInfo, bool durabilityLoss)
     DealDamage(pVictim, damageInfo->damage, &cleanDamage, SPELL_DIRECT_DAMAGE, damageInfo->schoolMask, spellProto, durabilityLoss);
 }
 
+uint32 Unit::GetResilienceRatingDamageReduction(uint32 damage, SpellDmgClass dmgClass, bool periodic/* = false*/, Powers pwrType/* = POWER_HEALtH*/) const
+{
+    // NOTE: Resilince increases all 3 ratings at once, verify if specialized cases actually exist
+    CombatRating rating;
+    switch (dmgClass)
+    {
+        case SPELL_DAMAGE_CLASS_MELEE:  rating = CR_CRIT_TAKEN_MELEE;   break;
+        case SPELL_DAMAGE_CLASS_RANGED: rating = CR_CRIT_TAKEN_RANGED;  break;
+        default:                        rating = CR_CRIT_TAKEN_SPELL;   break;
+    }
+
+    if (periodic)
+        return GetCombatRatingDamageReduction(rating, 1.0f, 100.0f, damage);                            // DOTs: 2.2.0+
+
+    switch (uint32(pwrType))
+    {
+        case POWER_MANA:        return GetCombatRatingDamageReduction(rating, 1.0f, 100.0f, damage);    // Mana drains: 2.4.0+
+    }
+    return 0;
+}
+
 // TODO for melee need create structure as in
 void Unit::CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* calcDamageInfo, WeaponAttackType attackType /*= BASE_ATTACK*/)
 {
@@ -5719,7 +5740,7 @@ void Unit::SendPeriodicAuraLog(SpellPeriodicAuraLogInfo* pInfo) const
             data << uint32(pInfo->damage);                  // damage
             data << uint32(GetSpellSchoolMask(aura->GetSpellProto()));
             data << uint32(pInfo->absorb);                  // absorb
-            data << uint32(pInfo->resist);                  // resist
+            data << int32(pInfo->resist);                   // resist
             break;
         case SPELL_AURA_PERIODIC_HEAL:
         case SPELL_AURA_OBS_MOD_HEALTH:
@@ -5878,7 +5899,7 @@ void Unit::SendAttackStateUpdate(CalcDamageInfo* calcDamageInfo) const
         data << float(line.damage) / float(calcDamageInfo->totalDamage);   // Float coefficient of subdamage
         data << uint32(line.damage);
         data << uint32(line.absorb);
-        data << uint32(line.resist);
+        data << int32(line.resist);
     }
 
     data << uint32(calcDamageInfo->TargetState);
@@ -11529,6 +11550,8 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
     Creature* charmedCreature = nullptr;
     CharmInfo* charmInfo = charmed->GetCharmInfo();
 
+    charmed->SetEvade(EVADE_NONE); // if charm expires mid evade clear evade since movement is also cleared - TODO: maybe should be done on HomeMovementGenerator::MovementExpires?
+
     if (charmed->GetTypeId() == TYPEID_UNIT)
     {
         // now we have to clean threat list to be able to restore normal creature behavior
@@ -11598,7 +11621,6 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
         charmedPlayer->DeleteThreatList(); // TODO: Add threat management for player during charm, only entries with 0 threat
     }
 
-    charmed->SetEvade(EVADE_NONE); // if charm expires mid evade clear evade since movement is also cleared - TODO: maybe should be done on HomeMovementGenerator::MovementExpires?
     // Update possessed's client control status after altering flags
     if (const Player* controllingClientPlayer = charmed->GetClientControlling())
         controllingClientPlayer->UpdateClientControl(charmed, true);
