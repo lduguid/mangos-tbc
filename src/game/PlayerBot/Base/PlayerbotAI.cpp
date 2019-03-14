@@ -2183,25 +2183,42 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
                     return;
                 }
 
-                // list out items available for trade
+                // list out items
                 std::ostringstream out;
-                std::list<std::string> lsItemsTradable;
-                std::list<std::string> lsItemsUntradable;
+                std::ostringstream outT;
+                std::ostringstream outNT;
+                uint8 countTotalTradeable = 0;
+                uint8 countTradeable = 0;
+                uint8 countNonTradeable = 0;
 
+                outT << "Tradeable:";
+                outNT << "Non-tradeable:";
                 // list out items in main backpack
                 for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; slot++)
                 {
                     const Item* const pItem = m_bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
                     if (pItem)
                     {
-                        MakeItemLink(pItem, out, true);
                         if (pItem->CanBeTraded())
-                            lsItemsTradable.push_back(out.str());
+                        {
+                            countTradeable++;
+                            MakeItemLink(pItem, outT, true);
+                        }
                         else
-                            lsItemsUntradable.push_back(out.str());
-                        out.str("");
+                        {
+                            countNonTradeable++;
+                            MakeItemLink(pItem, outNT, true);
+                        }
                     }
                 }
+
+                countTotalTradeable = countTradeable;
+                out << "Backpack (" << countTradeable + countNonTradeable << "/16) ";
+                if (countTradeable > 0)
+                    out << outT.str();
+                if (countNonTradeable > 0)
+                    out << outNT.str();
+                SendWhisper(out.str().c_str(), *(m_bot->GetTrader()));
 
                 // list out items in other removable backpacks
                 for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
@@ -2209,63 +2226,48 @@ void PlayerbotAI::HandleBotOutgoingPacket(const WorldPacket& packet)
                     const Bag* const pBag = (Bag*) m_bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bag);
                     if (pBag)
                     {
-                        // Very cool, but unnecessary
-                        //const ItemPrototype* const pBagProto = pBag->GetProto();
-                        //std::string bagName = pBagProto->Name1;
-                        //ItemLocalization(bagName, pBagProto->ItemId);
+                        countTradeable = 0;
+                        countNonTradeable = 0;
+                        std::ostringstream outbagT;
+                        std::ostringstream outbagNT;
+                        outbagT << "Tradeable:";
+                        outbagNT << "Non-tradeable:";
 
                         for (uint8 slot = 0; slot < pBag->GetBagSize(); ++slot)
                         {
                             const Item* const pItem = m_bot->GetItemByPos(bag, slot);
                             if (pItem)
                             {
-                                MakeItemLink(pItem, out, true);
                                 if (pItem->CanBeTraded())
-                                    lsItemsTradable.push_back(out.str());
+                                {
+                                    countTradeable++;
+                                    MakeItemLink(pItem, outbagT, true);
+                                }
                                 else
-                                    lsItemsUntradable.push_back(out.str());
-                                out.str("");
+                                {
+                                    countNonTradeable++;
+                                    MakeItemLink(pItem, outbagNT, true);
+                                }
                             }
                         }
-                    }
-                }
 
-                ChatHandler ch(m_bot->GetTrader());
-                out.str("");
-                out << "Items I have but cannot trade:";
-                uint32 count = 0;
-                for (std::list<std::string>::iterator iter = lsItemsUntradable.begin(); iter != lsItemsUntradable.end(); iter++)
-                {
-                    out << (*iter);
-                    // Why this roundabout way of posting max 20 items per whisper? To keep the list scrollable.
-                    count++;
-                    if (count % 20 == 0)
-                    {
-                        ch.SendSysMessage(out.str().c_str());
-                        out.str("");
+                        countTotalTradeable += countTradeable;
+                        std::ostringstream outbag;
+                        const ItemPrototype* const pBagProto = pBag->GetProto();
+                        std::string bagName = pBagProto->Name1;
+                        ItemLocalization(bagName, pBagProto->ItemId);
+                        outbag << bagName << " (";
+                        outbag << countTradeable + countNonTradeable << "/" << pBag->GetBagSize();
+                        outbag << ") ";
+                        if (countTradeable > 0)
+                            outbag << outbagT.str();
+                        if (countNonTradeable > 0)
+                            outbag << outbagNT.str();
+                        SendWhisper(outbag.str().c_str(), *(m_bot->GetTrader()));
                     }
                 }
-                if (count > 0)
-                    ch.SendSysMessage(out.str().c_str());
-
-                out.str("");
-                out << "I could give you:";
-                count = 0;
-                for (std::list<std::string>::iterator iter = lsItemsTradable.begin(); iter != lsItemsTradable.end(); iter++)
-                {
-                    out << (*iter);
-                    // Why this roundabout way of posting max 20 items per whisper? To keep the list scrollable.
-                    count++;
-                    if (count % 20 == 0)
-                    {
-                        ch.SendSysMessage(out.str().c_str());
-                        out.str("");
-                    }
-                }
-                if (count > 0)
-                    ch.SendSysMessage(out.str().c_str());
-                else
-                    ch.SendSysMessage("I have nothing to give you.");
+                if (countTotalTradeable == 0)
+                    SendWhisper("I have no items to give you.", *(m_bot->GetTrader()));
 
                 // calculate how much money bot has
                 // send bot the message
@@ -3756,6 +3758,8 @@ void PlayerbotAI::DoLoot()
     if (!wo || GetMaster()->GetDistance(wo) > float(m_mgr->m_confCollectDistanceMax))
     {
         m_lootCurrent = ObjectGuid();
+        if (GetManager()->m_confDebugWhisper)
+            TellMaster("Object is too far away.");
         return;
     }
 
@@ -3770,6 +3774,8 @@ void PlayerbotAI::DoLoot()
     if ((c && c->IsDespawned()) || (go && !go->IsSpawned()) || (!c && !go))
     {
         m_lootCurrent = ObjectGuid();
+        if (GetManager()->m_confDebugWhisper)
+            TellMaster("Object is not spawned.");
         return;
     }
 
@@ -3781,10 +3787,20 @@ void PlayerbotAI::DoLoot()
             skillId = c->GetCreatureInfo()->GetRequiredLootSkill();
 
         // not a lootable creature, clear it
-        if (!c->HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE) &&
-                !c->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE) ||
+        if ((!c->HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE) &&
+                !c->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE)) ||
                 (c->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE) && !m_bot->HasSkill(skillId)))
         {
+            m_lootCurrent = ObjectGuid();
+            // clear movement target, take next target on next update
+            m_bot->GetMotionMaster()->Clear(false);
+            m_bot->GetMotionMaster()->MoveIdle();
+            return;
+        }
+        else if (c->loot && !c->loot->CanLoot(m_bot))
+        {
+            if (GetManager()->m_confDebugWhisper)
+                TellMaster("%s is not lootable by me.", wo->GetName());
             m_lootCurrent = ObjectGuid();
             // clear movement target, take next target on next update
             m_bot->GetMotionMaster()->Clear(false);
@@ -3798,6 +3814,8 @@ void PlayerbotAI::DoLoot()
         m_bot->GetMotionMaster()->MovePoint(wo->GetMapId(), wo->GetPositionX(), wo->GetPositionY(), wo->GetPositionZ());
         // give time to move to point before trying again
         SetIgnoreUpdateTime(1);
+        if (GetManager()->m_confDebugWhisper)
+            TellMaster("Moving to loot %s", go ? go->GetName() : wo->GetName());
     }
 
     if (m_bot->GetDistance(wo) < INTERACTION_DISTANCE)
@@ -3807,6 +3825,9 @@ void PlayerbotAI::DoLoot()
         bool keyFailed = false;
         bool skillFailed = false;
         bool forceFailed = false;
+
+        if (GetManager()->m_confDebugWhisper)
+            TellMaster("Beginning to loot %s", go ? go->GetName() : wo->GetName());
 
         if (c)  // creature
         {
@@ -5482,6 +5503,10 @@ SpellCastResult PlayerbotAI::Buff(uint32 spellId, Unit* target, void (*beforeCas
     if (spellId == 0)
         return SPELL_FAILED_NOT_KNOWN;
 
+    // Target already has aura from spellId, skip for speed. May need to add exceptions
+    if (target->HasAura(spellId))
+        return SPELL_FAILED_AURA_BOUNCED;
+
     SpellEntry const* spellProto = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
 
     if (!spellProto)
@@ -6799,7 +6824,7 @@ bool PlayerbotAI::CanStore()
                 totalfree =  totalfree + pBag->GetFreeSlots();
         }
     }
-    return totalfree;
+    return totalfree > 0;
 }
 
 // use item on self
@@ -8038,6 +8063,18 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     else if (ExtractCommand("help", input))
         _HandleCommandHelp(input, fromPlayer);
 
+    // debug can be enabled without needing to change playerbot.conf file
+    else if (text == "debug")
+    {
+        TellMaster("Debugging is on. Type 'no debug' to disable.");
+        GetManager()->m_confDebugWhisper = true;
+    }
+    else if (text == "no debug")
+    {
+        TellMaster("Debugging is off.");
+        GetManager()->m_confDebugWhisper = false;
+    }
+
     else if (fromPlayer.GetSession()->GetSecurity() > SEC_PLAYER && ExtractCommand("gm", input))
         _HandleCommandGM(input, fromPlayer);
 
@@ -8186,7 +8223,14 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         else
         {
             // TODO: make this only in response to direct whispers (chatting in party chat can in fact be between humans)
-            std::string msg = "What? For a list of commands, ask for 'help'.";
+            std::string msg = "What is [";
+            std::string textsub;
+            if (text.length() > 10)
+                textsub = text.substr(0, 10) + "...";
+            else
+                textsub = text;
+            msg += textsub.c_str();
+            msg += "]? For a list of commands, ask for 'help'.";
             SendWhisper(msg, fromPlayer);
             m_bot->HandleEmoteCommand(EMOTE_ONESHOT_TALK);
         }
