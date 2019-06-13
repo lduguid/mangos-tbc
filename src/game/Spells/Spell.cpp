@@ -4586,7 +4586,7 @@ SpellCastResult Spell::CheckCast(bool strict)
 
     // check global cooldown
     if (strict && !m_IsTriggeredSpell && m_caster->HasGCD(m_spellInfo))
-        return SPELL_FAILED_NOT_READY;
+        return m_spellInfo->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_NOT_READY;
 
     // only allow triggered spells if at an ended battleground
     if (!m_IsTriggeredSpell && m_caster->GetTypeId() == TYPEID_PLAYER)
@@ -6585,10 +6585,14 @@ SpellCastResult Spell::CheckItems()
         {
             case SPELL_EFFECT_CREATE_ITEM:
             {
+                // check requirement at spell end
+                if (m_spellState == SPELL_STATE_TARGETING)
+                    break;
+
                 if (!m_IsTriggeredSpell && m_spellInfo->EffectItemType[i])
                 {
                     ItemPosCountVec dest;
-                    InventoryResult msg = playerTarget->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, m_spellInfo->EffectItemType[i], 1);
+                    InventoryResult msg = playerTarget->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, m_spellInfo->EffectItemType[i], CalculateDamage(SpellEffectIndex(i), m_caster));
                     if (msg != EQUIP_ERR_OK)
                     {
                         p_caster->SendEquipError(msg, nullptr, nullptr, m_spellInfo->EffectItemType[i]);
@@ -7413,7 +7417,7 @@ bool SpellEvent::Execute(uint64 e_time, uint32 p_time)
 
     // spell processing not complete, plan event on the next update interval
     m_Spell->GetCaster()->m_events.AddEvent(this, e_time + 1, false);
-    return false; // event not complete
+    return false;                                           // event not complete
 }
 
 void SpellEvent::Abort(uint64 /*e_time*/)
