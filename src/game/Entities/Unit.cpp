@@ -571,7 +571,6 @@ void Unit::EvadeTimerExpired()
     }
 
     getThreatManager().SetTargetSuppressed(getVictim());
-    SelectHostileTarget();
 }
 
 void Unit::StopEvade()
@@ -4325,17 +4324,16 @@ bool Unit::IsNonMeleeSpellCasted(bool withDelayed, bool skipChanneled, bool skip
     // channeled spells may be delayed, but they are still considered casted
     if (!skipChanneled)
     {
-        Spell const* channeledSpell = m_currentSpells[CURRENT_CHANNELED_SPELL];
-        if (channeledSpell)
+        if (Spell const* channeledSpell = m_currentSpells[CURRENT_CHANNELED_SPELL])
         {
             bool attributeResult;
             if (forMovement)
-                attributeResult = m_currentSpells[CURRENT_CHANNELED_SPELL]->m_spellInfo->HasAttribute(SPELL_ATTR_EX5_CAN_CHANNEL_WHEN_MOVING);
+                attributeResult = channeledSpell->m_spellInfo->HasAttribute(SPELL_ATTR_EX5_CAN_CHANNEL_WHEN_MOVING);
             else
-                attributeResult = m_currentSpells[CURRENT_CHANNELED_SPELL]->m_spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING);
+                attributeResult = channeledSpell->m_spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING);
 
-            if (!attributeResult && !m_currentSpells[CURRENT_CHANNELED_SPELL]->m_IsTriggeredSpell &&
-                (m_currentSpells[CURRENT_CHANNELED_SPELL]->getState() != SPELL_STATE_FINISHED))
+            if (!attributeResult && !channeledSpell->m_IsTriggeredSpell &&
+                    (channeledSpell->getState() != SPELL_STATE_FINISHED))
                 return true;
         }
     }
@@ -4402,6 +4400,11 @@ bool Unit::isInAccessablePlaceFor(Unit const* unit) const
 bool Unit::IsInWater() const
 {
     return GetTerrain()->IsInWater(GetPositionX(), GetPositionY(), GetPositionZ());
+}
+
+bool Unit::IsInSwimmableWater() const
+{
+    return GetTerrain()->IsSwimmable(GetPositionX(), GetPositionY(), GetPositionZ());
 }
 
 bool Unit::IsUnderwater() const
@@ -5002,7 +5005,7 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
 {
     SpellAuraHolder* holder = GetSpellAuraHolder(spellId, casterGuid);
     SpellEntry const* spellProto = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-    SpellAuraHolder* new_holder = CreateSpellAuraHolder(spellProto, stealer, this);
+    SpellAuraHolder* new_holder = CreateSpellAuraHolder(spellProto, stealer, stealer);
 
     // set its duration and maximum duration
     // max duration 2 minutes (in msecs)
@@ -5022,7 +5025,7 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
         int32 basePoints = aur->GetBasePoints();
         // construct the new aura for the attacker - will never return nullptr, it's just a wrapper for
         // some different constructors
-        Aura* new_aur = CreateAura(aur->GetSpellProto(), aur->GetEffIndex(), &basePoints, new_holder, stealer, this);
+        Aura* new_aur = CreateAura(aur->GetSpellProto(), aur->GetEffIndex(), &basePoints, new_holder, stealer, stealer);
 
         // set periodic to do at least one tick (for case when original aura has been at last tick preparing)
         int32 periodic = aur->GetModifier()->periodictime;
@@ -5892,11 +5895,12 @@ void Unit::CasterHitTargetWithSpell(Unit* realCaster, Unit* target, SpellEntry c
                     RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
             }
 
+            target->AttackedBy(realCaster);
+
             target->AddThreat(realCaster);
+            realCaster->AddThreat(target);
             target->SetInCombatWithAggressor(realCaster);
             realCaster->SetInCombatWithVictim(target);
-
-            target->AttackedBy(realCaster);
         }
 
         if (attack && spellInfo->HasAttribute(SPELL_ATTR_EX3_OUT_OF_COMBAT_ATTACK))
@@ -7423,12 +7427,10 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo, bool /*castOnSelf*/, uin
             return true;
 
     {
-        bool isPositive = IsPositiveEffectMask(spellInfo, effectMask);
-        if (spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
-            isPositive = !isPositive;
-
-        if (!spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))           // can remove immune (by dispell or immune it)
+        if (!spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY) && 
+                !spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
         {
+            bool isPositive = IsPositiveEffectMask(spellInfo, effectMask);
             SpellImmuneList const& schoolList = m_spellImmune[IMMUNITY_SCHOOL];
             for (auto itr : schoolList)
                 if (!(itr.aura && IsPositiveEffectMask(itr.aura->GetSpellProto(), uint8(1 << (itr.aura->GetEffIndex() - 1))) && isPositive && !itr.aura->GetSpellProto()->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE)) &&
@@ -7485,15 +7487,20 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
     return false;
 }
 
-bool Unit::IsImmuneToSchool(SpellEntry const* spellInfo) const
+bool Unit::IsImmuneToSchool(SpellEntry const* spellInfo, uint8 effectMask) const
 {
     if (!spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))           // can remove immune (by dispell or immune it)
     {
         SpellImmuneList const& schoolList = m_spellImmune[IMMUNITY_SCHOOL];
         for (auto itr : schoolList)
-            if (!(itr.aura && IsPositiveSpell(itr.aura->GetSpellProto()) && IsPositiveSpell(spellInfo->Id) && !itr.aura->GetSpellProto()->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE)) &&
+        {
+            if (itr.aura && itr.aura->GetSpellProto() == spellInfo) // do not let itself immune out - fixes 39872 - Tidal Shield
+                continue;
+
+            if (!(itr.aura && IsPositiveEffect(itr.aura->GetSpellProto(), itr.aura->GetEffIndex()) && IsPositiveEffectMask(spellInfo, effectMask) && !itr.aura->GetSpellProto()->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE)) &&
                 (itr.type & GetSpellSchoolMask(spellInfo)))
                 return true;
+        }
     }
 
     return false;
@@ -8898,7 +8905,7 @@ bool Unit::SelectHostileTarget()
     // return true but no target
 
     // no target but something prevent go to evade mode
-    if (!isInCombat() || HasAuraType(SPELL_AURA_MOD_TAUNT))
+    if (!isInCombat())
         return false;
 
     // last case when creature don't must go to evade mode:
@@ -11700,6 +11707,7 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
         charmedPlayer->DeleteThreatList(); // TODO: Add threat management for player during charm, only entries with 0 threat
     }
 
+    charmed->SetEvade(EVADE_NONE); // if charm expires mid evade clear evade since movement is also cleared - TODO: maybe should be done on HomeMovementGenerator::MovementExpires?
     // Update possessed's client control status after altering flags
     if (const Player* controllingClientPlayer = charmed->GetClientControlling())
         controllingClientPlayer->UpdateClientControl(charmed, true);
@@ -11817,5 +11825,36 @@ void Unit::InterruptSpellsCastedOnMe(bool killDelayed)
                 if (event && event->GetSpell()->m_targets.getUnitTargetGuid() == GetObjectGuid())
                     if (event->GetSpell()->getState() != SPELL_STATE_FINISHED)
                         event->GetSpell()->cancel();
+    }
+}
+
+void Unit::UpdateAllowedPositionZ(float x, float y, float& z, Map* atMap /*=nullptr*/) const
+{
+    if (!atMap)
+        atMap = GetMap();
+
+    // non fly unit don't must be in air
+    // non swim unit must be at ground (mostly speedup, because it don't must be in water and water level check less fast
+    if (!CanFly())
+    {
+        bool canSwim = CanSwim();
+        float ground_z = z, max_z;
+        if (canSwim)
+            max_z = atMap->GetTerrain()->GetWaterOrGroundLevel(x, y, z, &ground_z, !HasAuraType(SPELL_AURA_WATER_WALK));
+        else
+            max_z = ground_z = atMap->GetHeight(x, y, z);
+        if (max_z > INVALID_HEIGHT)
+        {
+            if (z > max_z)
+                z = max_z;
+            else if (z < ground_z)
+                z = ground_z;
+        }
+    }
+    else
+    {
+        float ground_z = atMap->GetHeight(x, y, z);
+        if (z < ground_z)
+            z = ground_z;
     }
 }

@@ -651,7 +651,7 @@ enum SpellEffects
     SPELL_EFFECT_42                        = 42,            // old SPELL_EFFECT_SUMMON_GUARDIAN
     SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER = 43,
     SPELL_EFFECT_SKILL_STEP                = 44,
-    SPELL_EFFECT_UNDEFINED_45              = 45,
+    SPELL_EFFECT_ADD_HONOR                 = 45,
     SPELL_EFFECT_SPAWN                     = 46,
     SPELL_EFFECT_TRADE_SKILL               = 47,
     SPELL_EFFECT_STEALTH                   = 48,
@@ -751,15 +751,15 @@ enum SpellEffects
     SPELL_EFFECT_TRIGGER_SPELL_WITH_VALUE  = 142,
     SPELL_EFFECT_APPLY_AREA_AURA_OWNER     = 143,
     SPELL_EFFECT_KNOCKBACK_FROM_POSITION   = 144,
-    SPELL_EFFECT_145                       = 145,
+    SPELL_EFFECT_GRAVITY_PULL              = 145, // TODO: Implement
     SPELL_EFFECT_146                       = 146,
     SPELL_EFFECT_QUEST_FAIL                = 147,
     SPELL_EFFECT_148                       = 148,
     SPELL_EFFECT_CHARGE2                   = 149,
     SPELL_EFFECT_150                       = 150,
     SPELL_EFFECT_TRIGGER_SPELL_2           = 151,
-    SPELL_EFFECT_152                       = 152,
-    SPELL_EFFECT_153                       = 153,
+    SPELL_EFFECT_SUMMON_RAF_FRIEND         = 152, // TODO: Implement
+    SPELL_EFFECT_CREATE_PET                = 153, // TODO: Implement
     TOTAL_SPELL_EFFECTS                    = 154
 };
 
@@ -1119,6 +1119,13 @@ enum SpellRangeIndex
     SPELL_RANGE_IDX_SELF_ONLY = 1,                          //< 0.0
     SPELL_RANGE_IDX_COMBAT    = 2,                          //< often ~5.5 (but infact dynamic melee combat range)
     SPELL_RANGE_IDX_ANYWHERE  = 13,                         //< 500000 (anywhere)
+    SPELL_RANGE_IDX_HUNTER    = 114,                        //< has min range custom condition
+};
+
+enum SpellRangeFlags
+{
+    SPELL_RANGE_FLAG_MELEE = 0x1,                          // Melee combat range
+    SPELL_RANGE_FLAG_RANGED = 0x2,                          // Complement of melee combat range
 };
 
 enum DamageEffectType
@@ -1165,7 +1172,7 @@ enum GameobjectTypes
     GAMEOBJECT_TYPE_MINI_GAME              = 27,
     GAMEOBJECT_TYPE_LOTTERY_KIOSK          = 28,
     GAMEOBJECT_TYPE_CAPTURE_POINT          = 29,
-    GAMEOBJECT_TYPE_AURA_GENERATOR         = 30,
+    GAMEOBJECT_TYPE_AURA_GENERATOR         = 30, // Unimplemented - prototype go_aura_generator_000AI
     GAMEOBJECT_TYPE_DUNGEON_DIFFICULTY     = 31,
     GAMEOBJECT_TYPE_BARBER_CHAIR           = 32,
     GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING  = 33,

@@ -414,21 +414,45 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
 
     switch (spellInfo->Id)
     {
+        case 3417:          // Thrash
+        case 8876:          // Thrash
+        case 9205:          // Hate to Zero (Hate to Zero)
         case 9460:          // Corrosive Ooze
+        case 10095:         // Hate to Zero (Hate to Zero)
+        case 11838:         // Hate to Zero (Hate to Zero)
+        case 12546:         // Spitelash (Spitelash)
+        case 12787:         // Thrash
+        case 13767:         // Hate to Zero (Hate to Zero)
+        case 16140:         // Exploding Cadaver (Exploding Cadaver)
         case 17327:         // Spirit Particles
+        case 18943:         // Double Attack
+        case 18950:         // Invisibility and Stealth Detection
+        case 19194:         // Double Attack
+        case 19195:         // Hate to 90% (Hate to 90%)
+        case 19396:         // Incinerate (Incinerate)
+        case 19626:         // Fire Shield (Fire Shield)
+        case 19640:         // Pummel (Pummel)
+        case 19817:         // Double Attack
+        case 19818:         // Double Attack
+        case 21857:         // Lava Shield
         case 22735:         // Spirit of Runn Tum
         case 22856:         // Ice Lock (Guard Slip'kik ice trap in Dire Maul)
+        case 25592:         // Hate to Zero (Hate to Zero)
         case 28126:         // Spirit Particles (purple)
         case 29406:         // Shadowform
+        case 29526:         // Hate to Zero (Hate to Zero)
         case 31332:         // Dire Wolf Visual
         case 31690:         // Putrid Mushroom
         case 32007:         // Mo'arg Engineer Transform Visual
+        case 33460:         // Inhibit Magic
         case 35596:         // Power of the Legion
         case 35841:         // Draenei Spirit Visual
         case 35850:         // Draenei Spirit Visual 2
+        case 37497:         // Shadowmoon Ghost Invisibility (Ghostrider of Karabor in SMV) 
         case 39311:         // Scrapped Fel Reaver transform aura that is never removed even on evade
-        case 39918:         // visual auras in Soulgrinder script
-        case 39920:
+        case 39918:         // Soulgrinder Ritual Visual ( in progress)
+        case 39920:         // Soulgrinder Ritual Visual ( beam)
+        case 41634:         // Invisibility and Stealth Detection
             return false;
         default:
             return true;
@@ -926,6 +950,15 @@ inline bool IsPositiveEffect(const SpellEntry* spellproto, SpellEffectIndex effI
         case 34700: // Allergic Reaction - Neutral target type - needs to be a debuff
         case 36717: // Neutral spells with SPELL_ATTR_EX3_TARGET_ONLY_PLAYER as a filter
         case 38829:
+        case 40055: // Introspection - Apexis Relic
+        case 40165:
+        case 40166:
+        case 40167:
+        case 36812: // Soaring
+        case 37910: // overriding because immunity is preventing the spellcast - maybe neutral spells should be judged like negatives?
+        case 37940:
+        case 37962:
+        case 37968:
             return false;
     }
 
@@ -1324,6 +1357,7 @@ inline bool IsIgnoreLosSpell(SpellEntry const* spellInfo)
         case 31630:                                 // Green Beam
         case 31631:                                 // Green Beam
         case 24742:                                 // Magic Wings
+        case 40639:                                 // Arcane Beam - Channel target inside gameobject
         case 42867:                                 // both need LOS, likely TARGET_UNIT should use LOS ignore from normal radius, not per-effect radius WIP
             return true;
         default:
@@ -2605,20 +2639,6 @@ class SpellMgr
             return false;
         }
 
-        uint32 GetSpellBookSuccessorSpellId(uint32 spellId)
-        {
-            SkillLineAbilityMapBounds bounds = GetSkillLineAbilityMapBoundsBySpellId(spellId);
-            for (SkillLineAbilityMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
-            {
-                if (SkillLineAbilityEntry const* pAbility = itr->second)
-                {
-                    if (pAbility->forward_spellid)
-                        return pAbility->forward_spellid;
-                }
-            }
-            return 0;
-        }
-
         bool IsSpellRankOfSpell(SpellEntry const* spellInfo_1, uint32 spellId_2) const;
         bool IsSpellStackableWithSpell(const SpellEntry* entry1, const SpellEntry* entry2) const
         {
@@ -2655,6 +2675,20 @@ class SpellMgr
 
             // By default, check formal aura holder stacking rules
             return IsSpellStackableWithSpell(entry1, entry2);
+        }
+
+        uint32 GetSpellBookSuccessorSpellId(uint32 spellId)
+        {
+            SkillLineAbilityMapBounds bounds = GetSkillLineAbilityMapBoundsBySpellId(spellId);
+            for (SkillLineAbilityMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
+            {
+                if (SkillLineAbilityEntry const* pAbility = itr->second)
+                {
+                    if (pAbility->forward_spellid)
+                        return pAbility->forward_spellid;
+                }
+            }
+            return 0;
         }
 
         // return true if spell1 can affect spell2

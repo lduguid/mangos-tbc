@@ -204,14 +204,14 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS] =
     &Spell::EffectTriggerSpellWithValue,                    //142 SPELL_EFFECT_TRIGGER_SPELL_WITH_VALUE
     &Spell::EffectApplyAreaAura,                            //143 SPELL_EFFECT_APPLY_AREA_AURA_OWNER
     &Spell::EffectKnockBackFromPosition,                    //144 SPELL_EFFECT_KNOCKBACK_FROM_POSITION
-    &Spell::EffectNULL,                                     //145 SPELL_EFFECT_145                      Black Hole Effect
+    &Spell::EffectNULL,                                     //145 SPELL_EFFECT_GRAVITY_PULL                      Black Hole Effect
     &Spell::EffectUnused,                                   //146 SPELL_EFFECT_146                      unused
     &Spell::EffectQuestFail,                                //147 SPELL_EFFECT_QUEST_FAIL               quest fail
     &Spell::EffectUnused,                                   //148 SPELL_EFFECT_148                      unused
     &Spell::EffectCharge2,                                  //149 SPELL_EFFECT_CHARGE2                  swoop
     &Spell::EffectUnused,                                   //150 SPELL_EFFECT_150                      unused
     &Spell::EffectTriggerRitualOfSummoning,                 //151 SPELL_EFFECT_TRIGGER_SPELL_2
-    &Spell::EffectNULL,                                     //152 SPELL_EFFECT_152                      summon Refer-a-Friend
+    &Spell::EffectNULL,                                     //152 SPELL_EFFECT_SUMMON_RAF_FRIEND                      summon Refer-a-Friend
     &Spell::EffectNULL,                                     //153 SPELL_EFFECT_CREATE_PET               misc value is creature entry
 };
 
@@ -378,6 +378,33 @@ void Spell::EffectSchoolDMG(SpellEffectIndex eff_idx)
                     case 38441:
                         damage = unitTarget->GetMaxHealth() / 2;
                         break;
+                    case 38977:                             // Spore Quake Effect
+                        if (roll_chance_i(33))
+                            unitTarget->CastSpell(unitTarget, 39002, TRIGGERED_OLD_TRIGGERED); // Spore Quake Knockdown
+                        break;
+                    case 39384:
+                    {
+                        if (eff_idx == 0)
+                        {
+                            if (unitTarget->getFaction() == 1690)
+                                damage = 10000;
+                            else
+                                damage = 0;
+                        }
+                        else
+                        {
+                            if (unitTarget->getFaction() == 1689)
+                                damage = 10000;
+                            else
+                                damage = 0;
+                        }
+                        break;
+                    }
+                    case 40065: // Apexis Reprisal
+                    {
+                        damage = unitTarget->GetMaxHealth() / 3;
+                        break;
+                    }
                 }
                 break;
             }
@@ -438,10 +465,6 @@ void Spell::EffectSchoolDMG(SpellEffectIndex eff_idx)
             }
             case SPELLFAMILY_PRIEST:
             {
-                // Shadow Word: Death - deals damage equal to damage done to caster
-                // TODO: fix so that it has all dmg bonuses as well - chain lighting multiplier issue
-                if (m_spellInfo->SpellFamilyFlags & 0x0000000200000000LL)
-                    m_caster->CastCustomSpell(m_caster, 32409, &damage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
                 break;
             }
             case SPELLFAMILY_DRUID:
@@ -1706,6 +1729,13 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(m_caster, 34819, TRIGGERED_OLD_TRIGGERED); // Summon 20078 front of the caster
                     return;
                 }
+                case 35517:                                 // Teleport
+                {
+                    if (unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT)
+                        ((Creature*)unitTarget)->ForcedDespawn(1000);
+
+                    return;
+                }
                 case 35598:                                 // Wrath of Socrethar (pretend to kill Ishanah)
                 {
                     unitTarget->CastSpell(unitTarget, 29266, TRIGGERED_NONE); // Permanent Feign Death
@@ -1970,7 +2000,10 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         creature->ForcedDespawn(4000);
                     }
                     if (go)
-                        go->AddObjectToRemoveList();
+                    {
+                        go->SetRespawnTime(1);
+                        go->SetLootState(GO_JUST_DEACTIVATED);
+                    }
                     static_cast<Creature*>(unitTarget)->ForcedDespawn();
                     return;
                 }
@@ -1980,6 +2013,14 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         return;
 
                     unitTarget->RemoveAurasDueToSpell(40195);
+                    return;
+                }
+                case 40758:                                 // Ethereal Ring: The Bolt
+                {
+                    if (!unitTarget)
+                        return;
+
+                    unitTarget->CastSpell(nullptr, 40799, TRIGGERED_NONE);
                     return;
                 }
                 case 40802:                                 // Mingo's Fortune Generator (Mingo's Fortune Giblets)
@@ -3129,9 +3170,9 @@ void Spell::EffectForceCast(SpellEffectIndex eff_idx)
 
     // spell effect 141 needs to be cast as custom with basePoints
     if (m_spellInfo->Effect[eff_idx] == SPELL_EFFECT_FORCE_CAST_WITH_VALUE)
-        unitTarget->CastCustomSpell(unitTarget, spellInfo, &basePoints, &basePoints, &basePoints, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_originalCasterGUID, m_spellInfo);
+        unitTarget->CastCustomSpell(unitTarget, spellInfo, &basePoints, &basePoints, &basePoints, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, ObjectGuid(), m_spellInfo);
     else
-        unitTarget->CastSpell(unitTarget, spellInfo, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_originalCasterGUID, m_spellInfo);
+        unitTarget->CastSpell(unitTarget, spellInfo, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, ObjectGuid(), m_spellInfo);
 }
 
 void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
@@ -4277,7 +4318,7 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
         return;
     }
 
-    // Pet's are atm handled differently
+    // Pet's are atm handled differently - TODO: Unify with rest
     if (summon_prop->Group == SUMMON_PROP_GROUP_PETS && prop_id != 1562)
     {
         DoSummonPet(eff_idx);
@@ -4646,6 +4687,10 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
     }
     spawnCreature->SetLoading(false);
 
+    // Notify original caster if not done already
+    if (m_caster->AI())
+        m_caster->AI()->JustSummoned(spawnCreature);
+
     m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON), spawnCreature->GetPackGUID());
     return true;
 }
@@ -4953,9 +4998,6 @@ bool Spell::DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry co
                     summon->CastSpell(nullptr, 19483, TRIGGERED_NONE); // Immolation - needs to be cast after level update
                     break;
                 }
-                case 37390:
-                    summon->SetOwnerGuid(m_caster->GetObjectGuid());
-                    break;
             }
         }
         else
@@ -5522,9 +5564,11 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
 
         NewSummon->SavePetToDB(PET_SAVE_AS_CURRENT, _player);
         _player->PetSpellInitialize();
+        NewSummon->SetLoading(false);
     }
     else
     {
+        NewSummon->SetLoading(false);
         // Notify Summoner
         if (m_originalCaster && (m_originalCaster != m_caster) && (m_originalCaster->AI()))
             m_originalCaster->AI()->JustSummoned(NewSummon);
@@ -6326,6 +6370,12 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         unitTarget->CastSpell(unitTarget, 25648, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_caster->GetObjectGuid());
                     return;
                 }
+                case 26528:                                 // Summon Reindeer - trigger actual summoning
+                {
+                    if (unitTarget)
+                        unitTarget->CastSpell(nullptr, 26529, TRIGGERED_NONE);
+                    return;
+                }
                 case 26656:                                 // Summon Black Qiraji Battle Tank
                 {
                     if (!unitTarget)
@@ -6606,8 +6656,12 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(unitTarget, 33684, TRIGGERED_OLD_TRIGGERED);
                     return;
                 }
-                case 34653:                                 // Fireball
-                case 36920:                                 // Fireball (h)
+                case 34653:                                 // SPELL_FIREBALL_GROUND
+                case 36920:                                 // SPELL_FIREBALL_GROUND_H
+                case 33793:                                 // SPELL_FIREBALL_RANDOM
+                case 33794:                                 // SPELL_FIREBALL_RANDOM_H
+                case 30926:                                 // SPELL_CONE_OF_FIRE
+                case 36921:                                 // SPELL_CONE_OF_FIRE_H
                 {
                     if (!unitTarget)
                         return;
@@ -7152,6 +7206,19 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     if (itemType)
                         DoCreateItem(eff_idx, itemType);
                     return;
+                }
+            }
+            break;
+        }
+        case SPELLFAMILY_PRIEST:
+        {
+            switch (m_spellInfo->Id)
+            {
+                case 39649:                                 // Summon Shadowfiends
+                {
+                    for (uint8 i = 0; i < 10; ++i)
+                        m_caster->CastSpell(m_caster, 41159, TRIGGERED_OLD_TRIGGERED);
+                    break;
                 }
             }
             break;
@@ -7941,7 +8008,7 @@ void Spell::EffectSummonObject(SpellEffectIndex eff_idx)
     m_spellLog.AddLog(m_spellInfo->Effect[eff_idx], pGameObj->GetPackGUID());
 
     if (GameObject* linkedGO = pGameObj->GetLinkedTrap())
-        m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON_OBJECT_WILD), linkedGO->GetPackGUID());
+        m_spellLog.AddLog(m_spellInfo->Effect[eff_idx], linkedGO->GetPackGUID());
 }
 
 void Spell::EffectResurrect(SpellEffectIndex /*eff_idx*/)
@@ -8289,6 +8356,20 @@ void Spell::EffectKnockBack(SpellEffectIndex eff_idx)
     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
         return;
 
+    switch (m_spellInfo->Id)
+    {
+        case 36812:                                     // Soaring - Test Flight quests
+        case 37910:
+        case 37962:
+        case 37968:
+            unitTarget->RemoveAurasDueToSpell(36801); // Remove Cannon Channel to prevent root affecting knockback
+            break;
+        case 37852:                                     // Watery Grave Explosion
+            if (m_triggeredByAuraSpell)
+                unitTarget->RemoveAurasDueToSpell(m_triggeredByAuraSpell->Id); // Remove Watery Grave to prevent root affecting knockback
+            break;
+    }
+
     ((Player*)unitTarget)->KnockBackFrom(m_caster, float(m_spellInfo->EffectMiscValue[eff_idx]) / 10, float(damage) / 10);
 }
 
@@ -8620,7 +8701,7 @@ void Spell::EffectTransmitted(SpellEffectIndex eff_idx)
     m_spellLog.AddLog(uint32(SPELL_EFFECT_TRANS_DOOR), pGameObj->GetPackGUID());
 
     if (GameObject* linkedGO = pGameObj->GetLinkedTrap())
-        m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON_OBJECT_WILD), linkedGO->GetPackGUID());
+        m_spellLog.AddLog(uint32(SPELL_EFFECT_TRANS_DOOR), linkedGO->GetPackGUID());
 }
 
 void Spell::EffectProspecting(SpellEffectIndex /*eff_idx*/)

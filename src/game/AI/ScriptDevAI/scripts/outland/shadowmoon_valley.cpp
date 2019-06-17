@@ -3564,6 +3564,7 @@ bool QuestAccept_npc_dragonmaw_racer(Player* player, Creature* questgiver, Quest
 ######*/
 
 enum {
+    NPC_DOOMWALKER            = 17711,
     NPC_FORMATION_MARKER      = 19179,
     NPC_ILLIDARI_RAVAGER      = 22857,
     NPC_SHADOWHOOF_ASSASSIN   = 22858,
@@ -3575,12 +3576,14 @@ enum {
     NPC_BT_BATTLE_SENOR       = 22934,
     NPC_SHADOWLORD            = 22988,
 
-    SAY_MAG_ON_AGGRO_1        = -10782,
-    SAY_MAG_ON_AGGRO_2        = -10783,
+    SAY_VINDICATOR_ON_AGGRO_1 = -1015062,
+    SAY_MAG_ON_AGGRO_1        = -1015063,
+    SAY_MAG_ON_AGGRO_2        = -1015064,
+    SAY_MAG_ON_AGGRO_3        = -1015065,
     SAY_CAALEN_FORWARD        = -1015032,
     SAY_FYRA_ONWARD	          = -1015031,
 
-    ILLIDARI_ATTACK_INTERVAL  = 90000,
+    ILLIDARI_ATTACK_INTERVAL  = 150000,
     REINFORCE_INTERVAL        = 30000,
 
     // Spells
@@ -3820,65 +3823,66 @@ struct mob_bt_battle_fighterAI : public ScriptedAI, public CombatTimerAI
             {
                 switch (action)
                 {
-                case ILLIDARI_CLEAVE: return urand(4000, 7000);
-                case ILLIDARI_CUTDOWN: return 6000;
-                case ILLIDARI_DEMORALIZING_SHOUT: return 8000;
+                    case ILLIDARI_CLEAVE: return urand(4000, 7000);
+                    case ILLIDARI_CUTDOWN: return 6000;
+                    case ILLIDARI_DEMORALIZING_SHOUT: return 8000;
+                    default: return 0;
                 }
             }
             case NPC_SHADOWHOOF_ASSASSIN:
             {
                 switch (action)
                 {
-                case ASSASSIN_DEBILITATING_STRIKE: return urand(3500, 4000);
-                case ASSASSIN_SINISTER_STRIKE: return urand(6000, 8000);
-                default: return 0;
+                    case ASSASSIN_DEBILITATING_STRIKE: return urand(3500, 4000);
+                    case ASSASSIN_SINISTER_STRIKE: return urand(6000, 8000);
+                    default: return 0;
                 }
             }
             case NPC_ILLIDARI_SUCCUBUS:
             {
                 switch (action)
                 {
-                case SUCCUBUS_LASH_OF_PAIN: return urand(2000, 4000);
-                case SUCCUBUS_SEDUCTION: return urand(5000, 14000);
-                default: return 0;
+                    case SUCCUBUS_LASH_OF_PAIN: return urand(2000, 4000);
+                    case SUCCUBUS_SEDUCTION: return urand(5000, 14000);
+                    default: return 0;
                 }
             }
             case NPC_LIGHTSWORN_VINDICATOR:
             {
                 switch (action)
                 {
-                case VINDICATOR_EXORCISM: return urand(3000, 12000);
-                case VINDICATOR_HAMMER: return urand(5000, 15000);
-                case VINDICATOR_HOLY_LIGHT: return urand(2500, 4000);
-                case VINDICATOR_SEAL_OF_SAC: return urand(1000, 4000);
-                default: return 0;
+                    case VINDICATOR_EXORCISM: return urand(3000, 12000);
+                    case VINDICATOR_HAMMER: return urand(5000, 15000);
+                    case VINDICATOR_HOLY_LIGHT: return urand(2500, 4000);
+                    case VINDICATOR_SEAL_OF_SAC: return urand(1000, 4000);
+                    default: return 0;
                 }
             }
             case NPC_ANCHORITE_CAALEN:
             {
                 switch (action)
                 {
-                case CAALEN_HOLY_SMITE: return urand(3000, 9000);
-                case CAALEN_PRAYER_OF_HEALING: return urand(9000, 12000);
-                default: return 0;
+                    case CAALEN_HOLY_SMITE: return urand(3000, 9000);
+                    case CAALEN_PRAYER_OF_HEALING: return urand(9000, 12000);
+                    default: return 0;
                 }
             }
             case NPC_SEASONED_MAGISTER:
             {
                 switch (action)
                 {
-                case MAGISTER_FIREBALL: return urand(0, 1000);
-                default: return 0;
+                    case MAGISTER_FIREBALL: return urand(0, 1000);
+                    default: return 0;
                 }
             }
             case NPC_SHADOWLORD:
             {
                 switch (action)
                 {
-                case SHADOWLORD_INFERNO: return urand(5000, 10000);
-                case SHADOWLORD_CARRION_SWARM: return urand(0, 2000);
-                case SHADOWLORD_SLEEP: return urand(1500, 5000);
-                default: return 0;
+                    case SHADOWLORD_INFERNO: return urand(5000, 10000);
+                    case SHADOWLORD_CARRION_SWARM: return urand(0, 2000);
+                    case SHADOWLORD_SLEEP: return urand(1500, 5000);
+                    default: return 0;
                 }
             }
             default:
@@ -3895,66 +3899,66 @@ struct mob_bt_battle_fighterAI : public ScriptedAI, public CombatTimerAI
             {
                 switch (action)
                 {
-                case ILLIDARI_CLEAVE: return urand(9500, 12000);
-                case ILLIDARI_CUTDOWN: return urand(14000, 16000);
-                case ILLIDARI_DEMORALIZING_SHOUT: return urand(15000, 18000);
-                default: return 0;
+                    case ILLIDARI_CLEAVE: return urand(9500, 12000);
+                    case ILLIDARI_CUTDOWN: return urand(14000, 16000);
+                    case ILLIDARI_DEMORALIZING_SHOUT: return urand(15000, 18000);
+                    default: return 0;
                 }
             }
             case NPC_SHADOWHOOF_ASSASSIN:
             {
                 switch (action)
                 {
-                case ASSASSIN_DEBILITATING_STRIKE: return urand(10000, 12000);
-                case ASSASSIN_SINISTER_STRIKE: return urand(11000, 18000);
-                default: return 0;
+                    case ASSASSIN_DEBILITATING_STRIKE: return urand(10000, 12000);
+                    case ASSASSIN_SINISTER_STRIKE: return urand(11000, 18000);
+                    default: return 0;
                 }
             }
             case NPC_ILLIDARI_SUCCUBUS:
             {
                 switch (action)
                 {
-                case SUCCUBUS_LASH_OF_PAIN: return urand(4000, 7000);
-                case SUCCUBUS_SEDUCTION: return urand(12000, 18000);
-                default: return 0;
+                    case SUCCUBUS_LASH_OF_PAIN: return urand(4000, 7000);
+                    case SUCCUBUS_SEDUCTION: return urand(12000, 18000);
+                    default: return 0;
                 }
             }
             case NPC_LIGHTSWORN_VINDICATOR:
             {
                 switch (action)
                 {
-                case VINDICATOR_EXORCISM: return urand(15000, 28000);
-                case VINDICATOR_HAMMER: return urand(18000, 24000);
-                case VINDICATOR_HOLY_LIGHT: return urand(12000, 18000);
-                case VINDICATOR_SEAL_OF_SAC: return urand(30000, 45000);
-                default: return 0;
+                    case VINDICATOR_EXORCISM: return urand(15000, 28000);
+                    case VINDICATOR_HAMMER: return urand(18000, 24000);
+                    case VINDICATOR_HOLY_LIGHT: return urand(12000, 18000);
+                    case VINDICATOR_SEAL_OF_SAC: return urand(30000, 45000);
+                    default: return 0;
                 }
             }
             case NPC_ANCHORITE_CAALEN:
             {
                 switch (action)
                 {
-                case CAALEN_HOLY_SMITE: return urand(8000, 13000);
-                case CAALEN_PRAYER_OF_HEALING: return urand(12000, 15000);
-                default: return 0;
+                    case CAALEN_HOLY_SMITE: return urand(8000, 13000);
+                    case CAALEN_PRAYER_OF_HEALING: return urand(12000, 15000);
+                    default: return 0;
                 }
             }
             case NPC_SEASONED_MAGISTER:
             {
                 switch (action)
                 {
-                case MAGISTER_FIREBALL: return urand(3400, 4800);
-                default: return 0;
+                    case MAGISTER_FIREBALL: return urand(3400, 4800);
+                    default: return 0;
                 }
             }
             case NPC_SHADOWLORD:
             {
                 switch (action)
                 {
-                case SHADOWLORD_INFERNO: return urand(15000, 25000);
-                case SHADOWLORD_CARRION_SWARM: return urand(10000, 12000);
-                case SHADOWLORD_SLEEP: return urand(10000, 16000);
-                default: return 0;
+                    case SHADOWLORD_INFERNO: return urand(15000, 25000);
+                    case SHADOWLORD_CARRION_SWARM: return urand(10000, 12000);
+                    case SHADOWLORD_SLEEP: return urand(10000, 16000);
+                    default: return 0;
                 }
             }
             default:
@@ -4232,12 +4236,30 @@ struct mob_bt_battle_fighterAI : public ScriptedAI, public CombatTimerAI
 
     void Aggro(Unit* who) override
     {
-        if (m_creature->GetEntry() == NPC_SEASONED_MAGISTER)
+        switch (m_creature->GetEntry())
         {
-            if (!urand(0, 9))
-                DoScriptText(urand(0, 1) ? SAY_MAG_ON_AGGRO_1 : SAY_MAG_ON_AGGRO_2, m_creature, who);
+            case NPC_LIGHTSWORN_VINDICATOR:
+            {
+                if (!urand(0, 9))
+                {
+                    DoScriptText(SAY_VINDICATOR_ON_AGGRO_1, m_creature, who); // missing texts?
+                }
 
-            SetCombatMovement(false);
+                break;
+            }
+            case NPC_SEASONED_MAGISTER:
+            {
+                if (!urand(0, 9))
+                {
+                    if (urand(0, 2))
+                        DoScriptText(urand(0, 1) ? SAY_MAG_ON_AGGRO_1 : SAY_MAG_ON_AGGRO_2, m_creature, who);
+                    else
+                        DoScriptText(SAY_MAG_ON_AGGRO_3, m_creature, who);
+                }
+
+                SetCombatMovement(false);
+                break;
+            }
         }
     }
 
@@ -4735,7 +4757,11 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         break;
                     }
                     case AI_EVENT_CUSTOM_EVENTAI_B:
-                        if (urand(0, 1))
+                    {
+                        Creature* doomwalker = GetClosestCreatureWithEntry(m_creature, NPC_DOOMWALKER, 200.0f);
+                        bool doomwalkerDead = doomwalker ? false : true;
+
+                        if (urand(0, 1) || doomwalkerDead)
                         {
                             sender->GetMotionMaster()->Clear(false, true);
                             sender->GetMotionMaster()->MoveWaypoint(0, 3, 0);
@@ -4745,6 +4771,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                                 senderAI->ForcedDespawn(90000);
                         }
                         break;
+                    }
                 }
 
                 break;
@@ -4791,7 +4818,11 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         break;
                     }
                     case AI_EVENT_CUSTOM_EVENTAI_B:
-                        if (urand(0, 1))
+                    {
+                        Creature* doomwalker = GetClosestCreatureWithEntry(m_creature, NPC_DOOMWALKER, 200.0f);
+                        bool doomwalkerDead = doomwalker ? false : true;
+
+                        if (urand(0, 1) || doomwalkerDead)
                         {
                             sender->GetMotionMaster()->Clear(false, true);
                             sender->GetMotionMaster()->MoveWaypoint(0, 3, 0);
@@ -4801,6 +4832,7 @@ struct npc_bt_battle_sensor : public ScriptedAI
                                 senderAI->ForcedDespawn(90000);
                         }
                         break;
+                    }
                 }
 
                 break;
@@ -4854,15 +4886,12 @@ struct npc_bt_battle_sensor : public ScriptedAI
                         break;
                     }
                     case AI_EVENT_CUSTOM_EVENTAI_B:
-                        if (urand(0, 1))
-                        {
-                            sender->GetMotionMaster()->Clear(false, true);
-                            sender->GetMotionMaster()->MoveWaypoint(0, 3, 0);
-                            sender->GetMotionMaster()->SetNextWaypoint(0);
+                        sender->GetMotionMaster()->Clear(false, true);
+                        sender->GetMotionMaster()->MoveWaypoint(0, 3, 0);
+                        sender->GetMotionMaster()->SetNextWaypoint(0);
 
-                            if (Creature* senderAI = dynamic_cast<Creature*>(sender))
-                                senderAI->ForcedDespawn(90000);
-                        }
+                        if (Creature* senderAI = dynamic_cast<Creature*>(sender))
+                            senderAI->ForcedDespawn(90000);
                         break;
                 }
 

@@ -144,6 +144,7 @@ class SpellCastTargets
 
         void setCorpseTarget(Corpse* corpse);
         ObjectGuid getCorpseTargetGuid() const { return m_CorpseTargetGUID; }
+        Corpse* getCorpseTarget() const { return m_CorpseTarget; }
 
         void setItemTarget(Item* item);
         ObjectGuid getItemTargetGuid() const { return m_itemTargetGUID; }
@@ -176,6 +177,7 @@ class SpellCastTargets
         Unit* m_unitTarget;
         GameObject* m_GOTarget;
         Item* m_itemTarget;
+        Corpse* m_CorpseTarget;
 
         // object GUID/etc, can be used always
         ObjectGuid m_unitTargetGUID;
@@ -498,6 +500,19 @@ class Spell
         {
             return  m_spellInfo->HasAttribute(SPELL_ATTR_RANGED);
         }
+        bool IsSpellRequiringAmmo() const
+        {
+            if (IsRangedSpell())
+                return true;
+
+            if (m_spellInfo->speed > 0.0f)
+                if (SpellVisualEntry const* spellVisual = sSpellVisualStore.LookupEntry(m_spellInfo->SpellVisual))
+                    if (spellVisual->HasMissile)
+                        if (spellVisual->MissileModel == -4 || spellVisual->MissileModel == -5)
+                            return true;
+
+            return false;
+        }
         bool IsChannelActive() const { return m_caster->GetUInt32Value(UNIT_CHANNEL_SPELL) != 0; }
         bool IsMeleeAttackResetSpell() const { return !m_IsTriggeredSpell && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_AUTOATTACK);  }
         bool IsRangedAttackResetSpell() const { return !m_IsTriggeredSpell && IsRangedSpell() && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_AUTOATTACK); }
@@ -556,6 +571,7 @@ class Spell
         // Spell Script hooks
         void OnSuccessfulSpellStart();
         void OnSuccessfulSpellFinish();
+        SpellCastResult OnCheckCast(bool strict);
 
     protected:
         void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
@@ -564,6 +580,9 @@ class Spell
 
         SpellCastResult PreCastCheck(Aura* triggeredByAura = nullptr);
         void Prepare();
+
+        // Spell_C_GetMinMaxRange client equivalent - do not change
+        std::pair<float, float> GetMinMaxRange(bool strict);
 
         Unit* m_caster;
 
