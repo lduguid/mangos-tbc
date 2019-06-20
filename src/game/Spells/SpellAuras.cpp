@@ -551,7 +551,7 @@ void AreaAura::Update(uint32 diff)
                             for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
                             {
                                 Player* Target = itr->getSource();
-                                if (Target && Target->isAlive() && Target->GetSubGroup() == subgroup && caster->CanAssist(Target))
+                                if (Target && Target->isAlive() && Target->GetSubGroup() == subgroup && caster->CanAssistSpell(Target, GetSpellProto()))
                                 {
                                     if (caster->IsWithinDistInMap(Target, m_radius))
                                         targets.push_back(Target);
@@ -720,7 +720,7 @@ void AreaAura::Update(uint32 diff)
                 caster->hasUnitState(UNIT_STAT_ISOLATED)               ||
                 !caster->HasAura(originalRankSpellId, GetEffIndex())   ||
                 !caster->IsWithinDistInMap(target, m_radius)           ||
-                caster->CanAssist(target) != needFriendly
+                caster->CanAssistSpell(target, GetSpellProto()) != needFriendly
            )
         {
             target->RemoveSingleAuraFromSpellAuraHolder(GetId(), GetEffIndex(), GetCasterGuid());
@@ -1819,6 +1819,7 @@ void Aura::TriggerSpell()
             case TARGET_LOCATION_UNIT_RANDOM_SIDE: // fireball barrage
             case TARGET_UNIT_ENEMY:
             case TARGET_UNIT:
+            case TARGET_UNIT_CHANNEL_TARGET: // Electrified net
                 triggerCaster = GetCaster();
                 triggerTarget = triggerCaster->GetTarget(); // This will default to channel target for channels
                 break;
@@ -1977,6 +1978,20 @@ void Aura::TriggerSpell()
                 Unit* caster = GetCaster(); // should only go off if caster is still alive
                 if (!caster || !caster->isAlive())
                     return;
+                break;
+            }
+            case 37098:                                     // Rain of Bones - Nightbane
+            {
+                switch (GetAuraTicks()) // on some aura ticks also spawn skeletons
+                {
+                    case 2:
+                    case 7:
+                    case 13:
+                    case 16:
+                    case 20:
+                        target->CastSpell(triggerTargetObject->GetPositionX(), triggerTargetObject->GetPositionY(), triggerTargetObject->GetPositionZ(), 30170, TRIGGERED_OLD_TRIGGERED);
+                        break;
+                }
                 break;
             }
             case 39575:                                     // Charge Frenzy
@@ -7264,8 +7279,12 @@ void Aura::PeriodicDummyTick()
 //              case 43884: break;
 //              // Headless Horseman - Maniacal Laugh, Maniacal, other, Delayed 17
 //              case 44000: break;
-//              // Energy Feedback
-//              case 44328: break;
+                case 44328:                             // Energy Feedback
+                {
+                    if (Unit* caster = GetCaster())
+                        caster->CastSpell(nullptr, 44339, TRIGGERED_NONE);
+                    break;
+                }
 //              // Romantic Picnic
 //              case 45102: break;
 //              // Romantic Picnic

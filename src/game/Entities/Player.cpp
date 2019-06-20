@@ -7775,7 +7775,7 @@ void Player::CastItemCombatSpell(Unit* Target, WeaponAttackType attType, bool sp
     }
 }
 
-void Player::CastItemUseSpell(Item* item, SpellCastTargets const& targets, uint8 cast_count, uint8 spell_index)
+void Player::CastItemUseSpell(Item* item, SpellCastTargets& targets, uint8 cast_count, uint8 spell_index)
 {
     ItemPrototype const* proto = item->GetProto();
     // special learning case
@@ -7824,6 +7824,9 @@ void Player::CastItemUseSpell(Item* item, SpellCastTargets const& targets, uint8
             sLog.outError("Player::CastItemUseSpell: Item (Entry: %u) in have wrong spell id %u, ignoring", proto->ItemId, spellData.SpellId);
             continue;
         }
+
+        if (HasMissingTargetFromClient(spellInfo))
+            targets.setUnitTarget(GetTarget());
 
         Spell* spell = new Spell(this, spellInfo, (count > 0));
         spell->m_CastItem = item;

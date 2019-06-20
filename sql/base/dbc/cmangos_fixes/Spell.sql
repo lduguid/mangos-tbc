@@ -969,9 +969,6 @@ INSERT INTO `spell_template` (`Id`,`DurationIndex`,`Effect1`,`EffectImplicitTarg
 INSERT INTO `spell_template` (`Id`,`SchoolMask`,`Attributes`,`AttributesEx`,`AttributesEx2`,`InterruptFlags`,`AuraInterruptFlags`,`ChannelInterruptFlags`,`baseLevel`,`spellLevel`,`rangeIndex`,`Effect1`,`EffectImplicitTargetA1`,`EffectRadiusIndex1`,`SpellIconID`,`SpellName`,`SpellFamilyFlags`,`DmgMultiplier1`,`DmgMultiplier2`) VALUES
 (32941,32,268435840,4,4,7,5131,5135,20,20,13,3,38,16,548,'Blue Beam Dummy',8388608,1,1);
 
--- Terokk should only hit one player
-UPDATE `spell_template` SET `MaxAffectedTargets`=1 WHERE `Id`=40722;
-
 -- Dissipate e.g used by 17378
 INSERT INTO `spell_template` (`Id`,`Attributes`,`CastingTimeIndex`,`procChance`,`DurationIndex`,`rangeIndex`,`EquippedItemClass`,`Effect1`,`EffectImplicitTargetA1`,`SpellIconID`,`SpellName`,`DmgMultiplier1`,`AreaId`,`IsServerSide`) VALUES
 (32763, 384, 1, 101, 21, 1, -1, 6, 1, 1, 'Dissipate', 1, 3521, 1);
@@ -1282,4 +1279,18 @@ UPDATE spell_template SET AttributesEx2=AttributesEx2&~4 WHERE Id IN(27285);
 
 -- Wrangle Aether Rays: Wrangling Rope Channel - during this channel aether rays move - addition of SPELL_ATTR_EX5_CAN_CHANNEL_WHEN_MOVING
 UPDATE spell_template SET AttributesEx5=AttributesEx5|0x00000001 WHERE id IN(40926);
+
+-- targeting section
+-- Lightwell targeting fixed to wotlk data - was never updated in client to proper target - TARGET_LOCATION_CURRENT_REFERENCE
+UPDATE spell_template SET EffectImplicitTargetA1=87 WHERE Id IN(724,27870,27871,28275);
+-- Mass Dispel - SPELL_EFFECT_TRIGGER_SPELL are dest targeted - verified from sniff
+UPDATE spell_template SET EffectImplicitTargetA2=87 WHERE Id IN(32375,32592);
+-- Draw Spirit - Lethon - both effects need to have same radius index - faulty data
+UPDATE spell_template SET EffectRadiusIndex1=EffectRadiusIndex2 WHERE Id IN(24811);
+-- Infernal - Hyjal - SPELL_EFFECT_TRIGGER_MISSILE can target units, but in this case it would execute the AOE N times, but its supposed to execute only once
+-- changed targeting to destination-targeted
+UPDATE spell_template SET EffectImplicitTargetA2=0 WHERE Id IN(32148);
+-- Talents - Improved Scorch and Shadow Weaving have TARGET_UNIT_ENEMY, yet the auras are placed on caster anyway
+-- It is possible talents are supposed to bypass normal casting, but evidenced by wotlk, the rest are all caster targeted, so assuming copypaste wrong data possibility as well
+UPDATE spell_template SET EffectImplicitTargetA1=1 WHERE Id IN(11095,12872,12873,15257,15331,15332,15333,15334);
 

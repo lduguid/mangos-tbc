@@ -2863,30 +2863,30 @@ static DeadliestScriptInfo deadliestScriptInfo[COMMANDER_COUNT] =
     { NPC_ALDOR_DRAGONMAW_SKYBREAKER,   NPC_ALTAR_DEFENDER,   LAST_POINT_ARCUS, SAY_EVENT_ACCEPT_ARCUS, SAY_EVENT_START_ARCUS, SAY_EVENT_END_ARCUS, SAY_EVENT_ACCEPT_ARCUS, QUEST_DEADLIEST_TRAP_ALDOR }
 };
 
-struct npc_commanderAI : public ScriptedAI, public CombatTimerAI
+struct npc_commanderAI : public ScriptedAI, public CombatActions
 {
-    npc_commanderAI(Creature* creature, uint8 commanderId) : ScriptedAI(creature), CombatTimerAI(COMMANDER_COMBAT_ACTION_MAX), m_commanderId(commanderId),
+    npc_commanderAI(Creature* creature, uint8 commanderId) : ScriptedAI(creature), CombatActions(COMMANDER_COMBAT_ACTION_MAX), m_commanderId(commanderId),
             m_defenderSpawns(DEFENDER_SPAWN_COUNT), m_dragonmawSpawns(DRAGONMAW_SPAWN_COUNT), m_killCounter(0)
     {
         m_attackDistance = 30.f;
         m_meleeEnabled = false;
-        AddCombatAction(COMMANDER_COMBAT_ACTION_AIMED_SHOT, 0);
-        AddCombatAction(COMMANDER_COMBAT_ACTION_MULTI_SHOT, 0);
-        AddCombatAction(COMMANDER_COMBAT_ACTION_SHOOT, 0);
+        AddCombatAction(COMMANDER_COMBAT_ACTION_AIMED_SHOT, 0u);
+        AddCombatAction(COMMANDER_COMBAT_ACTION_MULTI_SHOT, 0u);
+        AddCombatAction(COMMANDER_COMBAT_ACTION_SHOOT, 0u);
 
-        AddCustomAction(COMMANDER_ACTION_START_QUEST_FLAGS, 0, [&]() { m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER); }, true);
-        AddCustomAction(COMMANDER_ACTION_START_QUEST_TEXT, 0, [&]()
-        { DoScriptText(deadliestScriptInfo[m_commanderId].startText, m_creature, m_creature->GetMap()->GetPlayer(m_startingPlayer)); }, true);
-        AddCustomAction(COMMANDER_ACTION_START_QUEST_MOVEMENT, 0, [&]() { m_creature->GetMotionMaster()->MoveWaypoint(); }, true);
-        AddCustomAction(COMMANDER_ACTION_POST_MOVEMENT_TEXT, 0, [&]()
-        { DoScriptText(deadliestScriptInfo[m_commanderId].midText, m_creature, m_creature->GetMap()->GetPlayer(m_startingPlayer)); }, true);
-        AddCustomAction(COMMANDER_ACTION_POST_MOVEMENT_START_EVENT, 0, [&]() { StartAttackingEvent(); }, true);
-        AddCustomAction(COMMANDER_ACTION_WIN_RETURN, 0, [&]()
+        AddCustomAction(COMMANDER_ACTION_START_QUEST_FLAGS, true, [&]() { m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER); });
+        AddCustomAction(COMMANDER_ACTION_START_QUEST_TEXT, true, [&]()
+        { DoScriptText(deadliestScriptInfo[m_commanderId].startText, m_creature, m_creature->GetMap()->GetPlayer(m_startingPlayer)); });
+        AddCustomAction(COMMANDER_ACTION_START_QUEST_MOVEMENT, true, [&]() { m_creature->GetMotionMaster()->MoveWaypoint(); });
+        AddCustomAction(COMMANDER_ACTION_POST_MOVEMENT_TEXT, true, [&]()
+        { DoScriptText(deadliestScriptInfo[m_commanderId].midText, m_creature, m_creature->GetMap()->GetPlayer(m_startingPlayer)); });
+        AddCustomAction(COMMANDER_ACTION_POST_MOVEMENT_START_EVENT, true, [&]() { StartAttackingEvent(); });
+        AddCustomAction(COMMANDER_ACTION_WIN_RETURN, true, [&]()
         {
             float x, y, z, ori;
             m_creature->GetRespawnCoord(x, y, z, &ori);
             m_creature->GetMotionMaster()->MovePoint(POINT_HOME, x, y, z);
-        }, true);
+        });
     }
 
     GuidVector m_defenderSpawns;
@@ -2906,7 +2906,7 @@ struct npc_commanderAI : public ScriptedAI, public CombatTimerAI
     void GetAIInformation(ChatHandler& reader) override
     {
         ScriptedAI::GetAIInformation(reader);
-        CombatTimerAI::GetAIInformation(reader);
+        CombatActions::GetAIInformation(reader);
         reader.PSendSysMessage("Defender Spawn Count: %lu", m_defenderSpawns.size());
         reader.PSendSysMessage("Dragonmaw Spawn Count: %lu", m_dragonmawSpawns.size());
         reader.PSendSysMessage("Starting player: %lu", m_startingPlayer.GetRawValue());
@@ -3137,7 +3137,7 @@ struct npc_commander_arcusAI : public npc_commanderAI
 {
     npc_commander_arcusAI(Creature* creature) : npc_commanderAI(creature, COMMANDER_ARCUS)
     {
-        AddCustomAction(COMMANDER_ACTION_POST_MOVEMENT_FACE_DIRECTION, 0, [&]() { m_creature->SetOrientation(2.949606f); m_creature->SetFacingTo(2.949606f); }, true);
+        AddCustomAction(COMMANDER_ACTION_POST_MOVEMENT_FACE_DIRECTION, true, [&]() { m_creature->SetOrientation(2.949606f); m_creature->SetFacingTo(2.949606f); });
     }
 
     void FinishedWaypointMovement() override
@@ -3666,59 +3666,59 @@ enum
     SHADOWLORD_ACTION_MAX,
 };
 
-struct mob_bt_battle_fighterAI : public ScriptedAI, public CombatTimerAI
+struct mob_bt_battle_fighterAI : public ScriptedAI, public CombatActions
 {
     uint8 m_uiPathId = 0; // only used for the Shadowlords
     uint8 m_uiLastWaypoint = 0;
     bool m_bIsWaypointing = true;
 
-    mob_bt_battle_fighterAI(Creature* pCreature) : ScriptedAI(pCreature), CombatTimerAI(VINDICATOR_ACTION_MAX)
+    mob_bt_battle_fighterAI(Creature* pCreature) : ScriptedAI(pCreature), CombatActions(VINDICATOR_ACTION_MAX)
     {
         switch (m_creature->GetEntry())
         {
             case NPC_ILLIDARI_RAVAGER:
             {
-                AddCombatAction(ILLIDARI_CLEAVE, 0);
-                AddCombatAction(ILLIDARI_CUTDOWN, 0);
-                AddCombatAction(ILLIDARI_DEMORALIZING_SHOUT, 0);
+                AddCombatAction(ILLIDARI_CLEAVE, 0u);
+                AddCombatAction(ILLIDARI_CUTDOWN, 0u);
+                AddCombatAction(ILLIDARI_DEMORALIZING_SHOUT, 0u);
                 break;
             }
             case NPC_SHADOWHOOF_ASSASSIN:
             {
-                AddCombatAction(ASSASSIN_DEBILITATING_STRIKE, 0);
-                AddCombatAction(ASSASSIN_SINISTER_STRIKE, 0);
+                AddCombatAction(ASSASSIN_DEBILITATING_STRIKE, 0u);
+                AddCombatAction(ASSASSIN_SINISTER_STRIKE, 0u);
                 break;
             }
             case NPC_ILLIDARI_SUCCUBUS:
             {
-                AddCombatAction(SUCCUBUS_LASH_OF_PAIN, 0);
-                AddCombatAction(SUCCUBUS_SEDUCTION, 0);
+                AddCombatAction(SUCCUBUS_LASH_OF_PAIN, 0u);
+                AddCombatAction(SUCCUBUS_SEDUCTION, 0u);
                 break;
             }
             case NPC_LIGHTSWORN_VINDICATOR:
             {
-                AddCombatAction(VINDICATOR_EXORCISM, 0);
-                AddCombatAction(VINDICATOR_HAMMER, 0);
-                AddCombatAction(VINDICATOR_HOLY_LIGHT, 0);
-                AddCombatAction(VINDICATOR_SEAL_OF_SAC, 0);
+                AddCombatAction(VINDICATOR_EXORCISM, 0u);
+                AddCombatAction(VINDICATOR_HAMMER, 0u);
+                AddCombatAction(VINDICATOR_HOLY_LIGHT, 0u);
+                AddCombatAction(VINDICATOR_SEAL_OF_SAC, 0u);
                 break;
             }
             case NPC_ANCHORITE_CAALEN:
             {
-                AddCombatAction(CAALEN_HOLY_SMITE, 0);
-                AddCombatAction(CAALEN_PRAYER_OF_HEALING, 0);
+                AddCombatAction(CAALEN_HOLY_SMITE, 0u);
+                AddCombatAction(CAALEN_PRAYER_OF_HEALING, 0u);
                 break;
             }
             case NPC_SEASONED_MAGISTER:
             {
-                AddCombatAction(MAGISTER_FIREBALL, 0);
+                AddCombatAction(MAGISTER_FIREBALL, 0u);
                 break;
             }
             case NPC_SHADOWLORD:
             {
-                AddCombatAction(SHADOWLORD_INFERNO, 0);
-                AddCombatAction(SHADOWLORD_CARRION_SWARM, 0);
-                AddCombatAction(SHADOWLORD_SLEEP, 0);
+                AddCombatAction(SHADOWLORD_INFERNO, 0u);
+                AddCombatAction(SHADOWLORD_CARRION_SWARM, 0u);
+                AddCombatAction(SHADOWLORD_SLEEP, 0u);
 
                 float m_fMidPoint = -3558.0f;
                 bool left_side = (m_creature->GetPositionX() < m_fMidPoint);

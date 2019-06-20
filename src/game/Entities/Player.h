@@ -1901,7 +1901,7 @@ class Player : public Unit
         void ApplyEquipSpell(SpellEntry const* spellInfo, Item* item, bool apply, bool form_change = false);
         void UpdateEquipSpellsAtFormChange();
         void CastItemCombatSpell(Unit* Target, WeaponAttackType attType, bool spellProc = false);
-        void CastItemUseSpell(Item* item, SpellCastTargets const& targets, uint8 cast_count, uint8 spell_index);
+        void CastItemUseSpell(Item* item, SpellCastTargets& targets, uint8 cast_count, uint8 spell_index);
 
         void ApplyItemOnStoreSpell(Item* item, bool apply);
         void DestroyItemWithOnStoreSpell(Item* item, uint32 spellId);
@@ -2118,6 +2118,7 @@ class Player : public Unit
         void   SaveRecallPosition();
 
         void SetHomebindToLocation(WorldLocation const& loc, uint32 area_id);
+        void GetHomebindLocation(float &x, float &y, float &z) { x = m_homebindX; y = m_homebindY; z = m_homebindZ; }
         void RelocateToHomebind() { SetLocationMapId(m_homebindMapId); Relocate(m_homebindX, m_homebindY, m_homebindZ); }
         bool TeleportToHomebind(uint32 options = 0) { return TeleportTo(m_homebindMapId, m_homebindX, m_homebindY, m_homebindZ, GetOrientation(), options); }
 
