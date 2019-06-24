@@ -28,7 +28,8 @@ instance_zulaman::instance_zulaman(Map* pMap) : ScriptedInstance(pMap),
     m_uiEventTimer(MINUTE * IN_MILLISECONDS),
     m_uiGongCount(0),
     m_uiBearEventPhase(0),
-    m_bIsBearPhaseInProgress(false)
+    m_bIsBearPhaseInProgress(false),
+    m_bIsAkilzonGauntletInProgress(false)
 {
     Initialize();
 }
@@ -87,6 +88,18 @@ void instance_zulaman::OnCreatureCreate(Creature* pCreature)
         case NPC_KORAGG:
             m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
             break;
+        
+        // Akil'zon gauntlet 
+        case NPC_TEMPEST:
+            if (pCreature->GetPositionZ() > 50.0f) // excludes Tempest in Malacrass trash
+                sAkilzonTrashGuidSet.insert(pCreature->GetObjectGuid());
+            break;
+        case NPC_LOOKOUT:
+        case NPC_PROTECTOR:
+        case NPC_WIND_WALKER:
+            if (pCreature->GetPositionZ() > 26.0f) // excludes Wind Walker in first patrol
+                sAkilzonTrashGuidSet.insert(pCreature->GetObjectGuid());
+            break;
 
         case NPC_TANZAR:      m_aEventNpcInfo[INDEX_NALORAKK].npGuid = pCreature->GetObjectGuid(); break;
         case NPC_KRAZ:        m_aEventNpcInfo[INDEX_JANALAI].npGuid =  pCreature->GetObjectGuid(); break;
@@ -98,13 +111,34 @@ void instance_zulaman::OnCreatureCreate(Creature* pCreature)
         case NPC_WARBRINGER:
         case NPC_AXETHROWER:
             if (pCreature->GetPositionZ() > 10.0f && pCreature->GetPositionZ() < 15.0f)
+            {
                 m_aNalorakkEvent[0].sBearTrashGuidSet.insert(pCreature->GetObjectGuid());
+                pCreature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
+            }
             else if (pCreature->GetPositionZ() > 25.0f && pCreature->GetPositionZ() < 30.0f)
+            {
                 m_aNalorakkEvent[1].sBearTrashGuidSet.insert(pCreature->GetObjectGuid());
+                pCreature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
+            }
             else if (pCreature->GetPositionZ() > 40.0f && pCreature->GetPositionZ() < 41.0f)
+            {
                 m_aNalorakkEvent[2].sBearTrashGuidSet.insert(pCreature->GetObjectGuid());
+                pCreature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
+            }
             else if (pCreature->GetPositionZ() > 41.0f)
+            {
                 m_aNalorakkEvent[3].sBearTrashGuidSet.insert(pCreature->GetObjectGuid());
+                pCreature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
+            }
+            break;
+        case NPC_WORLD_TRIGGER:
+            if (pCreature->GetOrientation() > 2.7f)
+                sHutTriggerGuidSet.insert(pCreature->GetObjectGuid());
+            else
+                sDrumTriggerGuidSet.insert(pCreature->GetObjectGuid());
+            break;
+        case NPC_REINFORCEMENT:
+            pCreature->SetInCombatWithZone();
             break;
     }
 }
@@ -126,7 +160,7 @@ void instance_zulaman::OnCreatureDeath(Creature* pCreature)
                     {
                         ++m_uiBearEventPhase;
                         if (m_uiBearEventPhase == MAX_BEAR_WAVES)
-                            pNalorakk->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                            pNalorakk->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
                         else
                         {
                             pNalorakk->SetWalk(false);
@@ -150,11 +184,38 @@ void instance_zulaman::OnCreatureEvade(Creature* pCreature)
             for (auto itr : m_aNalorakkEvent[m_uiBearEventPhase].sBearTrashGuidSet)
             {
                 Creature* pTemp = instance->GetCreature(itr);
-                if (pTemp && !pTemp->isAlive())
+
+                if (!pTemp)
+                    break;
+
+                if (!pTemp->isAlive())
                     pTemp->Respawn();
+                
+                pTemp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
             }
             m_aNalorakkEvent[m_uiBearEventPhase].uiTrashKilled = 0;
             m_bIsBearPhaseInProgress = false;
+            break;
+        case NPC_TEMPEST:
+        case NPC_PROTECTOR:
+        case NPC_WIND_WALKER:
+            if (sAkilzonTrashGuidSet.find(pCreature->GetObjectGuid()) != sAkilzonTrashGuidSet.end())
+            {
+                m_bIsAkilzonGauntletInProgress = false;
+                for (auto itr : sAkilzonTrashGuidSet)
+                {
+                    Creature* pTemp = instance->GetCreature(itr);
+
+                    if (!pTemp)
+                        break;
+
+                    if (!pTemp->isAlive())
+                        pTemp->Respawn();
+                }
+            }
+            break;
+        case NPC_REINFORCEMENT:
+            pCreature->ForcedDespawn(10000);
             break;
     }
 }
@@ -188,7 +249,32 @@ void instance_zulaman::OnObjectCreate(GameObject* pGo)
             break;
         case GO_FIRE_DOOR:
             break;
-
+        case GO_HARKORS_CAGE:
+            break;
+        case GO_DWARF_LOOT_BOX:
+            break;
+        case GO_DWARF_HAMMER:
+            break;
+        case GO_HARKORS_SATCHEL:
+            break;
+        case GO_TANZARS_CAGE:
+            break;
+        case GO_TANZARS_TRUNK:
+            break;
+        case GO_KRAZS_CAGE:
+            break;
+        case GO_KRAZS_CHEST:
+            break;
+        case GO_KRAZS_PACKAGE:
+            break;
+        case GO_ASHLIS_CAGE:
+            break;
+        case GO_ASHLIS_BAG:
+            break;
+        case GO_HARKORS_BREW_KEG:
+            break;
+        case GO_AMANI_DRUM:
+            break;
         default:
             return;
     }
@@ -287,12 +373,43 @@ void instance_zulaman::SetData(uint32 uiType, uint32 uiData)
         case TYPE_MALACRASS:
             DoUseDoorOrButton(GO_HEXLORD_ENTRANCE);
             if (uiData == DONE)
-                DoUseDoorOrButton(GO_WOODEN_DOOR);
+                if (GameObject* pDoor = GetSingleGameObjectFromStorage(GO_WOODEN_DOOR))
+                    pDoor->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_LOCKED);
             m_auiEncounter[uiType] = uiData;
             break;
         case TYPE_ZULJIN:
             DoUseDoorOrButton(GO_FIRE_DOOR);
             m_auiEncounter[uiType] = uiData;
+
+            if (uiData == DONE)
+            {
+                if (Creature* pTanzar = instance->GetCreature(m_aEventNpcInfo[INDEX_NALORAKK].npGuid))
+                {
+                    if (pTanzar->isAlive())
+                    {
+                        pTanzar->HandleEmoteState(EMOTE_ONESHOT_NONE);
+                        pTanzar->NearTeleportTo(129.8052f, 807.7782f, 33.37591f, 4.7f);
+                        pTanzar->GetMotionMaster()->MoveWaypoint(1, 3, 1000);
+                    }
+                }
+                if (Creature* pHarkor = instance->GetCreature(m_aEventNpcInfo[INDEX_AKILZON].npGuid))
+                {
+                    if (pHarkor->isAlive())
+                    {
+                        pHarkor->NearTeleportTo(130.8155f, 809.079f, 33.37591f, 4.7f);
+                        pHarkor->GetMotionMaster()->MoveWaypoint(1, 3, 1000);
+                    }
+                }
+                if (Creature* pAshli = instance->GetCreature(m_aEventNpcInfo[INDEX_HALAZZI].npGuid))
+                {
+                    if (pAshli->isAlive())
+                    {
+                        pAshli->NearTeleportTo(137.0035f, 814.2776f, 33.37591f, 4.7f);
+                        pAshli->GetMotionMaster()->MoveWaypoint(1, 3, 1000);
+                    }
+                }
+            }
+            
             break;
         case TYPE_RUN_EVENT_TIME:
             m_auiEncounter[uiType] = uiData;
@@ -389,7 +506,7 @@ void instance_zulaman::SendNextBearWave(Unit* pTarget)
         Creature* pTemp = instance->GetCreature(itr);
         if (pTemp && pTemp->isAlive())
         {
-            pTemp->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+            pTemp->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
             pTemp->AI()->AttackStart(pTarget);
 
             // For the first wave we need to make them jump to the ground before attacking
@@ -491,6 +608,29 @@ void instance_zulaman::DoChestEvent(BossToChestIndex uiIndex)
 
     // Do Yell
     DoTimeRunSay(RUN_PROGRESS);
+
+    if (Creature* pCreature = instance->GetCreature(m_aEventNpcInfo[uiIndex].npGuid))
+    {
+        pCreature->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, pCreature, pCreature); // yell for help
+
+        switch (pCreature->GetEntry())
+        {
+            case NPC_TANZAR:
+                break;
+            case NPC_KRAZ:
+                if (GameObject* pPackage = GetSingleGameObjectFromStorage(GO_KRAZS_PACKAGE))
+                    pPackage->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+                break;
+            case NPC_ASHLI:
+                if (GameObject* pBag = GetSingleGameObjectFromStorage(GO_ASHLIS_BAG))
+                    pBag->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+                break;
+            case NPC_HARKOR:
+                if (GameObject* pSatchel = GetSingleGameObjectFromStorage(GO_HARKORS_SATCHEL))
+                    pSatchel->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+                break;
+        }
+    }
 
     // related NPC:     m_aEventNpcInfo[uiIndex].npGuid
     // related Chest:   m_aEventNpcInfo[uiIndex]        // Not yet stored, because likely unneeded
