@@ -401,6 +401,7 @@ Unit::Unit() :
     m_canEnterCombat = true;
 
     m_alwaysHit = false;
+    m_noThreat = false;
     m_extraAttacksExecuting = false;
 
     m_baseSpeedWalk = 1.f;
@@ -1073,7 +1074,7 @@ void Unit::HandleDamageDealt(Unit* victim, uint32& damage, CleanDamage const* cl
 
     victim->ModifyHealth(-(int32)damage);
 
-    if (CanAttack(victim) && (!spellProto || (!spellProto->HasAttribute(SPELL_ATTR_EX3_NO_INITIAL_AGGRO) &&
+    if (victim->CanAttack(this) && (!spellProto || (!spellProto->HasAttribute(SPELL_ATTR_EX3_NO_INITIAL_AGGRO) &&
         !spellProto->HasAttribute(SPELL_ATTR_EX_NO_THREAT))) && CanEnterCombat() && victim->CanEnterCombat())
     {
         float threat = damage * sSpellMgr.GetSpellThreatMultiplier(spellProto);
@@ -1281,17 +1282,14 @@ void Unit::JustKilledCreature(Creature* victim, Player* responsiblePlayer)
     if (victim->GetInstanceId())
     {
         Map* m = victim->GetMap();
-        Player* creditedPlayer = GetBeneficiaryPlayer();
-        // TODO: do instance binding anyway if the charmer/owner is offline
-
-        if (m->IsDungeon() && creditedPlayer)
+        if (m->IsDungeon())
         {
-            if (m->IsRaidOrHeroicDungeon())
+            Player* creditedPlayer = GetBeneficiaryPlayer(); // TODO: do instance binding anyway if the charmer/owner is offline
+            if (m->IsRaidOrHeroicDungeon() && creditedPlayer)
             {
                 if (victim->GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_INSTANCE_BIND)
                     ((DungeonMap*)m)->PermBindAllPlayers(creditedPlayer);
             }
-
             ((DungeonMap*)m)->GetPersistanceState()->UpdateEncounterState(ENCOUNTER_CREDIT_KILL_CREATURE, victim->GetEntry());
         }
     }
@@ -1813,7 +1811,7 @@ void Unit::CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* calcDamageInfo, W
         {
             calcDamageInfo->TargetState = VICTIMSTATE_PARRY;
             calcDamageInfo->procEx |= PROC_EX_PARRY;
-            calcDamageInfo->cleanDamage += calcDamageInfo->totalDamage;
+            calcDamageInfo->cleanDamage = 0;
             calcDamageInfo->totalDamage = 0;
 
             for (uint8 i = 0; i < m_weaponDamageInfo.weapon[calcDamageInfo->attackType].lines; i++)
@@ -1825,7 +1823,7 @@ void Unit::CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* calcDamageInfo, W
         {
             calcDamageInfo->TargetState = VICTIMSTATE_DODGE;
             calcDamageInfo->procEx |= PROC_EX_DODGE;
-            calcDamageInfo->cleanDamage += calcDamageInfo->totalDamage;
+            calcDamageInfo->cleanDamage = 0;
             calcDamageInfo->totalDamage = 0;
 
             for (uint8 i = 0; i < m_weaponDamageInfo.weapon[calcDamageInfo->attackType].lines; i++)
@@ -4340,10 +4338,17 @@ bool Unit::IsNonMeleeSpellCasted(bool withDelayed, bool skipChanneled, bool skip
     // Maybe later some special spells will be excluded too.
 
     // generic spells are casted when they are not finished and not delayed
-    if (m_currentSpells[CURRENT_GENERIC_SPELL] &&
-            (m_currentSpells[CURRENT_GENERIC_SPELL]->getState() != SPELL_STATE_FINISHED) &&
-            (withDelayed || m_currentSpells[CURRENT_GENERIC_SPELL]->getState() != SPELL_STATE_TRAVELING))
-        return true;
+    if (Spell const* genericSpell = m_currentSpells[CURRENT_GENERIC_SPELL])
+    {
+        if (genericSpell->getState() != SPELL_STATE_FINISHED)
+        {
+            bool specialResult = true;
+            if (forMovement) // mobs can move during spells without this flag
+                specialResult = genericSpell->m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT;
+            if (specialResult && (withDelayed || genericSpell->getState() != SPELL_STATE_TRAVELING))
+                return true;
+        }
+    }
 
     // channeled spells may be delayed, but they are still considered casted
     if (!skipChanneled)
@@ -8253,17 +8258,10 @@ bool Unit::IsVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
             return false;
     }
 
-    // different visible distance checks
-    if (u->IsTaxiFlying())                                  // what see player in flight
+    // Any units far than max visible distance for viewer or not in our map are not visible too
+    if (!at_same_transport) // distance for show player/pet/creature (no transport case)
     {
-        // use object grey distance for all (only see objects any way)
-        if (!IsWithinDistInMap(viewPoint, World::GetMaxVisibleDistanceInFlight() + (inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), is3dDistance))
-            return false;
-    }
-    else if (!at_same_transport)                            // distance for show player/pet/creature (no transport case)
-    {
-        // Any units far than max visible distance for viewer or not in our map are not visible too
-        if (!IsWithinDistInMap(viewPoint, _map.GetVisibilityDistance() + (inVisibleList ? World::GetVisibleUnitGreyDistance() : 0.0f), is3dDistance))
+        if (!IsWithinDistInMap(viewPoint, u->GetVisibilityDistanceFor((WorldObject *)this), is3dDistance))
             return false;
     }
 
@@ -8365,7 +8363,7 @@ bool Unit::IsVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
     if (u->hasUnitState(UNIT_STAT_STUNNED) && (u != this))
         return false;
 
-    // set max ditance
+    // set max distance
     float visibleDistance = (u->GetTypeId() == TYPEID_PLAYER) ? MAX_PLAYER_STEALTH_DETECT_RANGE : ((Creature const*)u)->GetAttackDistance(this);
 
     // Always invisible from back (when stealth detection is on), also filter max distance cases
@@ -11928,4 +11926,43 @@ uint32 Unit::GetSpellRank(SpellEntry const* spellInfo)
     if (spellInfo->maxLevel > 0 && spellRank >= spellInfo->maxLevel * 5)
         spellRank = spellInfo->maxLevel * 5;
     return spellRank;
+}
+
+float Unit::OCTRegenHPPerSpirit() const
+{
+    uint32 level = getLevel();
+    uint32 pclass = getClass();
+
+    if (level > GT_MAX_LEVEL) level = GT_MAX_LEVEL;
+
+    GtOCTRegenHPEntry     const* baseRatio = sGtOCTRegenHPStore.LookupEntry((pclass - 1) * GT_MAX_LEVEL + level - 1);
+    GtRegenHPPerSptEntry  const* moreRatio = sGtRegenHPPerSptStore.LookupEntry((pclass - 1) * GT_MAX_LEVEL + level - 1);
+    if (baseRatio == nullptr || moreRatio == nullptr)
+        return 0.0f;
+
+    // Formula from PaperDollFrame script
+    float spirit = GetStat(STAT_SPIRIT);
+    float baseSpirit = spirit;
+    if (baseSpirit > 50) baseSpirit = 50;
+    float moreSpirit = spirit - baseSpirit;
+    float regen = baseSpirit * baseRatio->ratio + moreSpirit * moreRatio->ratio;
+    return regen;
+}
+
+float Unit::OCTRegenMPPerSpirit() const
+{
+    uint32 level = getLevel();
+    uint32 pclass = getClass();
+
+    if (level > GT_MAX_LEVEL) level = GT_MAX_LEVEL;
+
+    //    GtOCTRegenMPEntry     const *baseRatio = sGtOCTRegenMPStore.LookupEntry((pclass-1)*GT_MAX_LEVEL + level-1);
+    GtRegenMPPerSptEntry  const* moreRatio = sGtRegenMPPerSptStore.LookupEntry((pclass - 1) * GT_MAX_LEVEL + level - 1);
+    if (moreRatio == nullptr)
+        return 0.0f;
+
+    // Formula get from PaperDollFrame script
+    float spirit = GetStat(STAT_SPIRIT);
+    float regen = spirit * moreRatio->ratio;
+    return regen;
 }
