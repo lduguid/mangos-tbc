@@ -1490,14 +1490,6 @@ void Player::Update(const uint32 diff)
             m_zoneUpdateTimer -= diff;
     }
 
-    if (m_timeSyncTimer > 0)
-    {
-        if (diff >= m_timeSyncTimer)
-            SendTimeSync();
-        else
-            m_timeSyncTimer -= diff;
-    }
-
     if (isAlive())
     {
         RegenerateAll();
@@ -15031,8 +15023,14 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
     // load the player's map here if it's not already loaded
     SetMap(sMapMgr.CreateMap(GetMapId(), this));
 
+    time_t now = time(nullptr);
+    time_t logoutTime = time_t(fields[22].GetUInt64());
+
+    // since last logout (in seconds)
+    uint32 time_diff = uint32(now - logoutTime);
+
     // if the player is in an instance and it has been reset in the meantime teleport him to the entrance
-    if (GetInstanceId() && !state)
+    if (GetInstanceId() && (!state || time_diff > 15 * MINUTE))
     {
         AreaTrigger const* at = sObjectMgr.GetMapEntranceTrigger(GetMapId());
         if (at)
@@ -15042,12 +15040,6 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
     }
 
     SaveRecallPosition();
-
-    time_t now = time(nullptr);
-    time_t logoutTime = time_t(fields[22].GetUInt64());
-
-    // since last logout (in seconds)
-    uint32 time_diff = uint32(now - logoutTime);
 
     // set value, including drunk invisibility detection
     // calculate sobering. after 15 minutes logged out, the player will be sober again
@@ -15225,7 +15217,6 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
             m_recallX = destination->x;
             m_recallY = destination->y;
             m_recallZ = destination->z;
-
         }
         // flight will start later
     }
@@ -19257,8 +19248,8 @@ void Player::SendInitialPacketsAfterAddToMap()
     GetZoneAndAreaId(newzone, newarea);
     UpdateZone(newzone, newarea);                           // also call SendInitWorldStates();
 
-    ResetTimeSync();
-    SendTimeSync();
+    GetSession()->ResetTimeSync();
+    GetSession()->SendTimeSync();
 
     CastSpell(this, 836, TRIGGERED_OLD_TRIGGERED);                             // LOGINEFFECT
 
@@ -21137,25 +21128,6 @@ void Player::BuildTeleportAckMsg(WorldPacket& data, float x, float y, float z, f
 bool Player::HasMovementFlag(MovementFlags f) const
 {
     return m_movementInfo.HasMovementFlag(f);
-}
-
-void Player::ResetTimeSync()
-{
-    m_timeSyncCounter = 0;
-    m_timeSyncTimer = 0;
-    m_timeSyncClient = 0;
-    m_timeSyncServer = WorldTimer::getMSTime();
-}
-
-void Player::SendTimeSync()
-{
-    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
-    data << uint32(m_timeSyncCounter++);
-    GetSession()->SendPacket(data);
-
-    // Schedule next sync in 10 sec
-    m_timeSyncTimer = 10000;
-    m_timeSyncServer = WorldTimer::getMSTime();
 }
 
 void Player::SetHomebindToLocation(WorldLocation const& loc, uint32 area_id)
