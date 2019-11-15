@@ -409,15 +409,15 @@ enum UnitState
     UNIT_STAT_POSSESSED       = 0x00000040,                 // Aura::HandleAuraModPossess (duplicates UNIT_FLAG_POSSESSED)
 
     // movement generators begin:
-    UNIT_STAT_TAXI_FLIGHT     = 0x00000080,                 // FlightPathMovementGenerator on stack
+    UNIT_STAT_TAXI_FLIGHT     = 0x00000080,                 // TaxiMovementGenerator on stack
     UNIT_STAT_PROPELLED       = 0x00000100,                 // EffectMovementGenerator on stack
     UNIT_STAT_PANIC           = 0x00000200,                 // PanicMovementGenerator on stack
     UNIT_STAT_RETREATING      = 0x00000400,                 // RetreatMovementGenerator on stack
     UNIT_STAT_DISTRACTED      = 0x00000800,                 // DistractedMovementGenerator on stack
-    // Reserved               = 0x00001000,                 // Reserved
+    UNIT_STAT_STAY            = 0x00001000,                 // StayMovementGenerator on stack
     UNIT_STAT_CONFUSED        = 0x00002000,                 // ConfusedMovementGenerator on stack
     UNIT_STAT_CONFUSED_MOVE   = 0x00004000,                 // ^ - spline dispatched
-    UNIT_STAT_ROAMING         = 0x00008000,                 // WanderMovementGenerator/WaypointMovementGenerator/EffectMovementGenerator or PointMovementGenerator derived on stack
+    UNIT_STAT_ROAMING         = 0x00008000,                 // Point/Retreat/Stay/Wander/Waypoint/Effect MovementGenerator on stack
     UNIT_STAT_ROAMING_MOVE    = 0x00010000,                 // ^ - spline dispatched
     UNIT_STAT_CHASE           = 0x00020000,                 // ChaseMovementGenerator on stack
     UNIT_STAT_CHASE_MOVE      = 0x00040000,                 // ^ - spline dispatched
@@ -1137,8 +1137,9 @@ struct CharmInfo
         void SetIsRetreating(bool retreating = false) { m_retreating = retreating; }
         bool GetIsRetreating() const { return m_retreating; }
 
-        void SetStayPosition(bool stay = false);
-        bool IsStayPosSet() const { return m_stayPosSet; }
+        void ResetStayPosition();
+        void SetStayPosition();
+        bool UpdateStayPosition();
 
         float GetStayPosX() const { return m_stayPosX; }
         float GetStayPosY() const { return m_stayPosY; }
