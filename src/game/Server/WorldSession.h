@@ -205,7 +205,8 @@ class WorldSession
         const std::string GetRemoteAddress() const { return m_Socket ? m_Socket->GetRemoteAddress() : "disconnected"; }
 #endif
         void SetPlayer(Player* plr) { _player = plr; }
-        uint8 Expansion() const { return m_expansion; }
+        uint8 GetExpansion() const { return m_expansion; }
+        void SetExpansion(uint8 expansion);
 
         /// Session in auth.queue currently
         void SetInQueue(bool state) { m_inQueue = state; }
@@ -348,6 +349,7 @@ class WorldSession
 
         void SendAuthOk() const;
         void SendAuthQueued() const;
+        void SendKickReason(uint8 reason, std::string const& string) const;
 
         // opcodes handlers
         void Handle_NULL(WorldPacket& recvPacket);          // not used
