@@ -21,7 +21,7 @@ SDComment: Visual improvement needed in phase 2: flying animation while hovering
 SDCategory: Onyxia's Lair
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "onyxias_lair.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -136,7 +136,16 @@ enum OnyxiaActions
 
 struct boss_onyxiaAI : public CombatAI
 {
-    boss_onyxiaAI(Creature* creature) : CombatAI(creature, ONYXIA_ACTION_MAX), m_instance(static_cast<instance_onyxias_lair*>(creature->GetInstanceData()))
+    boss_onyxiaAI(Creature* creature) :
+        CombatAI(creature, ONYXIA_ACTION_MAX),
+        m_instance(static_cast<instance_onyxias_lair*>(creature->GetInstanceData())),
+        m_uiPhase(0),
+        m_uiMovePoint(POINT_ID_NORTH),
+        m_uiSummonCount(0),
+        m_uiWhelpsPerWave(20),
+        m_bIsSummoningWhelps(false),
+        m_bHasYelledLured(false),
+        m_HasSummonedFirstWave(false)
     {
         AddTimerlessCombatAction(ONYXIA_PHASE_2_TRANSITION, true);
         AddTimerlessCombatAction(ONYXIA_PHASE_3_TRANSITION, false);
@@ -225,7 +234,7 @@ struct boss_onyxiaAI : public CombatAI
 
     void SummonedMovementInform(Creature* summoned, uint32 motionType, uint32 pointId) override
     {
-        if (motionType != POINT_MOTION_TYPE || pointId != 1 || !m_creature->getVictim())
+        if (motionType != POINT_MOTION_TYPE || pointId != 1 || !m_creature->GetVictim())
             return;
 
         summoned->SetInCombatWithZone();
@@ -332,7 +341,7 @@ struct boss_onyxiaAI : public CombatAI
                 break;
             case PHASE_BREATH_POST:
                 m_uiPhase = PHASE_END;
-                m_creature->SetTarget(m_creature->getVictim());
+                m_creature->SetTarget(m_creature->GetVictim());
                 SetCombatMovement(true, true);
                 SetMeleeEnabled(true);
                 SetCombatScriptStatus(false);
@@ -452,13 +461,13 @@ struct boss_onyxiaAI : public CombatAI
             }
             case ONYXIA_FLAME_BREATH:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_FLAMEBREATH) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FLAMEBREATH) == CAST_OK)
                     ResetCombatAction(action, urand(10000, 20000));
                 break;
             }
             case ONYXIA_CLEAVE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_CLEAVE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
                     ResetCombatAction(action, urand(5000, 10000));
                 break;
             }
@@ -476,7 +485,7 @@ struct boss_onyxiaAI : public CombatAI
             }
             case ONYXIA_KNOCK_AWAY:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
                     ResetCombatAction(action, urand(25000, 40000));
                 break;
             }

@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Molten Core
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "molten_core.h"
 #include "Entities/TemporarySpawn.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
@@ -378,7 +378,7 @@ struct boss_majordomoAI : public CombatAI
             }
             case MAJORDOMO_TELEPORT_RANDOM:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_TELEPORT_TARGET) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TELEPORT_TARGET) == CAST_OK)
                 {
                     DoCastSpellIfCan(nullptr, SPELL_HATE_TO_ZERO);
                     ResetCombatAction(action, urand(25000, 30000));

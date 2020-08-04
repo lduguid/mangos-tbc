@@ -21,7 +21,7 @@ SDComment: It's not clear if the Rajaxx event should reset if Andorov dies, or p
 SDCategory: Ruins of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "ruins_of_ahnqiraj.h"
 
 instance_ruins_of_ahnqiraj::instance_ruins_of_ahnqiraj(Map* pMap) : ScriptedInstance(pMap),
@@ -197,7 +197,7 @@ void instance_ruins_of_ahnqiraj::SetData(uint32 uiType, uint32 uiData)
             if (uiData == DONE)
             {
                 if (Creature* andorov = GetSingleCreatureFromStorage(NPC_GENERAL_ANDOROV))
-                    if (andorov->isAlive())
+                    if (andorov->IsAlive())
                         andorov->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, andorov, andorov);
             }
             break;
@@ -318,11 +318,11 @@ void instance_ruins_of_ahnqiraj::DoSortArmyWaves()
 
             for (CreatureList::const_iterator itr = lCreatureList.begin(); itr != lCreatureList.end(); ++itr)
             {
-                if ((*itr)->isAlive())
+                if ((*itr)->IsAlive())
                     m_sArmyWavesGuids[i].insert((*itr)->GetObjectGuid());
             }
 
-            if (pTemp->isAlive())
+            if (pTemp->IsAlive())
                 m_sArmyWavesGuids[i].insert(pTemp->GetObjectGuid());
         }
     }
@@ -365,7 +365,7 @@ void instance_ruins_of_ahnqiraj::DoSendNextArmyWave()
         {
             if (Creature* pTemp = instance->GetCreature(itr))
             {
-                if (!pTemp->isAlive())
+                if (!pTemp->IsAlive())
                     continue;
 
                 pTemp->SetWalk(false);

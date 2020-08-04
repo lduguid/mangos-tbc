@@ -52,13 +52,23 @@ struct ConsumeMagicSpellScript : public SpellScript
             return SPELL_CAST_OK;
     }
 
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         spell->GetCaster()->RemoveAurasDueToSpell(spell->GetScriptValue());
+    }
+};
+
+struct ShadowWordDeath : public SpellScript
+{
+    void OnHit(Spell* spell) const override
+    {
+        int32 swdDamage = spell->GetTotalTargetDamage();
+        spell->GetCaster()->CastCustomSpell(nullptr, 32409, &swdDamage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
     }
 };
 
 void LoadPriestScripts()
 {
     RegisterSpellScript<ConsumeMagicSpellScript>("spell_consume_magic");
+    RegisterSpellScript<ShadowWordDeath>("spell_shadow_word_death");
 }

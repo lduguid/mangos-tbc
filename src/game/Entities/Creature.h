@@ -188,6 +188,7 @@ struct CreatureInfo
 struct CreatureTemplateSpells
 {
     uint32 entry;
+    uint32 setId;
     uint32 spells[CREATURE_MAX_SPELLS];
 };
 
@@ -382,7 +383,7 @@ enum SelectFlags
     SELECT_FLAG_RANGE_AOE_RANGE     = 0x0800,               // For AOE targeted abilities like frost nova
     SELECT_FLAG_POWER_NOT_MANA      = 0x1000,               // Used in some dungeon encounters
     SELECT_FLAG_USE_EFFECT_RADIUS   = 0x2000,               // For AOE targeted abilities which have correct data in effect index 0
-    SELECT_FLAG_SKIP_TANK           = 0x4000,               // Not getVictim - tank is not always top threat
+    SELECT_FLAG_SKIP_TANK           = 0x4000,               // Not GetVictim - tank is not always top threat
     SELECT_FLAG_SKIP_CUSTOM         =0x10000,               // skips custom target
 };
 
@@ -608,8 +609,8 @@ class Creature : public Unit
         void LoadBotMenu(Player* pPlayer);
 #endif
 
-        bool IsCorpse() const { return getDeathState() ==  CORPSE; }
-        bool IsDespawned() const { return getDeathState() ==  DEAD; }
+        bool IsCorpse() const { return GetDeathState() == CORPSE; }
+        bool IsDespawned() const { return GetDeathState() == DEAD; }
         void SetCorpseDelay(uint32 delay) { m_corpseDelay = delay; } // in seconds
         void ReduceCorpseDecayTimer();
         TimePoint GetCorpseDecayTimer() const { return m_corpseExpirationTime; }
@@ -680,6 +681,7 @@ class Creature : public Unit
         uint32 GetShieldBlockValue() const override { return (getLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
 
         bool HasSpell(uint32 spellID) const override;
+        void UpdateSpellSet(uint32 spellSet);
 
         bool UpdateEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr, bool preserveHPAndPower = true);
         void ResetEntry(bool respawn = false);

@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Tempest Keep, The Eye
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "the_eye.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -61,7 +61,7 @@ struct boss_void_reaverAI : public CombatAI
         AddCombatAction(VOID_REAVER_POUNDING, 12000u);
         AddCombatAction(VOID_REAVER_ARCANE_ORB, 3000u);
         AddCombatAction(VOID_REAVER_KNOCK_AWAY, 30000u);
-        m_creature->GetCombatManager().SetLeashingCheck([&](Unit* unit, float x, float y, float z)->bool
+        m_creature->GetCombatManager().SetLeashingCheck([&](Unit* /*unit*/, float /*x*/, float /*y*/, float /*z*/)->bool
         {
             return m_creature->GetDistance2d(432.59f, 371.93f) > 105.0f;
         });
@@ -159,7 +159,7 @@ struct boss_void_reaverAI : public CombatAI
             }
             case VOID_REAVER_KNOCK_AWAY:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_KNOCK_AWAY) == CAST_OK)
                     ResetCombatAction(action, 30000);
                 break;
             }

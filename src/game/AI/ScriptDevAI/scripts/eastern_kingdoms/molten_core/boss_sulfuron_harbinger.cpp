@@ -21,7 +21,7 @@ SDComment: Spells Dark strike and Flamespear need confirmation
 SDCategory: Molten Core
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "molten_core.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -151,7 +151,7 @@ struct mob_flamewaker_priestAI : public CombatAI
         {
             case FLAMEWAKER_PRIEST_DARK_STRIKE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_DARK_STRIKE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_DARK_STRIKE) == CAST_OK)
                     ResetCombatAction(action, urand(15000, 18000));
                 break;
             }

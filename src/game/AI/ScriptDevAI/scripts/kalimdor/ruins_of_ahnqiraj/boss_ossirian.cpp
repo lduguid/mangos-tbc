@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Ruins of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "ruins_of_ahnqiraj.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "Globals/ObjectMgr.h"
@@ -83,7 +83,11 @@ enum OssirianActions
 struct boss_ossirianAI : public CombatAI
 {
 
-    boss_ossirianAI(Creature* creature) : CombatAI(creature, OSSIRIAN_ACTION_MAX), m_instance(static_cast<instance_ruins_of_ahnqiraj*>(m_creature->GetInstanceData())), m_saidIntro(false)
+    boss_ossirianAI(Creature* creature) :
+        CombatAI(creature, OSSIRIAN_ACTION_MAX),
+        m_instance(static_cast<instance_ruins_of_ahnqiraj*>(m_creature->GetInstanceData())),
+        m_saidIntro(false),
+        m_uiCrystalPosition(0)
     {
         AddCombatAction(OSSIRIAN_INITIAL_SPAWN, 10000u);
         AddCombatAction(OSSIRIAN_SUPREME, 45000u);
@@ -155,7 +159,7 @@ struct boss_ossirianAI : public CombatAI
             // iterate from random roll until either one (should always occur) is found or we run out of crystals
             if (Creature* creature = m_creature->GetMap()->GetCreature(vector[i]))
             {
-                if (!creature->isAlive())
+                if (!creature->IsAlive())
                 {
                     creature->Respawn();
                     ++spawned;
@@ -174,7 +178,7 @@ struct boss_ossirianAI : public CombatAI
             return;
 
         if (Creature* creature = m_creature->GetMap()->GetCreature(vector[0]))
-            if (!creature->isAlive())
+            if (!creature->IsAlive())
                 creature->Respawn();
     }
 
@@ -269,7 +273,7 @@ struct boss_ossirianAI : public CombatAI
             }
             case OSSIRIAN_CYCLONE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_CYCLONE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CYCLONE) == CAST_OK)
                     ResetCombatAction(action, 20000);
                 break;
             }

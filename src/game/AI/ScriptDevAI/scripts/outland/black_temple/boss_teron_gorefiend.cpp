@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Black Temple
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "black_temple.h"
 #include "AI/ScriptDevAI/base/TimerAI.h"
 #include "Spells/Scripts/SpellScript.h"
@@ -291,9 +291,9 @@ struct boss_teron_gorefiendAI : public ScriptedAI, public CombatActions
 
     void UpdateAI(const uint32 diff) override
     {
-        UpdateTimers(diff, m_creature->isInCombat());
+        UpdateTimers(diff, m_creature->IsInCombat());
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
 
         ExecuteActions();
@@ -388,13 +388,13 @@ struct npc_shadow_constructAI : public ScriptedAI, public TimerManager
     {
         UpdateTimers(diff);
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
 
         if (m_atrophyTimer <= diff)
         {
             m_atrophyTimer = 0;
-            if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_ATROPHY) == CAST_OK)
+            if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_ATROPHY) == CAST_OK)
                 m_atrophyTimer = 2500;
         }
         else m_atrophyTimer -= diff;
@@ -407,7 +407,7 @@ bool AreaTrigger_at_teron_gorefiend(Player* player, AreaTriggerEntry const* /*at
 {
     instance_black_temple* temple = static_cast<instance_black_temple*>(player->GetMap()->GetInstanceData());
     if (Creature* teron = temple->GetSingleCreatureFromStorage(NPC_TERON_GOREFIEND))
-        if (teron->isAlive())
+        if (teron->IsAlive())
             teron->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, player, teron);
 
     return false;
@@ -415,7 +415,7 @@ bool AreaTrigger_at_teron_gorefiend(Player* player, AreaTriggerEntry const* /*at
 
 struct ShadowOfDeath : public AuraScript
 {
-    void OnAbsorb(Aura* aura, int32& currentAbsorb, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath) const override
+    void OnAbsorb(Aura* /*aura*/, int32& currentAbsorb, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& preventedDeath) const override
     {
         preventedDeath = true;
         currentAbsorb = 0;
@@ -452,7 +452,7 @@ struct ShadowOfDeath : public AuraScript
 
 struct ShadowOfDeathRemove : public AuraScript
 {
-    void OnApply(Aura* aura, bool apply) const override
+    void OnApply(Aura* aura, bool /*apply*/) const override
     {
         aura->GetTarget()->RemoveAurasDueToSpell(SPELL_SHADOW_OF_DEATH); // Remove Shadow of Death
     }

@@ -21,7 +21,7 @@ SDComment: Spawn animation NYI; Timers may need adjustments.
 SDCategory: Coilfang Resevoir, Serpent Shrine Cavern
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "serpent_shrine.h"
 
 enum
@@ -217,10 +217,10 @@ struct boss_the_lurker_belowAI : public Scripted_NoMovementAI
                     m_creature->RemoveAurasDueToSpell(SPELL_SPOUT_RIGHT);
                     SetCombatScriptStatus(false);
                     m_meleeEnabled = true;
-                    if (m_creature->getVictim())
+                    if (m_creature->GetVictim())
                     {
-                        m_creature->MeleeAttackStart(m_creature->getVictim());
-                        m_creature->SetTarget(m_creature->getVictim());
+                        m_creature->MeleeAttackStart(m_creature->GetVictim());
+                        m_creature->SetTarget(m_creature->GetVictim());
                     }
 
                     m_uiPhase = PHASE_NORMAL;
@@ -269,7 +269,7 @@ struct boss_the_lurker_belowAI : public Scripted_NoMovementAI
                         // Remove the target focus but allow the boss to face the current victim
                         SetCombatScriptStatus(true);
                         m_meleeEnabled = false;
-                        m_creature->MeleeAttackStop(m_creature->getVictim());
+                        m_creature->MeleeAttackStop(m_creature->GetVictim());
                         m_creature->SetTarget(nullptr);
 
                         m_uiPhase = PHASE_SPOUT;
@@ -292,7 +292,7 @@ struct boss_the_lurker_belowAI : public Scripted_NoMovementAI
                     m_uiGeyserTimer -= uiDiff;
 
                 // If victim exists we have a target in melee range
-                if (m_creature->getVictim() && m_creature->CanReachWithMeleeAttack(m_creature->getVictim()))
+                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
                 {
                     m_iWaterbolt = -1;
                     DoMeleeAttackIfReady();

@@ -29,10 +29,11 @@
 #include "Entities/UpdateData.h"
 #include "UpdateMask.h"
 #include "Util.h"
-#include "Maps/MapManager.h"
 #include "Grids/CellImpl.h"
 #include "Grids/GridNotifiers.h"
 #include "Grids/GridNotifiersImpl.h"
+#include "Maps/GridDefines.h"
+#include "Maps/MapManager.h"
 #include "Maps/ObjectPosSelector.h"
 #include "Entities/TemporarySpawn.h"
 #include "Movement/packet_builder.h"
@@ -164,7 +165,7 @@ void Object::BuildCreateUpdateBlockForPlayer(UpdateData* data, Player* target) c
 
     if (isType(TYPEMASK_UNIT))
     {
-        if (((Unit*)this)->getVictim())
+        if (((Unit*) this)->GetVictim())
             updateFlags |= UPDATEFLAG_HAS_ATTACKING_TARGET;
     }
 
@@ -350,8 +351,8 @@ void Object::BuildMovementUpdate(ByteBuffer* data, uint8 updateFlags) const
     // 0x4
     if (updateFlags & UPDATEFLAG_HAS_ATTACKING_TARGET)      // packed guid (current target guid)
     {
-        if (((Unit*)this)->getVictim())
-            *data << ((Unit*)this)->getVictim()->GetPackGUID();
+        if (((Unit*) this)->GetVictim())
+            *data << ((Unit*) this)->GetVictim()->GetPackGUID();
         else
             data->appendPackGUID(0);
     }
@@ -525,11 +526,32 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer* data, UpdateMask* u
                 {
                     *data << uint32(0);
                 }
-
-                // Gamemasters should be always able to select units - remove not selectable flag
-                else if (index == UNIT_FIELD_FLAGS && target->isGameMaster())
+                else if (index == UNIT_FIELD_FLAGS)
                 {
-                    *data << (m_uint32Values[index] & ~UNIT_FLAG_NOT_SELECTABLE);
+                    uint32 value = m_uint32Values[index];
+
+                    // For gamemasters in GM mode:
+                    if (target->isGameMaster())
+                    {
+                        // Gamemasters should be always able to select units - remove not selectable flag:
+                        value &= ~UNIT_FLAG_NOT_SELECTABLE;
+
+                        // Gamemasters have power to cliffwalk in GM mode:
+                        if (target == this)
+                            value |= UNIT_FLAG_UNK_0;
+                    }
+
+                    // Client bug workaround: Fix for missing chat channels when resuming taxi flight on login
+                    // Client does not send any chat joining attempts by itself when taxi flag is on
+                    if (target == this && (value & UNIT_FLAG_TAXI_FLIGHT))
+                    {
+                        if (sWorld.getConfig(CONFIG_BOOL_TAXI_FLIGHT_CHAT_FIX))
+                            if (WorldSession* session = static_cast<Player const*>(this)->GetSession())
+                                if (!session->IsInitialZoneUpdated())
+                                    value &= ~UNIT_FLAG_TAXI_FLIGHT;
+                    }
+
+                    *data << value;
                 }
                 // Hide lootable animation for unallowed players
                 // Handle tapped flag
@@ -539,7 +561,7 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer* data, UpdateMask* u
                     uint32 dynflagsValue = m_uint32Values[index];
 
                     // Checking SPELL_AURA_EMPATHY and caster
-                    if (dynflagsValue & UNIT_DYNFLAG_SPECIALINFO && ((Unit*)this)->isAlive())
+                    if (dynflagsValue & UNIT_DYNFLAG_SPECIALINFO && ((Unit*) this)->IsAlive())
                     {
                         bool bIsEmpathy = false;
                         bool bIsCaster = false;
@@ -561,12 +583,12 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer* data, UpdateMask* u
                         Creature* creature = (Creature*)this;
                         bool setTapFlags = false;
 
-                        if (creature->isAlive())
+                        if (creature->IsAlive())
                         {
                             // creature is alive so, not lootable
                             dynflagsValue = dynflagsValue & ~UNIT_DYNFLAG_LOOTABLE;
 
-                            if (creature->isInCombat())
+                            if (creature->IsInCombat())
                             {
                                 // as creature is in combat we have to manage tap flags
                                 setTapFlags = true;
@@ -1098,7 +1120,8 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
 WorldObject::WorldObject() :
     m_transportInfo(nullptr), m_isOnEventNotified(false),
     m_currMap(nullptr), m_mapId(0),
-    m_InstanceId(0), m_isActiveObject(false), m_visibilityData(this)
+    m_InstanceId(0), m_isActiveObject(false), m_visibilityData(this),
+    m_debugFlags(0)
 {
 }
 
@@ -1379,7 +1402,23 @@ bool WorldObject::IsInRange3d(float x, float y, float z, float minRange, float m
     return distsq < maxdist * maxdist;
 }
 
-float WorldObject::GetAngle(const WorldObject* obj) const
+// Return angle in range 0..2*pi
+float WorldObject::GetAngleAt(float x, float y, float ox, float oy)
+{
+    float dx = (ox - x);
+    float dy = (oy - y);
+
+    float ang = std::atan2(dy, dx);                              // returns value between -Pi..Pi
+    ang = (ang >= 0) ? ang : 2 * M_PI_F + ang;
+    return ang;
+}
+
+float WorldObject::GetAngle(float x, float y) const
+{
+    return GetAngleAt(GetPositionX(), GetPositionY(), x, y);
+}
+
+float WorldObject::GetAngleAt(float x, float y, const WorldObject* obj) const
 {
     if (!obj)
         return 0.0f;
@@ -1391,21 +1430,18 @@ float WorldObject::GetAngle(const WorldObject* obj) const
         sLog.outError("INVALID CALL for GetAngle for %s", obj->GetGuidStr().c_str());
         return 0.0f;
     }
-    return GetAngle(obj->GetPositionX(), obj->GetPositionY());
+    return GetAngleAt(x, y, obj->GetPositionX(), obj->GetPositionY());
 }
 
-// Return angle in range 0..2*pi
-float WorldObject::GetAngle(const float x, const float y) const
+float WorldObject::GetAngle(const WorldObject* obj) const
 {
-    float dx = x - GetPositionX();
-    float dy = y - GetPositionY();
+    if (!obj)
+        return 0.0f;
 
-    float ang = atan2(dy, dx);                              // returns value between -Pi..Pi
-    ang = (ang >= 0) ? ang : 2 * M_PI_F + ang;
-    return ang;
+    return GetAngleAt(GetPositionX(), GetPositionY(), obj->GetPositionX(), obj->GetPositionY());
 }
 
-bool WorldObject::HasInArc(const WorldObject* target, float arc /*= M_PI*/) const
+bool WorldObject::HasInArcAt(float x, float y, float o, const WorldObject* target, float arc/* = M_PI_F*/) const
 {
     // always have self in arc
     if (target == this)
@@ -1414,8 +1450,8 @@ bool WorldObject::HasInArc(const WorldObject* target, float arc /*= M_PI*/) cons
     // move arc to range 0.. 2*pi
     arc = MapManager::NormalizeOrientation(arc);
 
-    float angle = GetAngle(target);
-    angle -= m_position.o;
+    float angle = GetAngleAt(x, y, target);
+    angle -= o;
 
     // move angle to range -pi ... +pi
     angle = MapManager::NormalizeOrientation(angle);
@@ -1425,6 +1461,11 @@ bool WorldObject::HasInArc(const WorldObject* target, float arc /*= M_PI*/) cons
     float lborder =  -1 * (arc / 2.0f);                     // in range -pi..0
     float rborder = (arc / 2.0f);                           // in range 0..pi
     return ((angle >= lborder) && (angle <= rborder));
+}
+
+bool WorldObject::HasInArc(const WorldObject* target, float arc/* = M_PI_F*/) const
+{
+    return HasInArcAt(GetPositionX(), GetPositionY(), GetOrientation(), target, arc);
 }
 
 bool WorldObject::IsFacingTargetsBack(const WorldObject* target, float arc /*= M_PI_F*/) const

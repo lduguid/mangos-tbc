@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Temple of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "temple_of_ahnqiraj.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -267,7 +267,7 @@ struct boss_skeramAI : public CombatAI
             {
                 // Arcane Explosion is done if more than a set number of people are in melee range
                 PlayerList meleePlayerList;
-                float meleeRange = m_creature->GetCombinedCombatReach(m_creature->getVictim(), true);
+                float meleeRange = m_creature->GetCombinedCombatReach(m_creature->GetVictim(), true);
                 GetPlayerListWithEntryInWorld(meleePlayerList, m_creature, meleeRange);
                 if (meleePlayerList.size() >= m_maxMeleeAllowed)
                 {
@@ -300,14 +300,14 @@ struct boss_skeramAI : public CombatAI
             {
                 uint32 timer = 500;
                 // If victim exists we have a target in melee range
-                if (m_creature->getVictim() && m_creature->CanReachWithMeleeAttack(m_creature->getVictim()))
+                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
                     m_rangeCheckState = -1;
                 // Spam Waterbolt spell when not tanked
                 else
                 {
                     ++m_rangeCheckState;
                     if (m_rangeCheckState > 1)
-                        if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_EARTH_SHOCK) == CAST_OK)
+                        if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_EARTH_SHOCK) == CAST_OK)
                             timer = 2500;
                 }
                 ResetCombatAction(action, timer);
@@ -329,7 +329,7 @@ struct TrueFulfillment : public AuraScript
 
 struct InitializeImages : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (Unit* unitTarget = spell->GetUnitTarget())
         {
@@ -343,7 +343,7 @@ struct InitializeImages : public SpellScript
 
 struct InitializeImage : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (Unit* unitTarget = spell->GetUnitTarget())
         {
@@ -359,12 +359,12 @@ struct InitializeImage : public SpellScript
                 maxHealthPct = 0.10f;
 
             // Set the same health percent as the original boss
-            spell->GetCaster()->SetMaxHealth(unitTarget->GetMaxHealth() * 0.1f); // 10% of boss max health
+            spell->GetCaster()->SetMaxHealth(unitTarget->GetMaxHealth() * maxHealthPct);
             spell->GetCaster()->SetHealthPercent(healthPct);
         }
     }
 
-    bool OnCheckTarget(const Spell* spell, Unit* target, SpellEffectIndex eff) const
+    bool OnCheckTarget(const Spell* /*spell*/, Unit* target, SpellEffectIndex /*eff*/) const
     {
         if (target->GetSpawnerGuid()) // only original spawn can be hit by this
             return false;
@@ -375,7 +375,7 @@ struct InitializeImage : public SpellScript
 
 struct TeleportImage : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (Unit* target = spell->GetUnitTarget())
             if (boss_skeramAI* skeramAI = dynamic_cast<boss_skeramAI*>(target->AI()))

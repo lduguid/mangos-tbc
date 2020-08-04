@@ -35,6 +35,7 @@
 #include "Database/DatabaseImpl.h"
 #include "Tools/PlayerDump.h"
 #include "Social/SocialMgr.h"
+#include "GMTickets/GMTicketMgr.h"
 #include "Util.h"
 #include "Tools/Language.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
@@ -568,6 +569,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     SetPlayer(pCurrChar);
     m_playerLoading = true;
 
+    m_initialZoneUpdated = false;
+
     SetOnline();
 
     // "GetAccountId()==db stored account id" checked in LoadFromDB (prevent login not own character using cheating tools)
@@ -612,6 +615,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     SendExpectedSpamRecords();
     SendMotd();
 
+    SendOfflineNameQueryResponses();
+
     // QueryResult *result = CharacterDatabase.PQuery("SELECT guildid,rank FROM guild_member WHERE guid = '%u'",pCurrChar->GetGUIDLow());
     QueryResult* resultGuild = holder->GetResult(PLAYER_LOGIN_QUERY_LOADGUILD);
 
@@ -652,7 +657,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
         }
     }
 
-    if (!pCurrChar->isAlive())
+    if (!pCurrChar->IsAlive())
         pCurrChar->SendCorpseReclaimDelay(true);
 
     pCurrChar->SendInitialPacketsBeforeAddToMap();
@@ -716,6 +721,9 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
 
     // Send friend list online status for other players
     sSocialMgr.SendFriendStatus(pCurrChar, FRIEND_ONLINE, pCurrChar->GetObjectGuid(), true);
+
+    // GM ticket notifications
+    sTicketMgr.OnPlayerOnlineState(*pCurrChar, true);
 
     // Place character in world (and load zone) before some object loading
     pCurrChar->LoadCorpse();
@@ -788,7 +796,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     sLog.outChar("Account: %d (IP: %s) Login Character:[%s] (guid: %u)",
                  GetAccountId(), IP_str.c_str(), pCurrChar->GetName(), pCurrChar->GetGUIDLow());
 
-    if (!pCurrChar->IsStandState() && !pCurrChar->hasUnitState(UNIT_STAT_STUNNED))
+    if (!pCurrChar->IsStandState() && !pCurrChar->IsStunned())
         pCurrChar->SetStandState(UNIT_STAND_STATE_STAND);
 
     m_playerLoading = false;
@@ -800,11 +808,16 @@ void WorldSession::HandlePlayerReconnect()
     // stop logout timer if need
     LogoutRequest(0);
 
+    // silently kick from chat channels player lists to allow reconnect correctly
+    _player->CleanupChannels();
+
     // set loading flag
     m_playerLoading = true;
 
     // reset all visible objects to be able to resend them
     _player->m_clientGUIDs.clear();
+
+    m_initialZoneUpdated = false;
 
     SetOnline();
 
@@ -834,6 +847,8 @@ void WorldSession::HandlePlayerReconnect()
     SendExpectedSpamRecords();
     SendMotd();
 
+    SendOfflineNameQueryResponses();
+
     if (_player->GetGuildId() != 0)
     {
         Guild* guild = sGuildMgr.GetGuildById(_player->GetGuildId());
@@ -856,7 +871,7 @@ void WorldSession::HandlePlayerReconnect()
         }
     }
 
-    if (!_player->isAlive())
+    if (!_player->IsAlive())
         _player->SendCorpseReclaimDelay(true);
 
     _player->SendInitialPacketsBeforeAddToMap();
@@ -881,6 +896,13 @@ void WorldSession::HandlePlayerReconnect()
 
     // Send friend list online status for other players
     sSocialMgr.SendFriendStatus(_player, FRIEND_ONLINE, _player->GetObjectGuid(), true);
+
+    // GM ticket notifications
+    sTicketMgr.OnPlayerOnlineState(*_player, true);
+
+    // Send current LFG preferences on reconnect
+    _player->GetSession()->SendLFGUpdateLFM();
+    _player->GetSession()->SendLFGUpdateLFG();
 
     // show time before shutdown if shutdown planned.
     if (sWorld.IsShutdowning())
@@ -910,6 +932,12 @@ void WorldSession::HandlePlayerReconnect()
 
     // send mirror timers
     _player->SendMirrorTimers(true);
+
+    if (!_player->IsStandState() && !_player->IsStunned())
+        _player->SetStandState(UNIT_STAND_STATE_STAND);
+
+    // Undo flags and states set by logout if present:
+    _player->SetStunnedByLogout(false);
 
     m_playerLoading = false;
 }

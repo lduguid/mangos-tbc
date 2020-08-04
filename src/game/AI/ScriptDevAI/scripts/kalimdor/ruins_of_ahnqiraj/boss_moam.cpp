@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Ruins of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "Spells/Scripts/SpellScript.h"
 
@@ -57,7 +57,9 @@ enum MoamActions
 
 struct boss_moamAI : public CombatAI
 {
-    boss_moamAI(Creature* creature) : CombatAI(creature, MOAM_ACTION_MAX)
+    boss_moamAI(Creature* creature) :
+        CombatAI(creature, MOAM_ACTION_MAX),
+        m_uiPhase(0)
     {
         AddCombatAction(MOAM_ARCANE_ERUPTION, 0u);
         AddCombatAction(MOAM_TRAMPLE, 9000u);
@@ -71,7 +73,7 @@ struct boss_moamAI : public CombatAI
 
         if (m_creature->GetInstanceData())
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float x, float y, float z)
+            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
             {
                 return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
             });
@@ -130,7 +132,7 @@ struct boss_moamAI : public CombatAI
             }
             case MOAM_TRAMPLE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_TRAMPLE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_TRAMPLE) == CAST_OK)
                     ResetCombatAction(action, 15000);
                 break;
             }
@@ -162,7 +164,7 @@ struct boss_moamAI : public CombatAI
 
 struct SummonManaFiendsMoam : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         spell->GetCaster()->CastSpell(nullptr, SPELL_SUMMON_MANA_FIEND_1, TRIGGERED_OLD_TRIGGERED);
         spell->GetCaster()->CastSpell(nullptr, SPELL_SUMMON_MANA_FIEND_2, TRIGGERED_OLD_TRIGGERED);

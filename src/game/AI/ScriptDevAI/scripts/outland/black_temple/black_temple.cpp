@@ -21,7 +21,7 @@ SDComment: Instance Data Scripts and functions to acquire mobs and set encounter
 SDCategory: Black Temple
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "black_temple.h"
 
 /* Black Temple encounters:
@@ -320,7 +320,7 @@ void instance_black_temple::SetData(uint32 type, uint32 data)
                 if (Creature* trigger = GetSingleCreatureFromStorage(NPC_RELIQUARY_COMBAT_TRIGGER))
                 {
                     trigger->SetInCombatWithZone();
-                    if (!trigger->isInCombat())
+                    if (!trigger->IsInCombat())
                     {
                         SetData(TYPE_RELIQUIARY, FAIL);
                         return;
@@ -330,7 +330,7 @@ void instance_black_temple::SetData(uint32 type, uint32 data)
                 {
                     if (Creature* soul = instance->GetCreature(guid))
                     {
-                        if (!soul->isAlive())
+                        if (!soul->IsAlive())
                         {
                             soul->SetRespawnDelay(time(nullptr) + 7 * DAY);
                             soul->SaveRespawnTime();

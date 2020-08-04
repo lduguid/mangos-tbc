@@ -388,7 +388,7 @@ class UnitAI
         /*
          * Notifies AI on stealth alert for player nearby
          */
-        virtual void OnStealthAlert(Unit* who) {}
+        virtual void OnStealthAlert(Unit* /*who*/) {}
 
         /*
          * Notifies AI on evade from combat due to leash
@@ -425,7 +425,7 @@ class UnitAI
         bool DoFlee();
         virtual bool DoRetreat() { return false; } // implemented for creatures
         void DoDistance(); // TODO
-        virtual void DoCallForHelp(float radius) {} // implemented for creatures
+        virtual void DoCallForHelp(float /*radius*/) {} // implemented for creatures
 
         // Drops all threat to 0%. Does not remove enemies from the threat list
         void DoResetThreat();
@@ -439,7 +439,7 @@ class UnitAI
 
         // AI selection - works in connection with IsPossessCharmType
         virtual bool CanHandleCharm() { return false; }
-        virtual void JustGotCharmed(Unit* charmer) {}
+        virtual void JustGotCharmed(Unit* /*charmer*/) {}
 
         /*
         * All units which attack at ranged need to return true. It is used for 3 purposes:
@@ -459,6 +459,9 @@ class UnitAI
         virtual void DistancingEnded();
 
         void AttackClosestEnemy();
+
+        void SetRootSelf(bool apply, bool combatOnly = false);
+        void ClearSelfRoot();
 
     protected:
         virtual std::string GetAIName() { return "UnitAI"; }
@@ -482,6 +485,7 @@ class UnitAI
         bool m_dismountOnAggro;
 
         bool m_meleeEnabled;                              // If we allow melee auto attack
+        bool m_selfRooted;
 
         ReactStates m_reactState;
 

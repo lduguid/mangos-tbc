@@ -21,7 +21,7 @@ SDComment:
 SDCategory: Temple of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "temple_of_ahnqiraj.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "Spells/Scripts/SpellScript.h"
@@ -116,7 +116,7 @@ struct boss_sarturaAI : public CombatAI
             }
             case SARTURA_SUNDERING_CLEAVE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_SUNDERING_CLEAVE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SUNDERING_CLEAVE) == CAST_OK)
                     ResetCombatAction(action, urand(2, 5) * IN_MILLISECONDS);
                 break;
             }
@@ -149,7 +149,7 @@ struct AQWhirlwind : public SpellScript
         SpellAuraHolder* holder = spell->GetCaster()->GetSpellAuraHolder(spell->GetTriggeredByAuraSpellInfo()->Id);
         if (holder->m_auras[EFFECT_INDEX_0]->GetAuraTicks() != holder->m_auras[EFFECT_INDEX_0]->GetAuraMaxTicks())
         {
-            if (spell->m_spellInfo->Id == 26686)
+            if (spell->m_spellInfo->Id == SPELL_OTHER_WHIRLWIND_TRIGGER)
                 if (urand(0, 2))
                     return;
 

@@ -21,7 +21,7 @@ SDComment: Water Globule script is not complete - requires additional research.
 SDCategory: Coilfang Resevoir, Serpent Shrine Cavern
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "serpent_shrine.h"
 #include "AI/ScriptDevAI/base/TimerAI.h"
 
@@ -178,7 +178,7 @@ struct boss_morogrim_tidewalkerAI : public ScriptedAI
 
     void UpdateAI(const uint32 uiDiff) override
     {
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
 
         if (m_uiEarthquakeTimer <= uiDiff)
@@ -312,7 +312,7 @@ struct mob_water_globuleAI : public ScriptedAI, public TimerManager
     {
         UpdateTimers(diff);
         m_creature->SelectHostileTarget();
-        if (!m_creature->getVictim() && m_initialAggro)
+        if (!m_creature->GetVictim() && m_initialAggro)
         {
             AcquireNewTarget();
             return;

@@ -155,6 +155,8 @@ class SpellAuraHolder
         int32 GetAuraDuration() const { return m_duration; }
         void SetAuraDuration(int32 duration) { m_duration = duration; }
 
+        void SetHeartbeatResist(uint32 chance, int32 originalDuration, uint32 drLevel);
+
         uint8 GetAuraSlot() const { return m_auraSlot; }
         void SetAuraSlot(uint8 slot) { m_auraSlot = slot; }
         uint8 GetAuraLevel() const { return m_auraLevel; }
@@ -197,6 +199,7 @@ class SpellAuraHolder
     private:
         void UpdateAuraApplication();                       // called at charges or stack changes
         void ClearExtraAuraInfo(Unit* caster);
+        void UpdateHeartbeatResist(uint32 diff);
 
         SpellEntry const* m_spellProto;
 
@@ -215,6 +218,10 @@ class SpellAuraHolder
         int32 m_duration;                                   // Current time
         int32 m_timeCla;                                    // Timer for power per sec calculation
 
+        float m_heartbeatResistChance;                      // Chance to break this spell due to heartbeat resistance
+        int32 m_heartbeatResistInterval;                    // Heartbeat resistance periodic interval
+        int32 m_heartbeatResistTimer;                       // Timer for heartbeat resistance
+
         AuraRemoveMode m_removeMode: 8;                     // Store info for know remove aura reason
         DiminishingGroup m_AuraDRGroup: 8;                  // Diminishing
         TrackedAuraType m_trackedAuraType: 8;               // store if the caster tracks the aura - can change at spell steal for example
@@ -225,8 +232,6 @@ class SpellAuraHolder
         bool m_isRemovedOnShapeLost: 1;
         bool m_deleted: 1;
         bool m_skipUpdate: 1;
-
-        uint32 m_heartBeatTimer;                            // HeartbeatResist
 
         // Scripting System
         AuraScript* m_auraScript;
@@ -407,6 +412,7 @@ class Aura
         void HandleFactionOverride(bool apply, bool Real);
         void HandlePrayerOfMending(bool apply, bool Real);
         void HandleAuraDetaunt(bool Apply, bool Real);
+        void HandleOverrideClassScript(bool apply, bool real);
 
         virtual ~Aura();
 
@@ -489,7 +495,8 @@ class Aura
         // Scripting system
         AuraScript* GetAuraScript() const { return GetHolder()->GetAuraScript(); }
         // hooks
-        int32 OnDamageCalculate(Unit* caster, int32 currentValue);
+        int32 OnAuraValueCalculate(Unit* caster, int32 currentValue);
+        void OnDamageCalculate(int32& advertisedBenefit, float& totalMod);
         void OnApply(bool apply);
         bool OnCheckProc();
         SpellAuraProcResult OnProc(ProcExecutionData& data);

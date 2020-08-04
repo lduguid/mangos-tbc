@@ -21,7 +21,7 @@ SDComment: Minor adjustments required; Timers.
 SDCategory: Magisters' Terrace
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "magisters_terrace.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -197,7 +197,7 @@ struct boss_felblood_kaelthasAI : public CombatAI
             m_instance->SetData(TYPE_KAELTHAS, FAIL);
     }
 
-    void JustPreventedDeath(Unit* attacker) override
+    void JustPreventedDeath(Unit* /*attacker*/) override
     {
         m_creature->HandleEmote(EMOTE_STATE_TALK);
         DoFakeDeath();

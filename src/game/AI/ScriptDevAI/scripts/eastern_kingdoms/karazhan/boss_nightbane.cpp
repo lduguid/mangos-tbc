@@ -21,7 +21,7 @@ SDComment: Boss apparently only takes assist threat in P2
 SDCategory: Karazhan
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "karazhan.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "MotionGenerators/WaypointManager.h"
@@ -74,6 +74,7 @@ enum NightbaneActions
     NIGHTBANE_SMOKING_BLAST,
     NIGHTBANE_FIREBALL_BARRAGE,
     NIGHTBANE_ACTION_MAX,
+    NIGHTBANE_ATTACK_DELAY,
 };
 
 struct boss_nightbaneAI : public CombatAI
@@ -91,6 +92,7 @@ struct boss_nightbaneAI : public CombatAI
         AddCombatAction(NIGHTBANE_RAIN_OF_BONES, true);
         AddCombatAction(NIGHTBANE_SMOKING_BLAST, true);
         AddCombatAction(NIGHTBANE_FIREBALL_BARRAGE, true);
+        AddCustomAction(NIGHTBANE_ATTACK_DELAY, true, [&]() { HandleAttackDelay(); });
     }
 
     instance_karazhan* m_instance;
@@ -126,7 +128,8 @@ struct boss_nightbaneAI : public CombatAI
     void StartIntro()
     {
         m_creature->SetWalk(false);
-        m_creature->GetMotionMaster()->MoveWaypoint(0);
+        auto wpPath = sWaypointMgr.GetPathFromOrigin(m_creature->GetEntry(), m_creature->GetGUIDLow(), 0, PATH_FROM_EXTERNAL);
+        m_creature->GetMotionMaster()->MovePath(*wpPath);
     }
 
     void Aggro(Unit* /*who*/) override
@@ -166,8 +169,8 @@ struct boss_nightbaneAI : public CombatAI
     {
         m_skeletons.push_back(summoned->GetObjectGuid());
 
-        if (m_creature->getVictim())
-            summoned->AI()->AttackStart(m_creature->getVictim());
+        if (m_creature->GetVictim())
+            summoned->AI()->AttackStart(m_creature->GetVictim());
     }
 
     void SummonedCreatureJustDied(Creature* summoned) override
@@ -177,7 +180,7 @@ struct boss_nightbaneAI : public CombatAI
 
     void MovementInform(uint32 motionType, uint32 pointId) override
     {
-        if (motionType == WAYPOINT_MOTION_TYPE)
+        if (motionType == PATH_MOTION_TYPE)
         {
             // Set in combat after the intro is done
             if (pointId == 10)
@@ -186,15 +189,13 @@ struct boss_nightbaneAI : public CombatAI
                 m_creature->GetMotionMaster()->MoveIdle();
                 m_creature->HandleEmote(EMOTE_ONESHOT_LAND);
                 m_creature->SetCanFly(false);
-                m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
                 m_creature->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_FLY_ANIM);
                 m_creature->SetLevitate(false);
                 m_creature->SetHover(false);
                 m_creature->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND);
 
                 m_bCombatStarted = true;
-                m_creature->SetInCombatWithZone();
-                AttackClosestEnemy();
+                ResetTimer(NIGHTBANE_ATTACK_DELAY, 2000);
             }
         }
         // avoid overlapping of escort and combat movement
@@ -219,12 +220,19 @@ struct boss_nightbaneAI : public CombatAI
                     SetMeleeEnabled(true);
                     DoResetThreat();
                     m_creature->SetSupportThreatOnly(false);
-                    AttackClosestEnemy();
+                    ResetTimer(NIGHTBANE_ATTACK_DELAY, 2000);
                     break;
             }
             SetCombatScriptStatus(false);
             HandlePhaseTransition();
         }
+    }
+
+    void HandleAttackDelay()
+    {
+        m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+        m_creature->SetInCombatWithZone();
+        AttackClosestEnemy();
     }
 
     // Wrapper to handle movement to the closest trigger
@@ -355,7 +363,7 @@ struct boss_nightbaneAI : public CombatAI
             }
             case NIGHTBANE_CLEAVE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_CLEAVE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
                     ResetCombatAction(action, urand(6000, 12000));
                 break;
             }
@@ -388,7 +396,7 @@ struct boss_nightbaneAI : public CombatAI
             case NIGHTBANE_FIREBALL_BARRAGE:
             {
                 if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_FARTHEST_AWAY, 0, SPELL_FIREBALL_BARRAGE, SELECT_FLAG_PLAYER))
-                    if (target->IsWithinDist(m_creature, 60.f) || m_creature->CastSpell(m_creature->getVictim(), SPELL_FIREBALL_BARRAGE, TRIGGERED_NONE) == SPELL_CAST_OK)
+                    if (target->IsWithinDist(m_creature, 60.f) || m_creature->CastSpell(m_creature->GetVictim(), SPELL_FIREBALL_BARRAGE, TRIGGERED_NONE) == SPELL_CAST_OK)
                         ResetCombatAction(action, urand(3000, 6000)); // if farthest target is 40+ yd away
                 break;
             }
@@ -407,7 +415,7 @@ bool ProcessEventId_event_spell_summon_nightbane(uint32 /*eventId*/, Object* sou
         if (instance->GetData(TYPE_NIGHTBANE) == NOT_STARTED || instance->GetData(TYPE_NIGHTBANE) == FAIL)
         {
             Creature* nightbane = instance->GetSingleCreatureFromStorage(NPC_NIGHTBANE);
-            if (nightbane && nightbane->isAlive())
+            if (nightbane && nightbane->IsAlive())
             {
                 DoScriptText(EMOTE_AWAKEN, ((Player*)source));
                 instance->SetData(TYPE_NIGHTBANE, IN_PROGRESS);

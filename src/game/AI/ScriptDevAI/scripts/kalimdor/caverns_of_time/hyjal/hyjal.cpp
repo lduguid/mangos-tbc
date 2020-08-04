@@ -21,7 +21,7 @@ SDComment: Instance Data Scripts and functions to acquire mobs and set encounter
 SDCategory: Caverns of Time, Mount Hyjal
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "hyjal.h"
 #include "Entities/TemporarySpawn.h"
 
@@ -845,7 +845,7 @@ void instance_mount_hyjal::OnPlayerEnter(Player* /*player*/)
     if (GetData(TYPE_ANETHERON) != DONE)
     {
         Creature* jaina = GetSingleCreatureFromStorage(NPC_JAINA);
-        if (!jaina || !jaina->isAlive())
+        if (!jaina || !jaina->IsAlive())
         {
             SpawnBase(BASE_ALLY, true);
             SpawnBase(BASE_HORDE, true);
@@ -854,7 +854,7 @@ void instance_mount_hyjal::OnPlayerEnter(Player* /*player*/)
     else if (GetData(TYPE_AZGALOR) != DONE)
     {
         Creature* thrall = GetSingleCreatureFromStorage(NPC_THRALL);
-        if (!thrall || !thrall->isAlive())
+        if (!thrall || !thrall->IsAlive())
             SpawnBase(BASE_HORDE, true);
     }
 }

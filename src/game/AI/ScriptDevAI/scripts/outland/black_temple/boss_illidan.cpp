@@ -21,7 +21,7 @@ SDComment: Movement during flight phase NYI. Some other fine details may need ad
 SDCategory: Black Temple
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "black_temple.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "AI/ScriptDevAI/base/escort_ai.h"
@@ -433,7 +433,7 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
         SetDeathPrevention(true);
         if (m_instance)
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float x, float y, float z)
+            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
             {
                 return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
             });
@@ -607,7 +607,7 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
             SetMeleeEnabled(true);
             SetDeathPrevention(true);
             PreparePhaseTimers();
-            DoStartMovement(m_creature->getVictim());
+            DoStartMovement(m_creature->GetVictim());
             // Phase 4 Transition End
             if (Creature* maiev = m_instance->GetSingleCreatureFromStorage(NPC_MAIEV_SHADOWSONG))
                 SendAIEvent(AI_EVENT_CUSTOM_A, maiev, maiev, m_phase);
@@ -640,7 +640,7 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
         }
     }
 
-    void JustPreventedDeath(Unit* attacker) override
+    void JustPreventedDeath(Unit* /*attacker*/) override
     {
         if (m_phase == PHASE_4_DEMON)
             HandlePhaseBehaviour();
@@ -731,7 +731,7 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
                 SetCombatScriptStatus(false);
                 SetCombatMovement(true);
                 SetMeleeEnabled(true);
-                if (Unit* victim = m_creature->getVictim())
+                if (Unit* victim = m_creature->GetVictim())
                 {
                     m_creature->SetTarget(victim);
                     DoStartMovement(victim);
@@ -1074,10 +1074,10 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
                         SetCombatMovement(true);
                         SetMeleeEnabled(true);
                         m_creature->SetImmobilizedState(false);
-                        if (m_creature->getVictim())
+                        if (m_creature->GetVictim())
                         {
-                            m_creature->SetTarget(m_creature->getVictim());
-                            DoStartMovement(m_creature->getVictim());
+                            m_creature->SetTarget(m_creature->GetVictim());
+                            DoStartMovement(m_creature->GetVictim());
                         }
                         m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                         nextTimer = 0;
@@ -1121,7 +1121,7 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
         }
     }
 
-    void SummonedMovementInform(Creature* summoned, uint32 moveType, uint32 pointId) override
+    void SummonedMovementInform(Creature* summoned, uint32 /*moveType*/, uint32 pointId) override
     {
         if (summoned->GetEntry() == NPC_ILLIDAN_TARGET)
         {
@@ -1262,7 +1262,7 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
             }
             case ILLIDAN_ACTION_SHADOW_BLAST:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_SHADOW_BLAST) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_BLAST) == CAST_OK)
                     ResetCombatAction(action, 2500u);
                 return;
             }
@@ -1306,14 +1306,14 @@ struct boss_illidan_stormrageAI : public CombatAI, private DialogueHelper
 #endif // !NO_SHEAR
             case ILLIDAN_ACTION_FLAME_CRASH:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_FLAME_CRASH) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_FLAME_CRASH) == CAST_OK)
                     ResetCombatAction(action, urand(26000, 35000));
                 return;
             }
 #ifndef NO_SHEAR
             case ILLIDAN_ACTION_SHEAR:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_SHEAR) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHEAR) == CAST_OK)
                     ResetCombatAction(action, urand(12000, 15000));
                 return;
             }
@@ -1668,7 +1668,7 @@ struct npc_akama_illidanAI : public CombatAI, private DialogueHelper
                 }
                 break;
             case AKAMA_ACTION_CHAIN_LIGHTNING:
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_CHAIN_LIGHTNING) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CHAIN_LIGHTNING) == CAST_OK)
                         ResetCombatAction(action, urand(2000, 4000));
                 break;
         }
@@ -1785,7 +1785,7 @@ struct boss_maievAI : public CombatAI, private DialogueHelper
             {
                 m_attackDistance = 20.f;
                 m_moveFurther = true;
-                DoStartMovement(m_creature->getVictim());
+                DoStartMovement(m_creature->GetVictim());
                 ResetCombatAction(MAIEV_ACTION_THROW_DAGGER, urand(4000, 8000));
                 DisableCombatAction(MAIEV_ACTION_SHADOW_STRIKE);
             }
@@ -1793,7 +1793,7 @@ struct boss_maievAI : public CombatAI, private DialogueHelper
             {
                 m_attackDistance = 0.f;
                 m_moveFurther = false;
-                DoStartMovement(m_creature->getVictim());
+                DoStartMovement(m_creature->GetVictim());
                 ResetCombatAction(MAIEV_ACTION_SHADOW_STRIKE, urand(4000, 8000));
                 DisableCombatAction(MAIEV_ACTION_THROW_DAGGER);
             }
@@ -1813,7 +1813,7 @@ struct boss_maievAI : public CombatAI, private DialogueHelper
         }
     }
 
-    void JustPreventedDeath(Unit* attacker) override
+    void JustPreventedDeath(Unit* /*attacker*/) override
     {
         if (m_outro)
             return;
@@ -1871,13 +1871,13 @@ struct boss_maievAI : public CombatAI, private DialogueHelper
         {
             case MAIEV_ACTION_SHADOW_STRIKE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_SHADOW_STRIKE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_SHADOW_STRIKE) == CAST_OK)
                     ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
                 return;
             }
             case MAIEV_ACTION_THROW_DAGGER:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_THROW_DAGGER) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_THROW_DAGGER) == CAST_OK)
                     ResetCombatAction(action, GetSubsequentActionTimer(MaievActions(action)));
                 return;
             }
@@ -1920,7 +1920,7 @@ struct npc_cage_trap_triggerAI : public ScriptedAI
 
     void AttackStart(Unit* /*who*/) override { }
 
-    void CorpseRemoved(uint32& delay) override
+    void CorpseRemoved(uint32& /*delay*/) override
     {
         if (GameObject* trap = GetClosestGameObjectWithEntry(m_creature, GO_CAGE_TRAP, 3.f))
         {
@@ -1929,7 +1929,7 @@ struct npc_cage_trap_triggerAI : public ScriptedAI
         }
     }
 
-    void MoveInLineOfSight(Unit* who) override
+    void MoveInLineOfSight(Unit* /*who*/) override
     {
         if (!m_activated)
             return;
@@ -2062,7 +2062,7 @@ struct npc_flame_of_azzinothAI : public CombatAI
             }
             case FLAME_ACTION_SUMMON_BLAZE:
             {
-                if (Unit* target = m_creature->getVictim())
+                if (Unit* target = m_creature->GetVictim())
                     if (target->CastSpell(nullptr, SPELL_BLAZE, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_creature->GetObjectGuid()) == SPELL_CAST_OK)
                         DisableCombatAction(FLAME_ACTION_SUMMON_BLAZE);
                 return;
@@ -2122,7 +2122,7 @@ struct npc_shadow_demonAI : public ScriptedAI
 
     void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
     {
-        if (eventType == AI_EVENT_CUSTOM_A && m_creature->isAlive()) // Channel ended for any reason
+        if (eventType == AI_EVENT_CUSTOM_A && m_creature->IsAlive()) // Channel ended for any reason
             m_targetGuid = ObjectGuid(); // find new target on next AI update
     }
 
@@ -2150,7 +2150,7 @@ struct npc_shadow_demonAI : public ScriptedAI
         if (movementType != POINT_MOTION_TYPE || !pointId)
             return;
 
-        if (!m_creature->isAlive())
+        if (!m_creature->IsAlive())
         {
             sLog.outCustomLog("Why did shadow demon movement trigger?");
             // sLog.traceLog();
@@ -2223,7 +2223,7 @@ struct npc_parasitic_shadowfiendAI : public ScriptedAI, public TimerManager
         {
             if (Creature* illidan = m_instance->GetSingleCreatureFromStorage(NPC_ILLIDAN_STORMRAGE))
             {
-                if (!illidan->isInCombat())
+                if (!illidan->IsInCombat())
                 {
                     m_creature->ForcedDespawn();
                     return;
@@ -2267,7 +2267,7 @@ struct npc_parasitic_shadowfiendAI : public ScriptedAI, public TimerManager
     }
 };
 
-bool GOUse_go_cage_trap(Player* player, GameObject* go)
+bool GOUse_go_cage_trap(Player* /*player*/, GameObject* go)
 {
     Creature* trapTrigger = GetClosestCreatureWithEntry(go, NPC_CAGE_TRAP_DISTURB_TRIGGER, 3.f);
     if (trapTrigger)

@@ -462,6 +462,34 @@ struct GemPropertiesEntry
     uint32      color;                                      //          m_type
 };
 
+struct GMSurveyCurrentSurveyEntry
+{
+    uint32    localeID;                                     // 0    m_LANGID
+    uint32    surveyID;                                     // 1    m_GMSURVEY_ID
+};
+
+#define MAX_GMSURVEY_QUESTIONS 10                           // Hardcoded in all versions of the game, max amount of questions in gm survey
+
+struct GMSurveyEntry
+{
+    uint32    ID;                                           // 0    m_ID
+    uint32    questionID[MAX_GMSURVEY_QUESTIONS];           // 1-11 m_Q[10]
+};
+
+struct GMSurveyQuestionsEntry
+{
+    uint32    ID;                                           // 0    m_ID
+    char*     question[16];                                 // 1-17 m_Question_lang;
+    // 18 string flags, unused
+};
+
+struct GMTicketCategoryEntry
+{
+    uint32    ID;                                           // 0    m_ID
+    char*     name[16];                                     // 1-17 m_category_lang
+    // 18 string flags, unused
+};
+
 // All Gt* DBC store data for 100 levels, some by 100 per class/race
 #define GT_MAX_LEVEL    100
 
@@ -1202,6 +1230,7 @@ struct WorldMapOverlayEntry
 };
 */
 
+/* Structure WorldSafeLocsEntry is no longer loaded from DBC but from DB instead
 struct WorldSafeLocsEntry
 {
     uint32    ID;                                           // 0        m_ID
@@ -1212,6 +1241,7 @@ struct WorldSafeLocsEntry
     // char*   name[16]                                     // 5-20     m_AreaName_lang
     // 21 string flags
 };
+*/
 
 // GCC have alternative #pragma pack() syntax and old gcc version not support pack(pop), also any gcc version not support it at some platform
 #if defined( __GNUC__ )

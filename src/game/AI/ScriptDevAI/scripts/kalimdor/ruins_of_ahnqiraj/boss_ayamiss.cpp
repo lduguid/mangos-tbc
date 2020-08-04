@@ -21,7 +21,7 @@ SDComment: Swarmers need movement added for RP before they attack
 SDCategory: Ruins of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "ruins_of_ahnqiraj.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 #include "MotionGenerators/WaypointManager.h"
@@ -57,8 +57,8 @@ enum
     PHASE_AIR               = 0,
     PHASE_GROUND            = 1,
 
-    POINT_AIR               = 1,
-    POINT_GROUND            = 2,
+    POINT_AIR               = 2,
+    POINT_GROUND            = 3,
 };
 
 struct SummonLocation
@@ -90,7 +90,9 @@ enum AyamissActions
 
 struct boss_ayamissAI : public CombatAI
 {
-    boss_ayamissAI(Creature* creature) : CombatAI(creature, AYAMISS_ACTION_MAX)
+    boss_ayamissAI(Creature* creature) :
+        CombatAI(creature, AYAMISS_ACTION_MAX),
+        m_phase(0)
     {
         AddTimerlessCombatAction(AYAMISS_FLY_UP, true);
         AddTimerlessCombatAction(AYAMISS_PHASE_2, true);
@@ -190,7 +192,7 @@ struct boss_ayamissAI : public CombatAI
 
     void StartLanding()
     {
-        m_creature->GetMotionMaster()->MoveWaypoint(0);
+        m_creature->GetMotionMaster()->MoveWaypoint(1);
     }
 
     void ExecuteAction(uint32 action) override
@@ -290,13 +292,13 @@ struct boss_ayamissAI : public CombatAI
             }
             case AYAMISS_LASH:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_LASH) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_LASH) == CAST_OK)
                     ResetCombatAction(action, urand(8000, 15000));
                 break;
             }
             case AYAMISS_THRASH:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_THRASH) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_THRASH) == CAST_OK)
                     ResetCombatAction(action, urand(5000, 7000));
                 break;
             }
@@ -324,7 +326,7 @@ struct npc_hive_zara_larvaAI : public ScriptedAI
         {
             if (m_instance->GetData(TYPE_AYAMISS) == IN_PROGRESS)
             {
-                if (m_creature->CanReachWithMeleeAttack(who) && who == m_creature->getVictim())
+                if (m_creature->CanReachWithMeleeAttack(who) && who == m_creature->GetVictim())
                 {
                     m_creature->CastSpell(who, SPELL_FEED, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_creature->GetObjectGuid());
                 }
@@ -343,7 +345,7 @@ struct npc_hive_zara_larvaAI : public ScriptedAI
                 return;
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
             return;
 
         DoMeleeAttackIfReady();

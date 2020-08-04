@@ -14,7 +14,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "world_kalimdor.h"
 #include "AI/ScriptDevAI/scripts/world/world_map_scripts.h"
 #include "World/WorldState.h"
@@ -46,6 +46,7 @@ struct world_map_kalimdor : public ScriptedMap
     bool b_isOmenSpellCreditDone;
     std::array<std::vector<ObjectGuid>, MAX_ELEMENTS> m_aElementalRiftGUIDs;
     uint32 m_uiDronesTimer;
+    uint32 m_freedSpriteDarter;
 
     void Initialize() override
     {
@@ -55,6 +56,7 @@ struct world_map_kalimdor : public ScriptedMap
         m_uiOmenMoonlightTimer = 0;
         m_uiRocketsCounter = 0;
         m_uiTheramoreMarksmenAlive = 0;
+        m_freedSpriteDarter = 0;
         b_isOmenSpellCreditDone = false;
         for (auto& riftList : m_aElementalRiftGUIDs)
             riftList.clear();
@@ -195,7 +197,7 @@ struct world_map_kalimdor : public ScriptedMap
             {
                 if (Creature * magrami = instance->GetCreature(guid))
                 {
-                    if (magrami->isAlive()) // dont despawn corpses with loot
+                    if (magrami->IsAlive()) // dont despawn corpses with loot
                     {
                         magrami->CastSpell(nullptr, SPELL_SPIRIT_SPAWN_OUT, TRIGGERED_OLD_TRIGGERED);
                         magrami->ForcedDespawn(1000);
@@ -251,7 +253,7 @@ struct world_map_kalimdor : public ScriptedMap
                 if (Creature* pOmen = GetSingleCreatureFromStorage(NPC_OMEN))
                 {
                     // Return is Omen is in fight
-                    if (pOmen->isInCombat())
+                    if (pOmen->IsInCombat())
                         return;
                     pOmen->ForcedDespawn();
                 }
@@ -364,6 +366,17 @@ struct world_map_kalimdor : public ScriptedMap
                 if (uiData == IN_PROGRESS)
                     m_uiDronesTimer = 5 * MINUTE * IN_MILLISECONDS;
                 break;
+            }
+            case TYPE_FREEDOM_CREATURES:
+            {
+                if (uiData == IN_PROGRESS)
+                    m_freedSpriteDarter = 0;
+                else if (uiData == SPECIAL)
+                {
+                    ++m_freedSpriteDarter;
+                    if (m_freedSpriteDarter >= 6)
+                        uiData = DONE;
+                }
             }
         }
         m_encounter[uiType] = uiData;

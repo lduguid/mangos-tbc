@@ -21,7 +21,7 @@ SDComment: C'thun whisperings spells NYI.
 SDCategory: Temple of Ahn'Qiraj
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "temple_of_ahnqiraj.h"
 
 static const DialogueEntry aIntroDialogue[] =
@@ -201,13 +201,13 @@ void instance_temple_of_ahnqiraj::SetData(uint32 uiType, uint32 uiData)
                 Creature* deadGuy = GetSingleCreatureFromStorage(uiData);
                 // notify bugs on death to heal / remove invul
                 if (Creature* vem = GetSingleCreatureFromStorage(NPC_VEM))
-                    if (vem->isAlive())
+                    if (vem->IsAlive())
                         vem->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, deadGuy, vem, m_uiBugTrioDeathCount);
                 if (Creature* yauj = GetSingleCreatureFromStorage(NPC_YAUJ))
-                    if (yauj->isAlive())
+                    if (yauj->IsAlive())
                         yauj->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, deadGuy, yauj, m_uiBugTrioDeathCount);
                 if (Creature* kri = GetSingleCreatureFromStorage(NPC_KRI))
-                    if (kri->isAlive())
+                    if (kri->IsAlive())
                         kri->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, deadGuy, kri, m_uiBugTrioDeathCount);
 
                 // don't store any special data
@@ -227,7 +227,7 @@ void instance_temple_of_ahnqiraj::SetData(uint32 uiType, uint32 uiData)
                     yauj->ForcedDespawn();
                 if (Creature* kri = GetSingleCreatureFromStorage(NPC_KRI))
                 {
-                    if (kri->isAlive())
+                    if (kri->IsAlive())
                         kri->AI()->EnterEvadeMode();
                     else
                         kri->Respawn();
@@ -339,12 +339,9 @@ void instance_temple_of_ahnqiraj::Update(uint32 uiDiff)
     {
         if (m_uiSkeramProphecyTimer < uiDiff)
         {
-            if (Creature* skeram = GetSingleCreatureFromStorage(NPC_SKERAM))
-            {
-                if (Player* player = GetPlayerInMap())
-                    player->GetMap()->PlayDirectSoundToMap(sound_skeram_prophecy[urand(0,4)]);
-                m_uiSkeramProphecyTimer = urand(3, 4) * MINUTE * IN_MILLISECONDS;   // Timer is guesswork
-            }
+            if (Player* player = GetPlayerInMap())
+                player->GetMap()->PlayDirectSoundToMap(sound_skeram_prophecy[urand(0, 4)]);
+            m_uiSkeramProphecyTimer = urand(3, 4) * MINUTE * IN_MILLISECONDS;   // Timer is guesswork
         }
         else
             m_uiSkeramProphecyTimer -= uiDiff;
@@ -388,7 +385,7 @@ bool AreaTrigger_at_temple_ahnqiraj(Player* player, AreaTriggerEntry const* at)
 {
     if (at->id == AREATRIGGER_TWIN_EMPERORS || at->id == AREATRIGGER_SARTURA)
     {
-        if (player->isGameMaster() || !player->isAlive())
+        if (player->isGameMaster() || !player->IsAlive())
             return false;
 
         if (instance_temple_of_ahnqiraj* pInstance = (instance_temple_of_ahnqiraj*)player->GetInstanceData())

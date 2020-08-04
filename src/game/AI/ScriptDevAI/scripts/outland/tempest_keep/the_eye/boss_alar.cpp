@@ -29,7 +29,7 @@ Patches
 2.1.0 - Al'ar movement was updated to the current state (platform 1, 2, 3, 4), and embers were given the %hp burn element.
 */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "the_eye.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -460,7 +460,7 @@ struct boss_alarAI : public CombatAI
             {
                 uint32 timer = 500;
                 // If victim exists we have a target in melee range
-                if (m_creature->getVictim() && m_creature->CanReachWithMeleeAttack(m_creature->getVictim()))
+                if (m_creature->GetVictim() && m_creature->CanReachWithMeleeAttack(m_creature->GetVictim()))
                     m_rangeCheckState = -1;
                 // Spam Waterbolt spell when not tanked
                 else
@@ -493,7 +493,7 @@ struct boss_alarAI : public CombatAI
             }
             case ALAR_MELT_ARMOR:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_MELT_ARMOR) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_MELT_ARMOR) == CAST_OK)
                     ResetCombatAction(action, 60000);
                 break;
             }

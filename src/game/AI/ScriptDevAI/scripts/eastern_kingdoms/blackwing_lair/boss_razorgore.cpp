@@ -21,7 +21,7 @@ SDComment: Threat management after Mind Control is released needs core support (
 SDCategory: Blackwing Lair
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "blackwing_lair.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -66,7 +66,7 @@ struct boss_razorgoreAI : public CombatAI
         m_creature->SetWalk(false);
         if (m_instance)
         {
-            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float x, float y, float z)
+            m_creature->GetCombatManager().SetLeashingCheck([](Unit* unit, float /*x*/, float /*y*/, float /*z*/)
             {
                 return static_cast<ScriptedInstance*>(unit->GetInstanceData())->GetPlayerInMap(true, false) == nullptr;
             });
@@ -83,7 +83,7 @@ struct boss_razorgoreAI : public CombatAI
         DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_AURA_NOT_PRESENT | CAST_TRIGGERED);
     }
 
-    void Aggro(Unit* attacker) override
+    void Aggro(Unit* /*attacker*/) override
     {
         m_creature->RemoveAurasDueToSpell(SPELL_POSSESS_VISUAL);
     }
@@ -99,7 +99,7 @@ struct boss_razorgoreAI : public CombatAI
         }
     }
 
-    void JustPreventedDeath(Unit* attacker) override
+    void JustPreventedDeath(Unit* /*attacker*/) override
     {
         m_instance->SetData(TYPE_RAZORGORE, FAIL);
     }
@@ -134,7 +134,7 @@ struct boss_razorgoreAI : public CombatAI
             }
             case RAZORGORE_CLEAVE:
             {
-                if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_CLEAVE) == CAST_OK)
+                if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_CLEAVE) == CAST_OK)
                     ResetCombatAction(action, urand(4000, 8000));
                 break;
             }
@@ -185,7 +185,7 @@ struct npc_blackwing_orbAI : public ScriptedAI
                 // If Razorgore is not respawned yet: wait
                 if (Creature* pRazorgore = m_instance->GetSingleCreatureFromStorage(NPC_RAZORGORE))
                 {
-                    if (!(pRazorgore->isAlive()))
+                    if (!(pRazorgore->IsAlive()))
                     {
                         m_uiIntroVisualTimer = 2000;
                         return;
@@ -195,7 +195,7 @@ struct npc_blackwing_orbAI : public ScriptedAI
                 // If Grethok the Controller is here and spawned, start the visual, else wait for him
                 if (Creature* grethok = GetClosestCreatureWithEntry(m_creature, NPC_GRETHOK_CONTROLLER, 2.0f))
                 {
-                    if (grethok->isAlive())
+                    if (grethok->IsAlive())
                     {
                         m_creature->CastSpell(m_creature, SPELL_POSSESS_VISUAL, TRIGGERED_OLD_TRIGGERED);
                         grethok->CastSpell(grethok, SPELL_CONTROL_ORB, TRIGGERED_OLD_TRIGGERED);
@@ -211,7 +211,7 @@ struct npc_blackwing_orbAI : public ScriptedAI
     }
 };
 
-bool ProcessEventIdRazorgorePossess(uint32 eventId, Object* source, Object* target, bool isStart)
+bool ProcessEventIdRazorgorePossess(uint32 /*eventId*/, Object* source, Object* /*target*/, bool /*isStart*/)
 {
     if (!source->IsPlayer())
         return true;
@@ -225,7 +225,7 @@ bool ProcessEventIdRazorgorePossess(uint32 eventId, Object* source, Object* targ
 
 struct DestroyEgg : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         GameObject* target = spell->GetGOTarget();
         Unit* razorgore = spell->GetCaster();
@@ -252,7 +252,7 @@ struct DestroyEgg : public SpellScript
 
 struct ExplosionRazorgore : public SpellScript
 {
-    bool OnCheckTarget(const Spell* spell, Unit* target, SpellEffectIndex effIdx) const override
+    bool OnCheckTarget(const Spell* /*spell*/, Unit* target, SpellEffectIndex /*effIdx*/) const override
     {
         if (target->IsPlayer())
             return true;
@@ -286,7 +286,7 @@ struct PossessRazorgore : public AuraScript
 
 struct CalmDragonkin : public SpellScript
 {
-    SpellCastResult OnCheckCast(Spell* spell, bool strict) const override
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
     {
         if (spell->m_targets.getUnitTarget()->GetEntry() == NPC_RAZORGORE)
             return SPELL_FAILED_BAD_TARGETS;

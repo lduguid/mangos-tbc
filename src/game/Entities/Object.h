@@ -20,44 +20,19 @@
 #define _OBJECT_H
 
 #include "Common.h"
+#include "ObjectDefines.h"
 #include "ByteBuffer.h"
 #include "Entities/UpdateFields.h"
 #include "Entities/UpdateData.h"
 #include "Entities/ObjectGuid.h"
 #include "Entities/EntitiesMgr.h"
 #include "Globals/SharedDefines.h"
-#include "Camera.h"
+#include "Entities/Camera.h"
 #include "Server/DBCStructure.h"
 #include "PlayerDefines.h"
 #include "Entities/ObjectVisibility.h"
 
 #include <set>
-
-#define CONTACT_DISTANCE                0.5f
-#define INTERACTION_DISTANCE            5.0f
-#define ATTACK_DISTANCE                 5.0f
-#define MELEE_LEEWAY                    8.0f / 3.0f // Melee attack and melee spell leeway when moving
-#define AOE_LEEWAY                      2.0f        // AOE leeway when moving
-#define INSPECT_DISTANCE                28.0f
-#define TRADE_DISTANCE                  11.11f
-
-#define MAX_VISIBILITY_DISTANCE         SIZE_OF_GRIDS               // max distance for visible object show, limited in 533 yards
-#define VISIBILITY_DISTANCE_GIGANTIC    400.0f
-#define VISIBILITY_DISTANCE_LARGE       200.0f
-#define VISIBILITY_DISTANCE_NORMAL      100.0f
-#define VISIBILITY_DISTANCE_SMALL       50.0f
-#define VISIBILITY_DISTANCE_TINY        25.0f
-#define DEFAULT_VISIBILITY_DISTANCE     VISIBILITY_DISTANCE_NORMAL  // default visible distance, 100 yards on continents
-#define DEFAULT_VISIBILITY_INSTANCE     170.0f                      // default visible distance in instances, 170 yards
-#define DEFAULT_VISIBILITY_BGARENAS     533.0f                      // default visible distance in BG/Arenas, 533 yards
-
-
-#define DEFAULT_WORLD_OBJECT_SIZE       0.388999998569489f      // currently used (correctly?) for any non Unit world objects. This is actually the bounding_radius, like player/creature from creature_model_data
-#define DEFAULT_OBJECT_SCALE            1.0f                    // player/item scale as default, npc/go from database, pets from dbc
-float const DEFAULT_COLLISION_HEIGHT = 2.03128f; // Most common value in dbc
-
-#define MAX_STEALTH_DETECT_RANGE        45.0f
-#define GRID_ACTIVATION_RANGE           45.0f
 
 enum TempSpawnType
 {
@@ -652,7 +627,7 @@ struct TempSpawnSettings
     uint32 entry;
     float x, y, z, ori;
     TempSpawnType spawnType;
-    uint32 despawnTime;
+    uint32 despawnTime = 0;
     uint32 corpseDespawnTime = 0;
     bool activeObject = false;
     bool setRun = false;
@@ -817,15 +792,18 @@ class WorldObject : public Object
         bool IsInRange2d(float x, float y, float minRange, float maxRange, bool combat = false) const;
         bool IsInRange3d(float x, float y, float z, float minRange, float maxRange, bool combat = false) const;
 
+        static float GetAngleAt(float x, float y, float ox, float oy);
+        float GetAngle(float x, float y) const;
+        float GetAngleAt(float x, float y, const WorldObject* obj) const;
         float GetAngle(const WorldObject* obj) const;
-        float GetAngle(const float x, const float y) const;
-        bool HasInArc(const WorldObject* target, const float arc = M_PI) const;
-        bool isInFrontInMap(WorldObject const* target, float distance, float arc = M_PI) const;
-        bool isInBackInMap(WorldObject const* target, float distance, float arc = M_PI) const;
+        bool HasInArcAt(float x, float y, float o, const WorldObject* target, float arc = M_PI_F) const;
+        bool HasInArc(const WorldObject* target, float arc = M_PI_F) const;
+        bool isInFrontInMap(WorldObject const* target, float distance, float arc = M_PI_F) const;
+        bool isInBackInMap(WorldObject const* target, float distance, float arc = M_PI_F) const;
         // Used in AOE - meant to ignore bounding radius of source
-        bool isInFront(WorldObject const* target, float distance, float arc = M_PI) const;
+        bool isInFront(WorldObject const* target, float distance, float arc = M_PI_F) const;
         // Used in AOE - meant to ignore bounding radius of source
-        bool isInBack(WorldObject const* target, float distance, float arc = M_PI) const;
+        bool isInBack(WorldObject const* target, float distance, float arc = M_PI_F) const;
         bool IsFacingTargetsBack(const WorldObject* target, float arc = M_PI_F) const;
         bool IsFacingTargetsFront(const WorldObject* target, float arc = M_PI_F) const;
 
@@ -925,6 +903,10 @@ class WorldObject : public Object
         VisibilityData const& GetVisibilityData() const { return m_visibilityData; }
         VisibilityData& GetVisibilityData() { return m_visibilityData; }
 
+        bool HaveDebugFlag(CMDebugFlags flag) const { return (uint64(m_debugFlags) & flag) != 0; }
+        void SetDebugFlag(CMDebugFlags flag) { m_debugFlags |= uint64(flag); }
+        void ClearDebugFlag(CMDebugFlags flag) { m_debugFlags &= ~(uint64(flag)); }
+
     protected:
         explicit WorldObject();
 
@@ -960,6 +942,7 @@ class WorldObject : public Object
         Position m_position;
         ViewPoint m_viewPoint;
         bool m_isActiveObject;
+        uint64 m_debugFlags;
 };
 
 #endif

@@ -136,12 +136,17 @@ void WorldState::Save(SaveIds saveId)
             break;
         }
         case SAVE_ID_EXPANSION_RELEASE:
+        {
             std::string expansionData = std::to_string(m_expansion);
             CharacterDatabase.PExecute("DELETE FROM world_state WHERE Id='%u'", SAVE_ID_EXPANSION_RELEASE);
             CharacterDatabase.PExecute("INSERT INTO world_state(Id,Data) VALUES('%u','%s')", SAVE_ID_EXPANSION_RELEASE, expansionData.data());
             break;
+        }
+        // TODO: Add saving for AQ and QD
+        case SAVE_ID_AHN_QIRAJ:
+        case SAVE_ID_QUEL_DANAS:
+            break;
     }
-    // TODO: Add saving for AQ and QD
 }
 
 void WorldState::HandleGameObjectUse(GameObject* go, Unit* user)
@@ -506,7 +511,10 @@ void WorldState::RespawnEmeraldDragons()
     sMapMgr.DoForAllMapsWithMapId(0, [&](Map* map)
     {
         if (IsDragonSpawned(m_emeraldDragonsChosenPositions[0]))
-            WorldObject::SummonCreature(TempSpawnSettings(nullptr, m_emeraldDragonsChosenPositions[0], emeraldDragonSpawns[0][0], emeraldDragonSpawns[0][1], emeraldDragonSpawns[0][2], emeraldDragonSpawns[0][3], TEMPSPAWN_DEAD_DESPAWN, 0, false, false, pathIds[0]), map);
+        {
+            if (Creature* duskwoodDragon = WorldObject::SummonCreature(TempSpawnSettings(nullptr, m_emeraldDragonsChosenPositions[0], emeraldDragonSpawns[0][0], emeraldDragonSpawns[0][1], emeraldDragonSpawns[0][2], emeraldDragonSpawns[0][3], TEMPSPAWN_DEAD_DESPAWN, 0, false, false, pathIds[0]), map))
+                duskwoodDragon->GetMotionMaster()->MoveWaypoint(pathIds[0]);
+        }
         if (IsDragonSpawned(m_emeraldDragonsChosenPositions[1]))
             WorldObject::SummonCreature(TempSpawnSettings(nullptr, m_emeraldDragonsChosenPositions[1], emeraldDragonSpawns[1][0], emeraldDragonSpawns[1][1], emeraldDragonSpawns[1][2], emeraldDragonSpawns[1][3], TEMPSPAWN_DEAD_DESPAWN, 0, false, false, pathIds[1]), map);
     });

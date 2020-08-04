@@ -595,6 +595,13 @@ class Spell
         GameObject* GetGOTarget() { return gameObjTarget; }
         uint32 GetDamage() { return damage; }
         void SetDamage(uint32 newDamage) { damage = newDamage; }
+        // OnHit use only
+        uint32 GetTotalTargetDamage() { return m_damage; }
+        // script initialization hook only setters - use only if dynamic - else use appropriate helper
+        void SetMaxAffectedTargets(uint32 newValue) { m_affectedTargetCount = newValue; }
+        void SetJumpRadius(float newValue) { m_jumpRadius = newValue; }
+        // warning - always set scheme for first unique target in a row
+        void SetFilteringScheme(SpellEffectIndex effIdx, bool targetB, SpellTargetFilterScheme scheme) { m_filteringScheme[effIdx][uint32(targetB)] = scheme; }
 
     protected:
         void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
@@ -678,13 +685,14 @@ class Spell
         struct TempTargetingData
         {
             TempTargetData data[MAX_EFFECT_INDEX];
+            uint32 chainTargetCount[MAX_EFFECT_INDEX];
             bool magnet;
         };
         void FillTargetMap();
         void SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targetB, TempTargetingData& targetingData);
         bool CheckAndAddMagnetTarget(Unit* unitTarget, SpellEffectIndex effIndex, bool targetB, TempTargetingData& data);
         static void CheckSpellScriptTargets(SQLMultiStorage::SQLMSIteratorBounds<SpellTargetEntry>& bounds, UnitList& tempTargetUnitMap, UnitList& targetUnitMap, SpellEffectIndex effIndex);
-        void FilterTargetMap(UnitList& filterUnitList, SpellEffectIndex effIndex);
+        void FilterTargetMap(UnitList& filterUnitList, SpellEffectIndex effIndex, SpellTargetFilterScheme scheme, uint32 chainTargetCount);
         void FillFromTargetFlags(TempTargetingData& targetingData, SpellEffectIndex effIndex);
 
         void FillAreaTargets(UnitList& targetUnitMap, float radius, float cone, SpellNotifyPushType pushType, SpellTargets spellTargets, WorldObject* originalCaster = nullptr);
@@ -703,6 +711,7 @@ class Spell
         {
             ObjectGuid targetGUID;
             uint64 timeDelay;
+            uint64 initialDelay; // Used to store reflect travel time so we can reset it on proc
             uint32 HitInfo;
             uint32 damage;
             SpellMissInfo missCondition: 8;
@@ -711,8 +720,11 @@ class Spell
             uint8  effectMask: 8; // Used for all effects a certain target was evaluated for
             bool   processed: 1;
             bool   magnet: 1;
+            bool   procReflect : 1; // Used to tell hit to proc reflect only and return reflect back
+            uint32 heartbeatResistChance;
         };
         uint8 m_needAliveTargetMask;                        // Mask req. alive targets
+        void ProcReflectProcs(TargetInfo& targetInfo);
 
         struct GOTargetInfo
         {
@@ -754,7 +766,7 @@ class Spell
         void HandleDelayedSpellLaunch(TargetInfo* target);
         void InitializeDamageMultipliers();
         void ResetEffectDamageAndHeal();
-        void DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool isReflected = false);
+        void DoSpellHitOnUnit(Unit* unit, uint32 effectMask, TargetInfo* target, bool isReflected = false);
         void DoAllTargetlessEffects(bool dest);
         void DoAllEffectOnTarget(GOTargetInfo* target);
         void DoAllEffectOnTarget(ItemTargetInfo* target);
@@ -783,6 +795,8 @@ class Spell
         float m_castOrientation;
 
         uint32 m_affectedTargetCount;
+        float m_jumpRadius;
+        SpellTargetFilterScheme m_filteringScheme[MAX_EFFECT_INDEX][2];
 
         // if need this can be replaced by Aura copy
         // we can't store original aura link to prevent access to deleted auras
@@ -825,7 +839,7 @@ namespace MaNGOS
             for (auto& itr : m)
             {
                 Player* pPlayer = itr.getSource();
-                if (!pPlayer->isAlive() || pPlayer->IsTaxiFlying())
+                if (!pPlayer->IsAlive() || pPlayer->IsTaxiFlying())
                     continue;
 
                 if (!i_originalCaster->CanAttackSpell(pPlayer, i_spell.m_spellInfo))
@@ -873,6 +887,7 @@ namespace MaNGOS
                     {
                         i_centerX = i_castingObject->GetPositionX();
                         i_centerY = i_castingObject->GetPositionY();
+                        i_centerZ = i_castingObject->GetPositionZ();
                     }
                     break;
                 case PUSH_SRC_CENTER:
