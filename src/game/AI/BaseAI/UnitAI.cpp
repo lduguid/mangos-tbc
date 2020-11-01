@@ -26,7 +26,7 @@
 #include "Grids/CellImpl.h"
 #include "Spells/SpellMgr.h"
 #include "World/World.h"
-#include <float.h>
+#include <limits>
 
 static_assert(MAXIMAL_AI_EVENT_EVENTAI <= 32, "Maximal 32 AI_EVENTs supported with EventAI");
 
@@ -292,8 +292,9 @@ void UnitAI::OnSpellCastStateChange(Spell const* spell, bool state, WorldObject*
         return;
 
     // Creature should always stop before it will cast a non-instant spell
-    if ((spell->GetCastTime() && spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) || (IsChanneledSpell(spellInfo) && spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_MOVEMENT))
-        m_unit->StopMoving();
+    if (state)
+        if ((spell->GetCastTime() && spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) || (IsChanneledSpell(spellInfo) && spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_MOVEMENT))
+            m_unit->StopMoving();
 
     bool forceTarget = false;
 
@@ -666,23 +667,32 @@ void UnitAI::DistancingEnded()
     SetCombatScriptStatus(false);
 }
 
-void UnitAI::AttackClosestEnemy()
+void UnitAI::AttackSpecificEnemy(std::function<void(Unit*, Unit*&)> check)
 {
-    Unit* closestEnemy = nullptr;
-    float distance = FLT_MAX;
+    Unit* chosenEnemy = nullptr;
+    float distance = std::numeric_limits<float>::max();
     ThreatList const& list = m_unit->getThreatManager().getThreatList();
     for (auto& data : list)
     {
         Unit* enemy = data->getTarget();
+        check(enemy, chosenEnemy);
+    }
+
+    AttackStart(chosenEnemy);
+}
+
+void UnitAI::AttackClosestEnemy()
+{
+    float distance = std::numeric_limits<float>::max();
+    AttackSpecificEnemy([&](Unit* enemy, Unit*& closestEnemy)
+    {
         float curDistance = enemy->GetDistance(m_unit, true, DIST_CALC_NONE);
         if (!closestEnemy || curDistance < distance)
         {
             closestEnemy = enemy;
             distance = curDistance;
         }
-    }
-
-    AttackStart(closestEnemy);
+    });
 }
 
 void UnitAI::SetRootSelf(bool apply, bool combatOnly)
