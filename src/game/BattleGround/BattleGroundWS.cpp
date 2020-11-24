@@ -65,6 +65,8 @@ void BattleGroundWS::Update(uint32 diff)
                 m_flagsDropTimer[i] = 0;
                 RespawnDroppedFlag(playerTeam);
             }
+            else
+                m_flagsDropTimer[i] -= diff;
         }
     }
 }
@@ -243,10 +245,13 @@ void BattleGroundWS::HandlePlayerDroppedFlag(Player* player)
 // Function that handles the flag pick up from the base
 void BattleGroundWS::ProcessFlagPickUpFromBase(Player* player, Team attackerTeam)
 {
-    DEBUG_LOG("BattleGroundWS: Team %u has taken the enemy flag.", attackerTeam);
-
     PvpTeamIndex teamIdx = GetTeamIndexByTeamId(attackerTeam);
     PvpTeamIndex otherTeamIdx = GetOtherTeamIndex(teamIdx);
+
+    if (m_flagState[otherTeamIdx] != BG_WS_FLAG_STATE_ON_BASE)
+        return;
+
+    DEBUG_LOG("BattleGroundWS: Team %u has taken the enemy flag.", attackerTeam);
 
     SpawnEvent(otherTeamIdx, 0, false);
     SetFlagCarrier(otherTeamIdx, player->GetObjectGuid());
@@ -275,6 +280,9 @@ void BattleGroundWS::ProcessDroppedFlagActions(Player* player, GameObject* targe
     // check if we are returning our flag
     if (wsDroppedFlagId[teamIdx] == target->GetEntry())
     {
+        if (m_flagState[teamIdx] != BG_WS_FLAG_STATE_ON_GROUND)
+            return;
+
         DEBUG_LOG("BattleGroundWS: Team %u has returned the dropped flag %u.", player->GetTeam(), target->GetEntry());
 
         actionId = BG_WS_FLAG_ACTION_RETURNED;
@@ -291,6 +299,9 @@ void BattleGroundWS::ProcessDroppedFlagActions(Player* player, GameObject* targe
     // check if we are picking up enemy flag
     else if (wsDroppedFlagId[otherTeamIdx] == target->GetEntry())
     {
+        if (m_flagState[otherTeamIdx] != BG_WS_FLAG_STATE_ON_GROUND)
+            return;
+
         DEBUG_LOG("BattleGroundWS: Team %u has recaptured the dropped flag %u.", player->GetTeam(), target->GetEntry());
 
         actionId = BG_WS_FLAG_ACTION_PICKEDUP;
@@ -335,15 +346,16 @@ void BattleGroundWS::RemovePlayer(Player* player, ObjectGuid guid)
 {
     Team playerTeam = player->GetTeam();
     PvpTeamIndex playerTeamIndex = GetTeamIndexByTeamId(playerTeam);
+    PvpTeamIndex otherTeamIdx = GetOtherTeamIndex(playerTeamIndex);
 
     // Clear flag carrier and respawn main flag
-    if (IsFlagPickedUp(playerTeamIndex) && m_flagCarrier[playerTeamIndex] == guid)
+    if (IsFlagPickedUp(otherTeamIdx) && m_flagCarrier[otherTeamIdx] == guid)
     {
         if (!player)
         {
             sLog.outError("BattleGroundWS: Removing offline player who unexpectendly carries the flag!");
 
-            ClearFlagCarrier(playerTeamIndex);
+            ClearFlagCarrier(otherTeamIdx);
             RespawnFlagAtBase(playerTeam, false);
         }
         else
