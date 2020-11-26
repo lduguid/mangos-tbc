@@ -2131,7 +2131,7 @@ struct mob_phoenix_tkAI : public ScriptedAI
 
     void Aggro(Unit* /*pWho*/) override
     {
-        DoCastSpellIfCan(nullptr, m_burnSpellId);
+        DoCastSpellIfCan(nullptr, m_burnSpellId, CAST_TRIGGERED);
     }
 
     void JustPreventedDeath(Unit* /*attacker*/) override
@@ -2184,7 +2184,7 @@ struct mob_phoenix_tkAI : public ScriptedAI
         }
     }
 
-    void SpellHit(Unit* /*caster*/, const SpellEntry* spellInfo) override
+    void OnSpellCooldownAdded(SpellEntry const* spellInfo) override
     {
         if (spellInfo->Id == m_rebirthRespawnSpellId)
         {
