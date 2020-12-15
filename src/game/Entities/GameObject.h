@@ -24,6 +24,8 @@
 #include "Entities/Object.h"
 #include "Util.h"
 #include "AI/BaseAI/GameObjectAI.h"
+#include "Spells/SpellAuras.h"
+#include "Spells/SpellDefines.h"
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
 #if defined( __GNUC__ )
@@ -543,6 +545,7 @@ struct GameObjectInfo
             case GAMEOBJECT_TYPE_TRAP:              return trap.large != 0;
             case GAMEOBJECT_TYPE_SPELL_FOCUS:       return spellFocus.large != 0;
             case GAMEOBJECT_TYPE_GOOBER:            return goober.large != 0;
+            case GAMEOBJECT_TYPE_TRANSPORT:         return true;
             case GAMEOBJECT_TYPE_SPELLCASTER:       return spellcaster.large != 0;
             case GAMEOBJECT_TYPE_CAPTURE_POINT:     return capturePoint.large != 0;
             default: return false;
@@ -647,12 +650,14 @@ enum CapturePointSliderValue
 enum GameobjectExtraFlags
 {
     GAMEOBJECT_EXTRA_FLAG_CUSTOM_ANIM_ON_USE = 0x00000001,    // GO that plays custom animation on usage
+    GAMEOBJECT_EXTRA_FLAG_ACTIVE             = 0x00001000,    // Always active
 };
 
 class Unit;
 class GameObjectModel;
 struct GameObjectDisplayInfoEntry;
 struct TransportAnimation;
+class Item;
 
 struct QuaternionData
 {
@@ -759,7 +764,7 @@ class GameObject : public WorldObject
         uint32 GetDisplayId() const { return GetUInt32Value(GAMEOBJECT_DISPLAYID); }
         void SetDisplayId(uint32 modelId);
 
-        void Use(Unit* user);
+        void Use(Unit* user, SpellEntry const* spellInfo = nullptr);
 
         LootState GetLootState() const { return m_lootState; }
         void SetLootState(LootState state);
@@ -837,6 +842,8 @@ class GameObject : public WorldObject
         GameObjectAI* AI() const { return m_AI.get(); }
 
         GameObjectModel* m_model;
+        void AddModelToMap();
+        void RemoveModelFromMap();
         void UpdateModelPosition();
 
         bool _IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D) const override;
@@ -850,6 +857,15 @@ class GameObject : public WorldObject
         float GetStationaryY() const { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetPositionY(); return 0.f; }
         float GetStationaryZ() const { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetPositionZ(); return 0.f; }
         float GetStationaryO() const { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetPositionO(); return GetOrientation(); }
+
+        SpellCastResult CastSpell(Unit* temporaryCaster, Unit* Victim, uint32 spellId, uint32 triggeredFlags, Item* castItem = nullptr, Aura* triggeredByAura = nullptr, ObjectGuid originalCaster = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
+
+        SpellCastResult CastSpell(Unit* temporaryCaster, Unit* Victim, uint32 spellId, TriggerCastFlags triggeredFlags, Item* castItem = nullptr, Aura* triggeredByAura = nullptr, ObjectGuid originalCaster = ObjectGuid(), SpellEntry const* triggeredBy = nullptr)
+        {
+            return CastSpell(temporaryCaster, Victim, spellId, uint32(triggeredFlags), castItem, triggeredByAura, originalCaster, triggeredBy);
+        }
+
+        SpellCastResult CastSpell(Unit* temporaryCaster, Unit* Victim, SpellEntry const* spellInfo, uint32 triggeredFlags, Item* castItem = nullptr, Aura* triggeredByAura = nullptr, ObjectGuid originalCaster = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
 
     protected:
         uint32      m_spellId;

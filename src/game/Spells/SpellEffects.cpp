@@ -55,6 +55,7 @@
 #include "Movement/MoveSpline.h"
 #include "AI/ScriptDevAI/include/sc_grid_searchers.h"
 #include "Maps/InstanceData.h"
+#include "Entities/Transports.h"
 
 pEffect SpellEffects[MAX_SPELL_EFFECTS] =
 {
@@ -5835,6 +5836,9 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
             m_caster->AI()->JustSummoned(NewSummon);
     }
 
+    if (GenericTransport* transport = m_caster->GetTransport())
+        transport->AddPetToTransport(m_caster, NewSummon);
+
     m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON_PET), NewSummon->GetPackGUID());
 }
 
@@ -8218,7 +8222,8 @@ void Spell::EffectActivateObject(SpellEffectIndex eff_idx)
                     break;
                 case 36546:         // no delay meant to happen - activate trap immediately
                 case 38054:
-                    gameObjTarget->Use(m_caster);
+                case 39844:
+                    gameObjTarget->Use(m_caster, m_spellInfo);
                     break;
                 default:
                 {

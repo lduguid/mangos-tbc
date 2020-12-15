@@ -30,9 +30,10 @@ typedef std::set<WorldObject*> PassengerSet;
 class GenericTransport : public GameObject
 {
     public:
-        GenericTransport() : m_passengerTeleportIterator(m_passengers.end()) {}
+        GenericTransport() : m_passengerTeleportIterator(m_passengers.end()), m_pathProgress(0), m_movementStarted(0) {}
         bool AddPassenger(Unit* passenger);
         bool RemovePassenger(Unit* passenger);
+        bool AddPetToTransport(Unit* passenger, Pet* pet);
 
         void UpdatePosition(float x, float y, float z, float o);
         void UpdatePassengerPosition(WorldObject* object);
@@ -52,15 +53,20 @@ class GenericTransport : public GameObject
             CalculatePassengerOffset(x, y, z, o, GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
         }
 
+        void CalculatePassengerOrientation(float& o) const;
+
         static void CalculatePassengerPosition(float& x, float& y, float& z, float* o, float transX, float transY, float transZ, float transO);
         static void CalculatePassengerOffset(float& x, float& y, float& z, float* o, float transX, float transY, float transZ, float transO);
 
-        virtual uint32 GetPathProgress() const = 0;
+        uint32 GetPathProgress() const { return m_pathProgress; }
     protected:
         void UpdatePassengerPositions(PassengerSet& passengers);
 
         PassengerSet m_passengers;
         PassengerSet::iterator m_passengerTeleportIterator;
+
+        uint32 m_pathProgress; // for MO transport its full time since start for normal time in cycle
+        uint32 m_movementStarted;
 };
 
 class ElevatorTransport : public GenericTransport
@@ -70,9 +76,7 @@ class ElevatorTransport : public GenericTransport
             float rotation0 = 0.0f, float rotation1 = 0.0f, float rotation2 = 0.0f, float rotation3 = 0.0f, uint32 animprogress = GO_ANIMPROGRESS_DEFAULT, GOState go_state = GO_STATE_READY) override;
         void Update(const uint32 diff) override;
 
-        uint32 GetPathProgress() const override;
     private:
-        uint32 m_pathProgress;
         TransportAnimation const* m_animationInfo;
         uint32 m_currentSeg;
 };
@@ -88,12 +92,10 @@ class Transport : public GenericTransport
         uint32 GetPeriod() const { return m_period; }
         void SetPeriod(uint32 period) { m_period = period; }
 
-        uint32 GetPathProgress() const override { return m_pathProgress; }
-
         KeyFrameVec const& GetKeyFrames() const { return m_transportTemplate.keyFrames; }
     private:
         void TeleportTransport(uint32 newMapid, float x, float y, float z, float o);
-        void UpdateForMap(Map const* targetMap);
+        void UpdateForMap(Map const* targetMap, bool newMap);
         void DoEventIfAny(TaxiPathNodeEntry const& node, bool departure);
         void MoveToNextWayPoint();                          // move m_next/m_cur to next points
         float CalculateSegmentPos(float perc);
@@ -108,7 +110,6 @@ class Transport : public GenericTransport
         KeyFrameVec::const_iterator m_currentFrame;
         KeyFrameVec::const_iterator m_nextFrame;
         uint32 m_pathTime;
-        uint32 m_pathProgress;
 
         uint32 m_period;
 

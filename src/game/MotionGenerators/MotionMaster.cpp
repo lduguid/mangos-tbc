@@ -365,24 +365,14 @@ void MotionMaster::MoveStay(float x, float y, float z, float o, bool asMain)
     Mutate(new StayMovementGenerator(x, y, z, o));
 }
 
-void MotionMaster::MovePoint(uint32 id, Position& position, ForcedMovement forcedMovement, bool generatePath)
+void MotionMaster::MovePoint(uint32 id, Position const& position, ForcedMovement forcedMovement/* = FORCED_MOVEMENT_NONE*/, float speed/* = 0.f*/, bool generatePath/* = true*/)
 {
-    MovePoint(id, position.x, position.y, position.z, position.o, forcedMovement, generatePath);
+    Mutate(new PointMovementGenerator(id, position.x, position.y, position.z, position.o, generatePath, forcedMovement, speed));
 }
 
 void MotionMaster::MovePoint(uint32 id, float x, float y, float z, ForcedMovement forcedMovement/* = FORCED_MOVEMENT_NONE*/, bool generatePath/* = true*/)
 {
-    return MovePoint(id, x, y, z, 0, forcedMovement, generatePath);
-}
-
-void MotionMaster::MovePoint(uint32 id, float x, float y, float z, float o, ForcedMovement forcedMovement/* = FORCED_MOVEMENT_NONE*/, bool generatePath/* = true*/)
-{
-    if (o != 0.f)
-        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s targeted point (Id: %u X: %f Y: %f Z: %f O: %f)", m_owner->GetGuidStr().c_str(), id, x, y, z, o);
-    else
-        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s targeted point (Id: %u X: %f Y: %f Z: %f)", m_owner->GetGuidStr().c_str(), id, x, y, z);
-
-    Mutate(new PointMovementGenerator(id, x, y, z, o, generatePath, forcedMovement));
+    return MovePoint(id, Position(x, y, z, 0.f), forcedMovement, 0.f, generatePath);
 }
 
 void MotionMaster::MovePointTOL(uint32 id, float x, float y, float z, bool takeOff, ForcedMovement forcedMovement/* = FORCED_MOVEMENT_NONE*/)
@@ -412,9 +402,10 @@ void MotionMaster::MovePath(std::vector<G3D::Vector3>& path, float o, ForcedMove
     Mutate(new FixedPathMovementGenerator(path, o, forcedMovement, flying));
 }
 
-void MotionMaster::MovePath(int32 pathId, WaypointPathOrigin wpOrigin /*= PATH_NO_PATH*/, ForcedMovement forcedMovement, bool flying)
+void MotionMaster::MovePath(int32 pathId, WaypointPathOrigin wpOrigin /*= PATH_NO_PATH*/, ForcedMovement forcedMovement, bool flying, float speed, bool cyclic)
 {
-    Mutate(new FixedPathMovementGenerator(*m_owner, pathId, wpOrigin, forcedMovement, flying));
+    m_currentPathId = pathId;
+    Mutate(new FixedPathMovementGenerator(*m_owner, pathId, wpOrigin, forcedMovement, flying, speed, 0, cyclic));
 }
 
 void MotionMaster::MoveRetreat(float x, float y, float z, float o, uint32 delay)
@@ -504,15 +495,15 @@ void MotionMaster::MoveCharge(Unit& target, float speed, uint32 id/* = EVENT_CHA
     if (m_owner->hasUnitState(UNIT_STAT_NO_FREE_MOVE))
         return;
 
-    WorldLocation pos;
+    Position pos;
     target.GetFirstCollisionPosition(pos, target.GetCombatReach(), target.GetAngle(m_owner));
 
-    pos.coord_z += 1; // blizzlike
+    pos.z += 1; // blizzlike
     Movement::MoveSplineInit init(*m_owner);
     init.SetWalk(false);
     init.SetVelocity(speed);
     init.SetFacing(&target);
-    init.MoveTo(pos.coord_x, pos.coord_y, pos.coord_z, true);
+    init.MoveTo(pos.x, pos.y, pos.z, true);
 
     Mutate(new EffectMovementGenerator(init, id, false));
 }

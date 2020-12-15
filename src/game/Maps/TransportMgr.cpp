@@ -32,7 +32,7 @@ void TransportMgr::LoadTransportAnimationAndRotation()
             AddPathNodeToTransport(anim->TransportEntry, anim->TimeSeg, anim);
 }
 
-TransportTemplate const* TransportMgr::GetTransportTemplate(uint32 entry)
+TransportTemplate* TransportMgr::GetTransportTemplate(uint32 entry)
 {
     auto itr = m_transportTemplates.find(entry);
     if (itr != m_transportTemplates.end())
@@ -49,6 +49,7 @@ void TransportMgr::LoadTransportTemplates()
         if (data && data->type == GAMEOBJECT_TYPE_MO_TRANSPORT)
         {
             TransportTemplate& transportTemplate = m_transportTemplates[entry];
+            transportTemplate.entry = entry;
             if (!GenerateWaypoints(data, transportTemplate))
                 m_transportTemplates.erase(entry);
         }

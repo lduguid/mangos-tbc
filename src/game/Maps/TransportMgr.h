@@ -16,8 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _TRANSPORT_SYSTEM_H
-#define _TRANSPORT_SYSTEM_H
+#ifndef _TRANSPORT_MGR_H
+#define _TRANSPORT_MGR_H
 
 #include "Platform/Define.h"
 #include "Server/DBCStructure.h"
@@ -109,7 +109,7 @@ class TransportMgr
             return nullptr;
         }
 
-        TransportTemplate const* GetTransportTemplate(uint32 entry);
+        TransportTemplate* GetTransportTemplate(uint32 entry);
 
         void LoadTransportTemplates();
 

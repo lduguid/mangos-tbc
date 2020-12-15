@@ -135,6 +135,10 @@ void GameObject::AddToWorld()
         if (AI())
             AI()->JustSpawned();
     }
+
+    // Make active if required
+    if (GetGOInfo()->ExtraFlags & GAMEOBJECT_EXTRA_FLAG_ACTIVE)
+        SetActiveObjectState(true);
 }
 
 void GameObject::RemoveFromWorld()
@@ -1247,7 +1251,7 @@ void GameObject::SwitchDoorOrButton(bool activate, bool alternative /* = false *
         SetGoState(GO_STATE_READY);
 }
 
-void GameObject::Use(Unit* user)
+void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
 {
     // user must be provided
     MANGOS_ASSERT(user || PrintEntryError("GameObject::Use (without user)"));
@@ -1259,7 +1263,7 @@ void GameObject::Use(Unit* user)
     bool originalCaster = true;
 
     if (user->IsPlayer() && GetGoType() != GAMEOBJECT_TYPE_TRAP) // workaround for GO casting
-        if (!m_goInfo->IsUsableMounted())
+        if (!spellInfo && !m_goInfo->IsUsableMounted())
             user->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
 
     // test only for exist cooldown data (cooldown timer used for door/buttons reset that not have use cooldown)
@@ -1275,6 +1279,9 @@ void GameObject::Use(Unit* user)
     bool scriptReturnValue = user->GetTypeId() == TYPEID_PLAYER && sScriptDevAIMgr.OnGameObjectUse((Player*)user, this);
     if (!scriptReturnValue)
         GetMap()->ScriptsStart(sGameObjectTemplateScripts, GetEntry(), spellCaster, this);
+
+    if (AI())
+        AI()->OnUse(user, spellInfo);
 
     sWorldState.HandleGameObjectUse(this, user);
 
@@ -1847,14 +1854,14 @@ void GameObject::Use(Unit* user)
     if (!spellId)
         return;
 
-    SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-    if (!spellInfo)
+    SpellEntry const* triggeredSpellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+    if (!triggeredSpellInfo)
     {
         sLog.outError("WORLD: unknown spell id %u at use action for gameobject (Entry: %u GoType: %u )", spellId, GetEntry(), GetGoType());
         return;
     }
 
-    Spell* spell = new Spell(spellCaster, spellInfo, triggeredFlags, originalCaster ? GetObjectGuid() : ObjectGuid());
+    Spell* spell = new Spell(spellCaster, triggeredSpellInfo, triggeredFlags, originalCaster ? GetObjectGuid() : ObjectGuid());
 
     // spell target is user of GO
     SpellCastTargets targets;
@@ -1933,6 +1940,27 @@ void GameObject::UpdateModel()
     m_model = GameObjectModel::construct(this);
     if (m_model)
         GetMap()->InsertGameObjectModel(*m_model);
+}
+
+void GameObject::AddModelToMap()
+{
+    if (!m_model)
+        return;
+
+    if (!GetMap()->ContainsGameObjectModel(*m_model))
+    {
+        m_model->Relocate(*this);
+        GetMap()->InsertGameObjectModel(*m_model);
+    }
+}
+
+void GameObject::RemoveModelFromMap()
+{
+    if (!m_model)
+        return;
+
+    if (GetMap()->ContainsGameObjectModel(*m_model))
+        GetMap()->RemoveGameObjectModel(*m_model);
 }
 
 void GameObject::UpdateModelPosition()
@@ -2493,6 +2521,49 @@ SpellEntry const* GameObject::GetSpellForLock(Player const* player) const
     }
 
     return nullptr;
+}
+
+SpellCastResult GameObject::CastSpell(Unit* temporaryCaster, Unit* Victim, uint32 spellId, uint32 triggeredFlags, Item* castItem, Aura* triggeredByAura, ObjectGuid originalCaster, SpellEntry const* triggeredBy)
+{
+    return CastSpell(temporaryCaster, Victim, sSpellTemplate.LookupEntry<SpellEntry>(spellId), triggeredFlags, castItem, triggeredByAura, originalCaster, triggeredBy);
+}
+
+SpellCastResult GameObject::CastSpell(Unit* temporaryCaster, Unit* Victim, SpellEntry const* spellInfo, uint32 triggeredFlags, Item* castItem, Aura* triggeredByAura, ObjectGuid originalCaster, SpellEntry const* triggeredBy)
+{
+    if (!spellInfo)
+    {
+        if (triggeredByAura)
+            sLog.outError("CastSpell: unknown spell by caster: %s triggered by aura %u (eff %u)", GetGuidStr().c_str(), triggeredByAura->GetId(), triggeredByAura->GetEffIndex());
+        else
+            sLog.outError("CastSpell: unknown spell by caster: %s", GetGuidStr().c_str());
+        return SPELL_NOT_FOUND;
+    }
+
+    if (castItem)
+        DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "WORLD: cast Item spellId - %i", spellInfo->Id);
+
+    if (triggeredByAura)
+    {
+        if (!originalCaster)
+            originalCaster = triggeredByAura->GetCasterGuid();
+
+        triggeredBy = triggeredByAura->GetSpellProto();
+    }
+
+    Spell* spell = new Spell(temporaryCaster, spellInfo, triggeredFlags, GetObjectGuid(), triggeredBy);
+
+    SpellCastTargets targets;
+    targets.setUnitTarget(Victim);
+
+    if (spellInfo->Targets & TARGET_FLAG_DEST_LOCATION)
+        targets.setDestination(Victim->GetPositionX(), Victim->GetPositionY(), Victim->GetPositionZ());
+    if (spellInfo->Targets & TARGET_FLAG_SOURCE_LOCATION)
+        if (WorldObject* caster = spell->GetCastingObject())
+            targets.setSource(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ());
+
+    spell->m_CastItem = castItem;
+    spell->SetTrueCaster(this);
+    return spell->SpellStart(&targets, triggeredByAura);
 }
 
 QuaternionData GameObject::GetWorldRotation() const
