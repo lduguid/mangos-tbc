@@ -327,10 +327,12 @@ Unit::Unit() :
     m_regenTimer(0),
     m_combatData(new CombatData(this)),
     m_combatManager(this),
+    m_guardianPetsIterator(m_guardianPets.end()),
     m_spellUpdateHappening(false),
     m_spellProcsHappening(false),
     m_ignoreRangedTargets(false),
-    m_auraUpdateMask(0)
+    m_auraUpdateMask(0),
+    m_isMountOverriden(false), m_overridenMountId(0)
 {
     m_objectType |= TYPEMASK_UNIT;
     m_objectTypeId = TYPEID_UNIT;
@@ -547,13 +549,7 @@ void Unit::TriggerEvadeEvents()
     if (m_isCreatureLinkingTrigger)
         GetMap()->GetCreatureLinkingHolder()->DoCreatureLinkingEvent(LINKING_EVENT_EVADE, static_cast<Creature*>(this));
 
-
-    for (auto &guardianGuid : m_guardianPets)
-    {
-        if (auto pet = GetMap()->GetPet(guardianGuid))
-            if (pet->AI())
-                pet->AI()->EnterEvadeMode();
-    }
+    CallForAllControlledUnits([](Unit* unit) { unit->HandleExitCombat(); }, CONTROLLED_PET | CONTROLLED_GUARDIANS | CONTROLLED_CHARM | CONTROLLED_TOTEMS);
 }
 
 void Unit::EvadeTimerExpired()
@@ -825,22 +821,6 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
             victim->SetStandState(UNIT_STAND_STATE_STAND);
     }
 
-    if (!damage)
-    {
-        // Rage from physical damage received - extend to all units
-        if (cleanDamage && cleanDamage->damage && (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL) && victim->GetTypeId() == TYPEID_PLAYER && (victim->GetPowerType() == POWER_RAGE))
-            static_cast<Player*>(victim)->RewardRage(cleanDamage->damage, 0, false);
-
-        return 0;
-    }
-
-    DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageStart");
-
-    uint32 health = victim->GetHealth();
-    DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "deal dmg:%d to health:%d ", damage, health);
-
-    // duel ends when player has 1 or less hp
-    bool duel_hasEnded = false;
     if (dealer)
     {
         // Rage from Damage made (only from direct weapon damage)
@@ -857,7 +837,7 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
                     else
                         weaponSpeedHitFactor = uint32(dealer->GetAttackTime(cleanDamage->attackType) / 1000.0f * 3.5f);
 
-                    static_cast<Player*>(dealer)->RewardRage(damage, weaponSpeedHitFactor, true);
+                    static_cast<Player*>(dealer)->RewardRage(cleanDamage->damage, weaponSpeedHitFactor, true);
 
                     break;
                 }
@@ -868,7 +848,7 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
                     else
                         weaponSpeedHitFactor = uint32(dealer->GetAttackTime(cleanDamage->attackType) / 1000.0f * 1.75f);
 
-                    static_cast<Player*>(dealer)->RewardRage(damage, weaponSpeedHitFactor, true);
+                    static_cast<Player*>(dealer)->RewardRage(cleanDamage->damage, weaponSpeedHitFactor, true);
 
                     break;
                 }
@@ -876,7 +856,27 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
                     break;
             }
         }
+    }
+ 
+    if (!damage)
+    {
+        // Rage from physical damage received - extend to all units
+        if (cleanDamage && cleanDamage->damage && (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL) && victim->GetTypeId() == TYPEID_PLAYER && (victim->GetPowerType() == POWER_RAGE))
+            if (cleanDamage->hitOutCome != MELEE_HIT_DODGE && cleanDamage->hitOutCome != MELEE_HIT_PARRY)
+                static_cast<Player*>(victim)->RewardRage(cleanDamage->damage, 0, false);
 
+        return 0;
+    }
+
+    DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageStart");
+
+    uint32 health = victim->GetHealth();
+    DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "deal dmg:%d to health:%d ", damage, health);
+
+    // duel ends when player has 1 or less hp
+    bool duel_hasEnded = false;
+    if (dealer)
+    {
         if (dealer->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) && victim->GetTypeId() == TYPEID_PLAYER && static_cast<Player*>(victim)->duel && damage >= (health - 1))
         {
             // prevent kill only if killed in duel and killed by opponent or opponent controlled creature
@@ -1144,14 +1144,15 @@ void Unit::HandleDamageDealt(Unit* dealer, Unit* victim, uint32& damage, CleanDa
     if (victim->GetTypeId() == TYPEID_PLAYER)                               // victim is a player
     {
         // Rage from damage received
-        if (dealer != victim && victim->GetPowerType() == POWER_RAGE)
-            ((Player*)victim)->RewardRage(cleanDamage ? cleanDamage->damage : 0, 0, false);
+        if (dealer != victim && victim->GetPowerType() == POWER_RAGE) // player doesnt get rage when he parries
+            if (cleanDamage && cleanDamage->damage && cleanDamage->hitOutCome != MELEE_HIT_DODGE && cleanDamage->hitOutCome != MELEE_HIT_PARRY)
+                static_cast<Player*>(victim)->RewardRage(cleanDamage->damage, 0, false);
 
         // random durability for items (HIT TAKEN)
         if (roll_chance_f(sWorld.getConfig(CONFIG_FLOAT_RATE_DURABILITY_LOSS_DAMAGE)))
         {
             EquipmentSlots slot = EquipmentSlots(urand(0, EQUIPMENT_SLOT_END - 1));
-            ((Player*)victim)->DurabilityPointLossForEquipSlot(slot);
+            static_cast<Player*>(victim)->DurabilityPointLossForEquipSlot(slot);
         }
     }
 
@@ -1191,7 +1192,7 @@ void Unit::HandleDamageDealt(Unit* dealer, Unit* victim, uint32& damage, CleanDa
     if (duel_hasEnded)
     {
         MANGOS_ASSERT(victim->GetTypeId() == TYPEID_PLAYER);
-        Player* he = (Player*)victim;
+        Player* he = static_cast<Player*>(victim);
 
         MANGOS_ASSERT(he->duel);
 
@@ -1857,7 +1858,7 @@ void Unit::CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* calcDamageInfo, W
         {
             calcDamageInfo->TargetState = VICTIMSTATE_PARRY;
             calcDamageInfo->procEx |= PROC_EX_PARRY;
-            calcDamageInfo->cleanDamage = 0;
+            calcDamageInfo->cleanDamage += calcDamageInfo->totalDamage;
             calcDamageInfo->totalDamage = 0;
 
             for (uint8 i = 0; i < m_weaponDamageInfo.weapon[calcDamageInfo->attackType].lines; i++)
@@ -1869,7 +1870,7 @@ void Unit::CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* calcDamageInfo, W
         {
             calcDamageInfo->TargetState = VICTIMSTATE_DODGE;
             calcDamageInfo->procEx |= PROC_EX_DODGE;
-            calcDamageInfo->cleanDamage = 0;
+            calcDamageInfo->cleanDamage += calcDamageInfo->totalDamage;
             calcDamageInfo->totalDamage = 0;
 
             for (uint8 i = 0; i < m_weaponDamageInfo.weapon[calcDamageInfo->attackType].lines; i++)
@@ -2070,10 +2071,10 @@ void Unit::DealMeleeDamage(CalcDamageInfo* calcDamageInfo, bool durabilityLoss)
                     if (owner->CanJoinInAttacking(victim))
                         owner->EngageInCombatWithAggressor(victim);
 
-            for (auto m_guardianPet : m_guardianPets)
-                if (Unit* pet = (Unit*)GetMap()->GetPet(m_guardianPet))
-                    if (pet->CanJoinInAttacking(victim))
-                        pet->EngageInCombatWithAggressor(victim);
+            for (m_guardianPetsIterator = m_guardianPets.begin(); m_guardianPetsIterator != m_guardianPets.end();)
+                if (Pet* guardian = GetMap()->GetPet(*(m_guardianPetsIterator++)))
+                    if (guardian->CanJoinInAttacking(victim))
+                        guardian->EngageInCombatWithAggressor(victim);
         }
     }
 
@@ -6811,6 +6812,8 @@ void Unit::AddGuardian(Pet* pet)
 
 void Unit::RemoveGuardian(Pet* pet)
 {
+    if (m_guardianPetsIterator != m_guardianPets.end() && *m_guardianPetsIterator == pet->GetObjectGuid())
+        ++m_guardianPetsIterator;
     m_guardianPets.erase(pet->GetObjectGuid());
 }
 
@@ -6830,9 +6833,9 @@ void Unit::RemoveGuardians()
 Pet* Unit::FindGuardianWithEntry(uint32 entry)
 {
     for (auto m_guardianPet : m_guardianPets)
-        if (Pet* pet = GetMap()->GetPet(m_guardianPet))
-            if (pet->GetEntry() == entry)
-                return pet;
+        if (Pet* guardian = GetMap()->GetPet(m_guardianPet))
+            if (guardian->GetEntry() == entry)
+                return guardian;
 
     return nullptr;
 }
@@ -6842,8 +6845,8 @@ uint32 Unit::CountGuardiansWithEntry(uint32 entry)
     uint32 count = 0;
 
     for (auto m_guardianPet : m_guardianPets)
-        if (Pet* pet = GetMap()->GetPet(m_guardianPet))
-            if (pet->GetEntry() == entry)
+        if (Pet* guardian = GetMap()->GetPet(m_guardianPet))
+            if (guardian->GetEntry() == entry)
                 count++;
 
     return count;
@@ -8040,16 +8043,25 @@ bool Unit::Mount(uint32 displayid, const Aura* aura/* = nullptr*/)
         return false;
 
     RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_MOUNTING);
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, displayid);
+    if (!m_isMountOverriden)
+        SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, displayid);
+    else
+        SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, m_overridenMountId);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
     return true;
 }
 
 bool Unit::Unmount(const Aura* aura/* = nullptr*/)
 {
-    // Custom mount (non-aura such as taxi or command) overwrites aura mounts, do not dismount on aura removal
-    if (!IsMounted() || (aura && uint32(aura->GetAmount()) != GetMountID()))
+    if (!IsMounted())
         return false;
+
+    if (aura)
+    {
+        // Custom mount (non-aura such as taxi or command) overwrites aura mounts, do not dismount on aura removal
+        if (uint32(aura->GetAmount()) != GetMountID() && !m_isMountOverriden)
+            return false;
+    }
 
     RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_NOT_MOUNTED);
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
@@ -8958,11 +8970,14 @@ bool Unit::SelectHostileTarget()
 
     if (target)
     {
-        // needs a much better check, seems to cause quite a bit of trouble
-        SetInFront(target);
+        if (!AI()->IsTargetingRestricted())
+        {
+            // needs a much better check, seems to cause quite a bit of trouble
+            SetInFront(target);
 
-        if (oldTarget != target || GetTarget() != target)
-            AI()->AttackStart(target);
+            if (oldTarget != target || GetTarget() != target)
+                AI()->AttackStart(target);
+        }
 
         // check if currently selected target is reachable
         // NOTE: path alrteady generated from AttackStart()
@@ -11755,7 +11770,8 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
             charmedCreature->ClearTemporaryFaction();
 
             charmed->AttackStop(true, true);
-            charmed->m_events.KillAllEvents(true);
+            charmed->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
+            charmed->InterruptSpell(CURRENT_MELEE_SPELL);
 
             charmInfo->ResetCharmState();
             charmed->DeleteCharmInfo();
@@ -11776,7 +11792,6 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
             for (auto attacker : friendlyTargets)
             {
                 attacker->AttackStop(true, true);
-                attacker->m_events.KillAllEvents(true);
                 attacker->getThreatManager().modifyThreatPercent(charmed, -101);     // only remove the possessed creature from threat list because it can be filled by other players
                 attacker->AddThreat(this);
             }
@@ -11834,7 +11849,7 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
                 EngageInCombatWithAggressor(charmed);
 
             if (charmed->GetTypeId() == TYPEID_UNIT)
-                charmed->AddThreat(this, GetMaxHealth()); // Simulates being charmed
+                charmed->AddThreat(this, charmed->GetMaxHealth()); // Simulates being charmed
             this->AddThreat(charmed);
 
             if (charmed->GetTypeId() == TYPEID_UNIT)
@@ -12184,4 +12199,23 @@ uint32 Unit::GetModifierXpBasedOnDamageReceived(uint32 xp)
             xp *= (1.f - percentageHp);
     }
     return xp;
+}
+
+void Unit::OverrideMountDisplayId(uint32 newDisplayId)
+{
+    if (newDisplayId)
+    {
+        m_overridenMountId = newDisplayId;
+        if (GetAurasByType(SPELL_AURA_MOUNTED).size())
+            SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, newDisplayId);
+        m_isMountOverriden = true;
+    }
+    else
+    {
+        m_isMountOverriden = false;
+        auto& mountedAuras = GetAurasByType(SPELL_AURA_MOUNTED);
+        if (mountedAuras.size())
+            SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, mountedAuras.back()->GetAmount());
+        m_overridenMountId = 0;
+    }
 }

@@ -2322,6 +2322,8 @@ class Unit : public WorldObject
 
         uint32 GetDamageDoneByOthers() { return m_damageByOthers; }
         uint32 GetModifierXpBasedOnDamageReceived(uint32 xp);
+        
+        void OverrideMountDisplayId(uint32 newDisplayId);
 
         void UpdateSplinePosition();
     protected:
@@ -2477,6 +2479,7 @@ class Unit : public WorldObject
         ObjectGuid m_critterGuid;                           // pre-WotLK critter compatibility field
 
         GuidSet m_guardianPets;
+        GuidSet::iterator m_guardianPetsIterator;
 
         GuidSet m_charmedUnitsPrivate;                      // stores non-advertised active charmed unit guids (e.g. aoe charms)
 
@@ -2505,6 +2508,9 @@ class Unit : public WorldObject
         int8 m_comboPoints;
 
         uint32 m_damageByOthers;
+
+        bool m_isMountOverriden;
+        uint32 m_overridenMountId;
 
     private:                                                // Error traps for some wrong args using
         // this will catch and prevent build for any cases when all optional args skipped and instead triggered used non boolean type
@@ -2536,8 +2542,8 @@ void Unit::CallForAllControlledUnits(Func const& func, uint32 controlledMask)
 
     if (controlledMask & CONTROLLED_GUARDIANS)
     {
-        for (GuidSet::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end();)
-            if (Pet* guardian = _GetPet(*(itr++)))
+        for (m_guardianPetsIterator = m_guardianPets.begin(); m_guardianPetsIterator != m_guardianPets.end();)
+            if (Pet* guardian = GetMap()->GetPet(*(m_guardianPetsIterator++)))
                 func(guardian);
     }
 
@@ -2575,8 +2581,8 @@ bool Unit::CheckAllControlledUnits(Func const& func, uint32 controlledMask) cons
 
     if (controlledMask & CONTROLLED_GUARDIANS)
     {
-        for (GuidSet::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end();)
-            if (Pet const* guardian = _GetPet(*(itr++)))
+        for (auto m_guardianPet : m_guardianPets)
+            if (Pet* guardian = GetMap()->GetPet(m_guardianPet))
                 if (func(guardian))
                     return true;
     }
