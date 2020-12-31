@@ -149,12 +149,6 @@ enum
     NPC_FRANCLORN_FORGEWRIGHT           = 8888,
     NPC_GAERIYAN                        = 9299,
 
-    // quest 11521
-    SPELL_EXPOSE_RAZORTHORN_ROOT        = 44935,
-    SPELL_SUMMON_RAZORTHORN_ROOT        = 44941,
-    NPC_RAZORTHORN_RAVAGER              = 24922,
-    GO_RAZORTHORN_DIRT_MOUND            = 187073,
-
     //  for quest 10584
     SPELL_PROTOVOLTAIC_MAGNETO_COLLECTOR = 37136,
     NPC_ENCASED_ELECTROMENTAL           = 21731,
@@ -391,24 +385,6 @@ bool EffectDummyCreature_spell_dummy_npc(Unit* pCaster, uint32 uiSpellId, SpellE
 
                 pCreatureTarget->CastSpell(nullptr, 3617, TRIGGERED_OLD_TRIGGERED); // suicide spell
                 return true;
-            }
-            return true;
-        }
-        case SPELL_EXPOSE_RAZORTHORN_ROOT:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCreatureTarget->GetEntry() != NPC_RAZORTHORN_RAVAGER)
-                    return true;
-
-                if (GameObject* pMound = GetClosestGameObjectWithEntry(pCreatureTarget, GO_RAZORTHORN_DIRT_MOUND, 20.0f))
-                {
-                    if (pMound->GetRespawnTime() != 0)
-                        return true;
-
-                    pCreatureTarget->CastSpell(pCreatureTarget, SPELL_SUMMON_RAZORTHORN_ROOT, TRIGGERED_OLD_TRIGGERED);
-                    pMound->SetLootState(GO_JUST_DEACTIVATED);
-                }
             }
             return true;
         }
@@ -700,6 +676,18 @@ struct SplitDamage : public SpellScript
     }
 };
 
+struct TKDive : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    {
+        if (spell->m_spellInfo->Effect[effIdx] != SPELL_EFFECT_SCHOOL_DAMAGE)
+            return;
+
+        Unit* target = spell->GetUnitTarget();
+        spell->GetCaster()->AddThreat(target, 1000000.f);
+    }
+};
+
 void AddSC_spell_scripts()
 {
     Script* pNewScript = new Script;
@@ -724,6 +712,7 @@ void AddSC_spell_scripts()
     RegisterSpellScript<UseCorpse>("spell_use_corpse");
     RegisterSpellScript<RaiseDead>("spell_raise_dead");
     RegisterSpellScript<SplitDamage>("spell_split_damage");
+    RegisterSpellScript<TKDive>("spell_tk_dive");
     RegisterSpellScript<spell_battleground_banner_trigger>("spell_battleground_banner_trigger");
     RegisterSpellScript<spell_outdoor_pvp_banner_trigger>("spell_outdoor_pvp_banner_trigger");
 }

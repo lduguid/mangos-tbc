@@ -946,7 +946,6 @@ void instance_mount_hyjal::OnCreatureCreate(Creature* creature)
             }
             // no break
         }
-        case NPC_LESSER_INFERNAL: // need to despawn like wave mobs
         case NPC_GHOUL:
         case NPC_NECRO:
         case NPC_ABOMI:
@@ -962,6 +961,10 @@ void instance_mount_hyjal::OnCreatureCreate(Creature* creature)
                 m_waveSpawns.push_back(creature->GetObjectGuid());
             break;
         }
+        case NPC_TOWERING_INFERNAL:
+        case NPC_LESSER_DOOMGUARD:
+            m_additionalSpawns.push_back(creature->GetObjectGuid());
+            break;
         case NPC_INFERNAL_RELAY:
             m_infernalRelays.push_back(creature->GetObjectGuid());
             std::sort(m_infernalRelays.begin(), m_infernalRelays.end(), [](ObjectGuid const& a, ObjectGuid const& b)->bool
@@ -1018,7 +1021,7 @@ void instance_mount_hyjal::OnCreatureRespawn(Creature* creature)
 {
     switch (creature->GetEntry())
     {
-        case NPC_LESSER_INFERNAL: // need to despawn like wave mobs
+        case NPC_LESSER_DOOMGUARD: // need to despawn like wave mobs
         case NPC_GHOUL:
         case NPC_NECRO:
         case NPC_ABOMI:
@@ -1028,6 +1031,7 @@ void instance_mount_hyjal::OnCreatureRespawn(Creature* creature)
         case NPC_FROST:
         case NPC_INFERNAL:
         case NPC_STALK:
+        {
             ObjectGuid spawner = creature->GetSpawnerGuid(); // not loaded in map - guid is enough
             if (!spawner) // Static spawns in Scourge base should never grant XP, loot or reputation
             {
@@ -1036,6 +1040,15 @@ void instance_mount_hyjal::OnCreatureRespawn(Creature* creature)
                 creature->SetNoReputation(true);
                 return;
             }
+            break;
+        }
+        case NPC_INFERNAL_RELAY:
+        case NPC_INFERNAL_TARGET:
+            static_cast<CreatureAI*>(creature->AI())->SetDeathPrevention(true);
+            creature->SetCanEnterCombat(false); // on retail they enter combat, likely for some guardian purposes for the infernals - on our end they bug out friendlies
+            break;
+        case NPC_ANCIENT_WISP:
+            creature->SetCorpseDelay(5);
             break;
     }
 }
@@ -1161,9 +1174,6 @@ void instance_mount_hyjal::SetData(uint32 type, uint32 data)
     switch (type)
     {
         case TYPE_AZGALOR:
-            if (data == DONE)
-                SpawnArchimonde();
-            // no break
         case TYPE_WINTERCHILL:
         case TYPE_ANETHERON:
         case TYPE_KAZROGAL:
@@ -1187,6 +1197,12 @@ void instance_mount_hyjal::SetData(uint32 type, uint32 data)
             {
                 DespawnOverrun(BASE_ELF);
                 m_nextInvasionWaveTimer = 0;
+
+                if (Creature* archimonde = GetSingleCreatureFromStorage(NPC_ARCHIMONDE))
+                {
+                    archimonde->SetRespawnDelay(30, true);
+                    archimonde->ForcedDespawn();
+                }
             }
             break;
         case TYPE_WIN:
@@ -1298,7 +1314,7 @@ void instance_mount_hyjal::SpawnArchimonde()
 
     // Summon Archimonde
     if (Player* pPlayer = GetPlayerInMap())
-        pPlayer->SummonCreature(NPC_ARCHIMONDE, aArchimondeSpawnLoc[0], aArchimondeSpawnLoc[1], aArchimondeSpawnLoc[2], aArchimondeSpawnLoc[3], TEMPSPAWN_DEAD_DESPAWN, 0);
+        pPlayer->SummonCreature(NPC_ARCHIMONDE, aArchimondeSpawnLoc[0], aArchimondeSpawnLoc[1], aArchimondeSpawnLoc[2], aArchimondeSpawnLoc[3], TEMPSPAWN_MANUAL_DESPAWN, 0);
 }
 
 void instance_mount_hyjal::SpawnNextWave()
@@ -1510,6 +1526,7 @@ void instance_mount_hyjal::StartEvent(HyjalEvents eventId)
             break;
         case THRALL_WIN:
             RetreatBase(BASE_HORDE);
+            SpawnArchimonde();
             break;
     }
 }
@@ -1519,10 +1536,8 @@ void instance_mount_hyjal::DespawnWaveSpawns()
     DoUpdateWorldState(WORLD_STATE_MOUNT_HYJAL_WAVES, 0);
     DoUpdateWorldState(WORLD_STATE_MOUNT_HYJAL_ENABLE, 0);
     DoUpdateWorldState(WORLD_STATE_MOUNT_HYJAL_ENEMYCOUNT, 0);
-    for (ObjectGuid& guid : m_waveSpawns)
-        if (Creature* spawn = instance->GetCreature(guid))
-            spawn->ForcedDespawn();
-    m_waveSpawns.clear();
+    DespawnGuids(m_waveSpawns);
+    DespawnGuids(m_additionalSpawns);
 }
 
 void instance_mount_hyjal::DespawnBase(BaseArea index)

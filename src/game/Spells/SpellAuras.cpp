@@ -2002,6 +2002,7 @@ void Aura::TriggerSpell()
                 break;
             }
             case 38652:                                     // Spore Cloud
+            case 40106:                                     // Merge
             {
                 triggerCaster = GetCaster();
                 break;
@@ -2586,24 +2587,10 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             //{
             //    break;
             //}
-            case SPELLFAMILY_SHAMAN:
-            {
-                // Earth Shield
-                if ((GetSpellProto()->SpellFamilyFlags & uint64(0x40000000000)))
-                {
-                    // prevent double apply bonuses
-                    if (target->GetTypeId() != TYPEID_PLAYER || !((Player*)target)->GetSession()->PlayerLoading())
-                    {
-                        if (Unit* caster = GetCaster())
-                        {
-                            m_modifier.m_amount = caster->SpellHealingBonusDone(target, GetSpellProto(), m_modifier.m_amount, SPELL_DIRECT_DAMAGE);
-                            m_modifier.m_amount = target->SpellHealingBonusTaken(caster, GetSpellProto(), m_modifier.m_amount, SPELL_DIRECT_DAMAGE);
-                        }
-                    }
-                    return;
-                }
-                break;
-            }
+            //case SPELLFAMILY_SHAMAN:
+            //{
+            //    break;
+            //}
             case SPELLFAMILY_PRIEST:
             {
                 switch (GetId())
@@ -3075,20 +3062,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         else
                             ((Player*)owner)->RemovePet(PET_SAVE_REAGENTS);
                     }
-                    return;
-                }
-                case 41951:                             // Random Target - Supremus
-                {
-                    Unit* caster = GetCaster();
-                    if (!caster)
-                        return;
-                    if (apply)
-                    {
-                        caster->FixateTarget(target);
-                        caster->CastSpell(target, 41581, TRIGGERED_OLD_TRIGGERED);
-                    }
-                    else
-                        caster->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, target, caster);
                     return;
                 }
                 case 42515:                                 // Jarl Beam
@@ -4573,6 +4546,8 @@ void Aura::HandleInvisibilityDetect(bool apply, bool Real)
         for (auto aura : auras)
             target->GetVisibilityData().SetInvisibilityDetectMask(aura->GetModifier()->m_miscvalue, true);
     }
+    if (GetId() == 44855) // hack for nonexistant phasing system in tbc core
+        HandleInvisibility(apply, Real);
     if (Real && target->GetTypeId() == TYPEID_PLAYER)
         ((Player*)target)->GetCamera().UpdateVisibilityForOwner();
 }
@@ -5687,10 +5662,11 @@ void Aura::HandleAuraModStat(bool apply, bool /*Real*/)
         // -1 or -2 is all stats ( misc < -2 checked in function beginning )
         if (m_modifier.m_miscvalue < 0 || m_modifier.m_miscvalue == i)
         {
+            float amount = m_removeMode == AURA_REMOVE_BY_GAINED_STACK ? float(m_modifier.m_recentAmount) : float(m_modifier.m_amount);
             // m_target->ApplyStatMod(Stats(i), m_modifier.m_amount,apply);
-            target->HandleStatModifier(UnitMods(UNIT_MOD_STAT_START + i), TOTAL_VALUE, float(m_modifier.m_amount), apply);
+            target->HandleStatModifier(UnitMods(UNIT_MOD_STAT_START + i), TOTAL_VALUE, amount, apply);
             if (target->GetTypeId() == TYPEID_PLAYER || ((Creature*)target)->IsPet())
-                target->ApplyStatBuffMod(Stats(i), float(m_modifier.m_amount), apply);
+                target->ApplyStatBuffMod(Stats(i), amount, apply);
         }
     }
 }
