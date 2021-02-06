@@ -17,7 +17,7 @@
 /* ScriptData
 SDName: Boss_Cthun
 SD%Complete: 95
-SDComment: Transform spell has some minor core issues. Eject from stomach event contains workarounds because of the missing spells. Digestive Acid should be handled in core.
+SDComment: Transform spell has some minor core issues. Digestive Acid should be handled in core.
 SDCategory: Temple of Ahn'Qiraj
 EndScriptData */
 
@@ -33,6 +33,7 @@ enum
 
     // ***** Phase 1 ********
     SPELL_EYE_BEAM                  = 26134,
+    SPELL_EYE_BEAM_INIT             = 32950,                // Cast three times on victim at encounter start, then replaced by spell 26134 on random targets
     SPELL_DARK_GLARE                = 26029,
     SPELL_ROTATE_TRIGGER            = 26137,                // phase switch spell - triggers 26009 or 26136. These trigger the Dark Glare spell - 26029
     SPELL_ROTATE_360_LEFT           = 26009,
@@ -119,6 +120,7 @@ struct boss_eye_of_cthunAI : public Scripted_NoMovementAI
 
     CThunPhase m_Phase;
 
+    uint8 m_eyeBeamCount;
     uint32 m_uiBeamTimer;
     uint32 m_uiDarkGlareTimer;
     uint32 m_uiDarkGlareEndTimer;
@@ -132,6 +134,7 @@ struct boss_eye_of_cthunAI : public Scripted_NoMovementAI
         m_uiDarkGlareTimer      = 45 * IN_MILLISECONDS;
         m_uiDarkGlareEndTimer   = 40 * IN_MILLISECONDS;
         m_uiBeamTimer           = 0;
+        m_eyeBeamCount          = 0;
     }
 
     void Aggro(Unit* /*pWho*/) override
@@ -214,7 +217,20 @@ struct boss_eye_of_cthunAI : public Scripted_NoMovementAI
         // Eye Beam
         if (m_uiBeamTimer < uiDiff)
         {
-            if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+            // The first three casts of "Eye Beam" use a specific spell that always target Eye of C'Thun's victim
+            if (m_eyeBeamCount < 3)
+            {
+                if (m_creature->GetVictim())
+                {
+                    if (DoCastSpellIfCan(m_creature->GetVictim(), SPELL_EYE_BEAM_INIT) == CAST_OK)
+                    {
+                        m_uiBeamTimer = urand(2 * IN_MILLISECONDS, 3 * IN_MILLISECONDS);
+                        ++m_eyeBeamCount;
+                    }
+                }
+            }
+            // After the first three cast, random player is targeted with a second specific spell
+            else if (Unit* target = m_creature->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
             {
                 if (DoCastSpellIfCan(target, SPELL_EYE_BEAM) == CAST_OK)
                     m_uiBeamTimer = urand(2 * IN_MILLISECONDS, 3 * IN_MILLISECONDS);
@@ -862,6 +878,22 @@ struct CThunMouthTentacle : public AuraScript
     }
 };
 
+struct DigestiveAcidPeriodic : public AuraScript
+{
+    void OnPeriodicCalculateAmount(Aura* aura, uint32& /*amount*/) const override
+    {
+        if (aura->GetEffIndex() == EFFECT_INDEX_0)
+        {
+            if (Unit* target = aura->GetTarget())
+            {
+                // On every tick of the periodic damage, a new stack of Digestive Acid is applied
+                if (Unit* caster = aura->GetCaster())
+                    caster->CastSpell(target, SPELL_DIGESTIVE_ACID, TRIGGERED_OLD_TRIGGERED);
+            }
+        }
+    }
+};
+
 void AddSC_boss_cthun()
 {
     Script* pNewScript = new Script;
@@ -892,4 +924,5 @@ void AddSC_boss_cthun()
     RegisterAuraScript<PeriodicSummonEyeTrigger>("spell_cthun_periodic_eye_trigger");
     RegisterAuraScript<PeriodicRotate>("spell_cthun_periodic_rotate");
     RegisterAuraScript<CThunMouthTentacle>("spell_cthun_mouth_tentacle");
+    RegisterAuraScript<DigestiveAcidPeriodic>("spell_cthun_digestive_acid_periodic");
 }
