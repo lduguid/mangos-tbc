@@ -279,6 +279,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (15326,'spell_blackout'),
 (27827,'spell_spirit_of_redemption_heal'),
 (32676,'spell_consume_magic'),
+(33076,'spell_prayer_of_mending'),
 (34433,'spell_shadowfiend');
 
 -- Paladin

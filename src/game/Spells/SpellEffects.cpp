@@ -378,7 +378,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex eff_idx)
                     case 43657: // Electrical Storm - Akil'zon
                     {
                         if (Aura* aura = m_caster->GetAura(43648, EFFECT_INDEX_1))
-                            damage *= std::min(aura->GetAuraTicks(), uint32(3));
+                            damage *= aura->GetAuraTicks();
                         break;
                     }
                 }
@@ -4912,7 +4912,7 @@ void Spell::EffectDispel(SpellEffectIndex eff_idx)
             {
                 // do not remove positive auras if friendly target
                 //               negative auras if non-friendly target
-                if (holder->IsPositive() == m_caster->CanAssistSpell(unitTarget, m_spellInfo))
+                if ((holder->IsPositive() || holder->IsCharm()) == m_caster->CanAssistSpell(unitTarget, m_spellInfo))
                     continue;
             }
             dispelList.push_back(std::pair<SpellAuraHolder*, uint32>(holder, holder->GetStackAmount()));

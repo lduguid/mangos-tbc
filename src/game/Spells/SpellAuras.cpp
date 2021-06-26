@@ -367,7 +367,7 @@ Aura::Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* curr
             }
         }
 
-        // scripting location for custom aura damage
+        // scripting location for custom aura damage - needs to be moved to spellscripting for proper checkcast interaction
         switch (spellproto->Id)
         {
             case 6143: // Frost Ward
@@ -5198,10 +5198,7 @@ void Aura::HandleAuraPowerBurn(bool apply, bool /*Real*/)
 
 void Aura::HandlePrayerOfMending(bool apply, bool /*Real*/)
 {
-    if (apply) // only on initial cast apply SP
-        if (const SpellEntry* entry = GetSpellProto())
-            if (GetHolder()->GetAuraCharges() == entry->procCharges)
-                m_modifier.m_amount = GetCaster()->SpellHealingBonusDone(GetTarget(), GetSpellProto(), m_modifier.m_amount, HEAL);
+
 }
 
 void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
@@ -8732,6 +8729,14 @@ bool SpellAuraHolder::IsSaveToDbHolder() const
         (GetTrackedAuraType() == TRACK_AURA_TYPE_NOT_TRACKED || (GetTrackedAuraType() == TRACK_AURA_TYPE_SINGLE_TARGET && GetCasterGuid() == GetTarget()->GetObjectGuid()));
 }
 
+bool SpellAuraHolder::IsCharm() const
+{
+    for (auto m_aura : m_auras)
+        if (m_aura && IsCharmAura(m_spellProto, m_aura->GetEffIndex()))
+            return true;
+    return false;
+}
+
 void SpellAuraHolder::UnregisterAndCleanupTrackedAuras()
 {
     TrackedAuraType trackedType = GetTrackedAuraType();
@@ -8948,10 +8953,33 @@ void SpellAuraHolder::OnDispel(Unit* dispeller, uint32 dispellingSpellId, uint32
         script->OnDispel(this, dispeller, dispellingSpellId, originalStacks);
 }
 
+uint32 Aura::CalculateAuraEffectValue(Unit* caster, Unit* target, SpellEntry const* spellProto, SpellEffectIndex effIdx, uint32 value)
+{
+    switch (spellProto->EffectApplyAuraName[effIdx])
+    {
+        case SPELL_AURA_SCHOOL_ABSORB:
+        {
+            float DoneActualBenefit = 0.0f;
+            if (SpellBonusEntry const* bonus = sSpellMgr.GetSpellBonusData(spellProto->Id))
+            {
+                DoneActualBenefit = caster->SpellBaseHealingBonusDone(GetSpellSchoolMask(spellProto)) * bonus->direct_damage;
+                DoneActualBenefit *= caster->CalculateLevelPenalty(spellProto);
+
+                value += (int32)DoneActualBenefit;
+            }
+            return value;
+        }
+    }
+    return value;
+}
+
 int32 Aura::OnAuraValueCalculate(Unit* caster, int32 currentValue)
 {
     if (AuraScript* script = GetAuraScript())
-        return script->OnAuraValueCalculate(this, caster, currentValue);
+    {
+        AuraCalcData data(this, caster, GetTarget(), GetSpellProto(), GetEffIndex());
+        return script->OnAuraValueCalculate(data, currentValue);
+    }
     return currentValue;
 }
 
