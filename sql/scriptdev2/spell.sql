@@ -74,14 +74,19 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (28417,'spell_trigger_KT_add'),
 (28455,'spell_trigger_KT_add'),
 (28441,'spell_ab_effect_000'),
+(28617,'spell_web_wrap'),
+(28628,'spell_clear_web_wrap'),
+(28629,'spell_clear_web_wrap'),
 (28732,'spell_faerlina_widow_embrace'),
 (28749,'spell_check_gothik_side'),
 (28781,'spell_gothik_side_assault'),
 (29201,'spell_loatheb_corrupted_mind'),
 (29330,'spell_sapphiron_despawn_buffet'),
+(29351,'spell_plague_wave_controller'),
 (29874,'spell_gothik_side_assault'),
 (29875,'spell_check_gothik_side'),
 (29897,'spell_icecrown_guardian_periodic'),
+(30114,'spell_plague_wave_controller'),
 (30132,'spell_sapphiron_iceblock');
 
 -- TBC
