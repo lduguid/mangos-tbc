@@ -1615,11 +1615,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
-                case 28238:                                 // Zombie Chow Search
-                {
-                    m_caster->SetHealth(m_caster->GetHealth() + m_caster->GetMaxHealth() * 0.05f); // Gain 5% heal
-                    return;
-                }
                 case 28359:                                 // Trigger Teslas
                 {
                     if (unitTarget)
@@ -1675,15 +1670,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                                       : 29278;              // Summon Toxic Helboar Meat
 
                     m_caster->CastSpell(m_caster, spell_id, TRIGGERED_OLD_TRIGGERED, nullptr);
-                    return;
-                }
-                case 29682:                                 // Call All Zombie Chow
-                {
-                    if (unitTarget->IsAlive())
-                     {
-                        float radius = GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[eff_idx]));
-                        unitTarget->GetMotionMaster()->MoveFollow(m_caster, radius, 0);
-                    }
                     return;
                 }
                 case 29767:                                 // Overload
@@ -6731,17 +6717,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(nullptr, 27747, TRIGGERED_OLD_TRIGGERED);  // Steam Tank Passive
                     return;
                 }
-                case 28236:                                 // Zombie Chow Search
-                {
-                    if (!unitTarget->IsAlive())
-                        return;
-
-                    m_caster->SetTarget(nullptr);
-                    m_caster->SetFacingToObject(unitTarget);
-                    if (m_caster->CastSpell(unitTarget, 28239, TRIGGERED_NONE) == SPELL_CAST_OK)    // Zombie Chow Search - Insta kill, single target
-                        DoScriptText(-1533119, m_caster, unitTarget);
-                    return;
-                }
                 case 28338:                                 // Magnetic Pull
                 case 28339:                                 // Magnetic Pull
                 {
@@ -6759,20 +6734,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         return;
 
                     unitTarget->CastSpell(unitTarget, 28342, TRIGGERED_OLD_TRIGGERED);
-                    return;
-                }
-                case 28374:                                 // Decimate (Naxxramas: Gluth)
-                {
-                    if (!unitTarget)
-                        return;
-
-                    // Return if not player, pet nor Zombie Chow NPC
-                    if (unitTarget->GetTypeId() == TYPEID_UNIT && !unitTarget->IsControlledByPlayer() && unitTarget->GetEntry() != 16360)
-                        return;
-
-                    int32 damage = unitTarget->GetHealth() - unitTarget->GetMaxHealth() * 0.05f;
-                    if (damage > 0)
-                        m_caster->CastCustomSpell(unitTarget, 28375, &damage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
                     return;
                 }
                 case 29336:                                 // Despawn Buffet
