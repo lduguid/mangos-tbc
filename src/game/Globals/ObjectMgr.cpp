@@ -925,6 +925,55 @@ CreatureClassLvlStats const* ObjectMgr::GetCreatureClassLvlStats(uint32 level, u
     return nullptr;
 }
 
+CreatureImmunityVector const* ObjectMgr::GetCreatureImmunitySet(uint32 entry, uint32 setId) const
+{
+    auto itr = m_creatureImmunities.find(entry);
+    if (itr == m_creatureImmunities.end())
+        return nullptr;
+
+    auto& setIds = (*itr).second;
+    auto setItr = setIds.find(setId);
+    if (setItr == setIds.end())
+        return nullptr;
+
+    return &(*setItr).second;
+}
+
+void ObjectMgr::LoadCreatureImmunities()
+{
+    uint32 count = 0;
+    QueryResult* result = WorldDatabase.Query("SELECT Entry, SetId, Type, Value FROM creature_immunities");
+
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+
+            uint32 entry = fields[0].GetUInt32();
+            if (!sCreatureStorage.LookupEntry<CreatureInfo>(entry))
+            {
+                sLog.outErrorDb("LoadCreatureImmunities: Entry %u does not exist.", entry);
+                continue;
+            }
+            uint32 setId = fields[1].GetUInt32();
+            uint32 type = fields[2].GetUInt32();
+            if (type >= MAX_SPELL_IMMUNITY)
+            {
+                sLog.outErrorDb("LoadCreatureImmunities: Invalid type %u.", type);
+                continue;
+            }
+            uint32 value = fields[3].GetUInt32();
+            m_creatureImmunities[entry][setId].push_back({ type, value });
+            ++count;
+        } while (result->NextRow());
+    }
+    delete result;
+
+    sLog.outString(">> Loaded %u creature_immunities definitions", count);
+    sLog.outString();
+}
+
 void ObjectMgr::LoadEquipmentTemplates()
 {
     sEquipmentStorage.Load(true);
@@ -1010,7 +1059,7 @@ CreatureModelInfo const* ObjectMgr::GetCreatureModelRandomGender(uint32 display_
 
 uint32 ObjectMgr::GetModelForRace(uint32 sourceModelId, uint32 racemask)
 {
-    uint32 modelId = 0;
+    uint32 modelId = sourceModelId;
 
     CreatureModelRaceMapBounds bounds = m_mCreatureModelRaceMap.equal_range(sourceModelId);
 
@@ -7248,8 +7297,20 @@ void ObjectMgr::LoadSpellTemplate()
     for (uint32 i = 1; i < sSpellTemplate.GetMaxEntry(); ++i)
     {
         SpellEntry const* spell = sSpellTemplate.LookupEntry<SpellEntry>(i);
-        if (spell && spell->Category)
-            sSpellCategoryStore[spell->Category].insert(i);
+        if (spell)
+        {
+            if (spell->Category)
+                sSpellCategoryStore[spell->Category].insert(i);
+
+            if (spell->SpellFamilyName == SPELLFAMILY_ROGUE)
+            {
+                for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                {
+                    if (spell->Effect[i] == SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY)
+                        m_roguePoisonEnchantIds[spell->EffectMiscValue[i]] = true;
+                }
+            }
+        }
 
         // DBC not support uint64 fields but SpellEntry have SpellFamilyFlags mapped at 2 uint32 fields
         // uint32 field already converted to bigendian if need, but must be swapped for correct uint64 bigendian view

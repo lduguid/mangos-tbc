@@ -1243,7 +1243,7 @@ class Player : public Unit
         void UpdateItemDuration(uint32 time, bool realtimeonly = false);
         void AddEnchantmentDurations(Item* item);
         void RemoveEnchantmentDurations(Item* item);
-        void RemoveAllEnchantments(EnchantmentSlot slot);
+        void RemoveAllEnchantments(EnchantmentSlot slot, bool arena = false);
         void AddEnchantmentDuration(Item* item, EnchantmentSlot slot, uint32 duration);
         void ApplyEnchantment(Item* item, EnchantmentSlot slot, bool apply, bool apply_dur = true, bool ignore_condition = false);
         void ApplyEnchantment(Item* item, bool apply);
@@ -1518,6 +1518,7 @@ class Player : public Unit
         void PetSpellInitialize() const;
         void CharmSpellInitialize() const;
         void PossessSpellInitialize();
+        void CharmCooldownInitialize(WorldPacket& data) const;
         void RemovePetActionBar() const;
 
         bool HasSpell(uint32 spell) const override;
@@ -1766,12 +1767,6 @@ class Player : public Unit
         void DurabilityPointLossForEquipSlot(EquipmentSlots slot);
         uint32 DurabilityRepairAll(bool cost, float discountMod, bool guildBank);
         uint32 DurabilityRepair(uint16 pos, bool cost, float discountMod, bool guildBank);
-
-        void SetLevitate(bool enable) override;
-        void SetCanFly(bool enable) override;
-        void SetFeatherFall(bool enable) override;
-        void SetHover(bool enable) override;
-        void SetWaterWalk(bool enable) override;
 
         void JoinedChannel(Channel* c);
         void LeftChannel(Channel* c);
@@ -2169,6 +2164,8 @@ class Player : public Unit
         void UnsummonPetIfAny();
         void ResummonPetTemporaryUnSummonedIfAny();
         bool IsPetNeedBeTemporaryUnsummoned(Pet* pet) const;
+        uint32 GetBGPetSpell() const { return m_BGPetSpell; }
+        void SetBGPetSpell(uint32 petSpell) { m_BGPetSpell = petSpell; }
 
         void SendCinematicStart(uint32 CinematicSequenceId);
 
@@ -2581,6 +2578,7 @@ class Player : public Unit
 
         // Temporary removed pet cache
         uint32 m_temporaryUnsummonedPetNumber;
+        uint32 m_BGPetSpell;
 
         ReputationMgr  m_reputationMgr;
 

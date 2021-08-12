@@ -143,12 +143,31 @@ inline bool IsAuraApplyEffects(SpellEntry const* entry, SpellEffectIndexMask mas
 
 inline bool IsSpellAppliesAura(SpellEntry const* spellInfo, uint32 effectMask = ((1 << EFFECT_INDEX_0) | (1 << EFFECT_INDEX_1) | (1 << EFFECT_INDEX_2)))
 {
-    for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         if (effectMask & (1 << i))
             if (IsAuraApplyEffect(spellInfo, SpellEffectIndex(i)))
                 return true;
 
     return false;
+}
+
+inline bool IsSpellWithNonAuraEffect(SpellEntry const* spellInfo)
+{
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (!IsAuraApplyEffect(spellInfo, SpellEffectIndex(i)))
+            return true;
+
+    return false;
+}
+
+inline uint32 GetAuraEffectMask(SpellEntry const* spellInfo)
+{
+    uint32 mask = 0;
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (IsAuraApplyEffect(spellInfo, SpellEffectIndex(i)))
+            mask |= (1 << i);
+
+    return mask;
 }
 
 inline bool IsEffectHandledImmediatelySpellLaunch(SpellEntry const* spellInfo, SpellEffectIndex effecIdx)
@@ -396,6 +415,16 @@ inline bool IsPossessCharmType(uint32 spellId)
     }
 }
 
+inline bool IsSpellNeedSendOnObjectUpdate(uint32 spellId)
+{
+    switch (spellId)
+    {
+        case 39123:
+            return true;
+        default: return false;
+    }
+}
+
 inline bool IsSpellRemoveAllMovementAndControlLossEffects(SpellEntry const* spellProto)
 {
     return spellProto->EffectApplyAuraName[EFFECT_INDEX_0] == SPELL_AURA_MECHANIC_IMMUNITY &&
@@ -403,6 +432,66 @@ inline bool IsSpellRemoveAllMovementAndControlLossEffects(SpellEntry const* spel
            spellProto->EffectApplyAuraName[EFFECT_INDEX_1] == 0 &&
            spellProto->EffectApplyAuraName[EFFECT_INDEX_2] == 0 &&
            spellProto->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY);
+}
+
+inline uint32 GetAllowedMechanicMask(SpellEntry const* spellProto)
+{
+    uint32 mask = 0;
+    for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+    {
+        if (!spellProto->Effect[i])
+            continue;
+
+        if (spellProto->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY)
+            mask |= 1 << uint32(spellProto->EffectMiscValue[i] - 1);
+        else if (spellProto->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY_MASK)
+            mask |= uint32(spellProto->EffectMiscValue[i]);
+    }
+    return mask;
+}
+
+// based on client Spell_C::CancelsAuraEffect
+inline bool SpellCancelsAuraEffect(SpellEntry const* spellInfo, SpellEntry const* auraSpellInfo, uint8 auraEffIndex)
+{
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
+        return false;
+
+    if (auraSpellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        return false;
+
+    for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+    {
+        if (spellInfo->Effect[i] != SPELL_EFFECT_APPLY_AURA)
+            continue;
+
+        uint32 const miscValue = static_cast<uint32>(spellInfo->EffectMiscValue[i]);
+        switch (spellInfo->EffectApplyAuraName[i])
+        {
+            case SPELL_AURA_STATE_IMMUNITY:
+                if (miscValue != auraSpellInfo->EffectApplyAuraName[auraEffIndex])
+                    continue;
+                break;
+            case SPELL_AURA_SCHOOL_IMMUNITY:
+                if (auraSpellInfo->HasAttribute(SPELL_ATTR_EX2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE) || !(auraSpellInfo->SchoolMask & miscValue))
+                    continue;
+                break;
+            case SPELL_AURA_DISPEL_IMMUNITY:
+                if (miscValue != auraSpellInfo->Dispel)
+                    continue;
+                break;
+            case SPELL_AURA_MECHANIC_IMMUNITY:
+                if (miscValue != auraSpellInfo->Mechanic)
+                    if (miscValue != auraSpellInfo->EffectMechanic[auraEffIndex])
+                        continue;
+                break;
+            default:
+                continue;
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 inline bool IsDeathOnlySpell(SpellEntry const* spellInfo)
@@ -448,6 +537,9 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
     if (IsSpellHaveAura(spellInfo, SPELL_AURA_MOD_POSSESS))
         return false;
 
+    if (spellInfo->HasAttribute(SPELL_ATTR_SS_IGNORE_EVADE))
+        return false;
+
     switch (spellInfo->Id)
     {
         case 588:           // Inner Fire (Rank 1)
@@ -460,6 +552,8 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 5111:          // Living Flame Passive
         case 5301:          // Defensive State (DND)
         case 5680:          // Torch Burn
+        case 6488:          // Sarilus's Elementals Passive
+        case 6498:          // Feed Sarilus Passive
         case 6718:          // Phasing Stealth
         case 6752:          // Weak Poison Proc
         case 6947:          // Curse of the Bleakheart Proc
@@ -614,6 +708,8 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 46048:         // Fel Lightning
         case 46277:         // Bring Pain
         case 46308:         // Burning Winds
+        case 46565:         // Holyform
+        case 46744:         // Chilling Touch
         case 47287:         // Burning Destruction
             return false;
         default:
@@ -1067,10 +1163,14 @@ inline bool IsUnitTargetTarget(uint32 target)
 
 inline bool HasMissingTargetFromClient(SpellEntry const* spellInfo)
 {
+    // client only checks effect 0 target A
     if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[EFFECT_INDEX_0]))
         return false;
 
     if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[EFFECT_INDEX_1]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[EFFECT_INDEX_2]))
+        return true;
+
+    if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[EFFECT_INDEX_0]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[EFFECT_INDEX_1]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[EFFECT_INDEX_2]))
         return true;
 
     return false;
@@ -1079,7 +1179,7 @@ inline bool HasMissingTargetFromClient(SpellEntry const* spellInfo)
 inline bool IsSpellRequireTarget(SpellEntry const* spellInfo)
 {
     for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-        if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[i]))
+        if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[i]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[i]))
             return true;
 
     return false;
@@ -1421,6 +1521,31 @@ inline bool IsPositiveSpell(uint32 spellId, const WorldObject* caster = nullptr,
     return IsPositiveSpell(sSpellTemplate.LookupEntry<SpellEntry>(spellId), caster, target);
 }
 
+inline bool CanPierceImmuneAura(SpellEntry const* spellInfo, SpellEntry const* auraSpellInfo)
+{
+    // aura can't be pierced
+    if (!auraSpellInfo || auraSpellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        return false;
+
+    // these spells pierce all available spells (Resurrection Sickness for example)
+    if (spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        return true;
+
+    // these spells (Cyclone for example) can pierce all...
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) || spellInfo->HasAttribute(SPELL_ATTR_EX2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE))
+    {
+        // ...but not these (Divine shield, Ice block, Cyclone and Banish for example)
+        if (auraSpellInfo->Mechanic != MECHANIC_IMMUNE_SHIELD &&
+            auraSpellInfo->Mechanic != MECHANIC_INVULNERABILITY &&
+            auraSpellInfo->Mechanic != MECHANIC_BANISH)
+            return true;
+    }
+
+    // TODO: Add SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY logic
+
+    return false;
+}
+
 inline void GetChainJumpRange(SpellEntry const* spellInfo, SpellEffectIndex effIdx, float& minSearchRangeCaster, float& maxSearchRangeTarget)
 { 
     const SpellRangeEntry* range = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
@@ -1447,19 +1572,6 @@ inline void GetChainJumpRange(SpellEntry const* spellInfo, SpellEffectIndex effI
             break;
         default:   // default jump radius
             break;
-    }
-}
-
-inline bool IsSpellCanTargetUnattackable(SpellEntry const* spellInfo) // TODO: Remove through targeting research
-{
-    switch (spellInfo->Id) // spells that target minipets, which are inherently non attackable
-    {
-        case 33346:
-        case 33827:
-        case 44877:
-            return true;
-        default:
-            return false;
     }
 }
 
@@ -1634,6 +1746,8 @@ inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex
     // TODO: Move this to target logic
     switch (spellInfo->EffectImplicitTargetA[effIdx])
     {
+        case TARGET_UNIT_FRIEND_CHAIN_HEAL: // checked for LOS but in a custom chain way
+        case TARGET_UNIT_FRIEND_AND_PARTY:
         case TARGET_UNIT_RAID_AND_CLASS: return true;
         default: break;
     }
@@ -2180,6 +2294,7 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
 bool IsDiminishingReturnsGroupDurationLimited(DiminishingGroup group);
 bool IsDiminishingReturnsGroupDurationDiminished(DiminishingGroup group, bool pvp);
 DiminishingReturnsType GetDiminishingReturnsGroupType(DiminishingGroup group);
+bool IsSubjectToDiminishingLevels(DiminishingGroup group, bool pvp);
 bool IsCreatureDRSpell(SpellEntry const* spellInfo);
 
 // Spell affects related declarations (accessed using SpellMgr functions)

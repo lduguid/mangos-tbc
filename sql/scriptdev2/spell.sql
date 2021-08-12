@@ -103,6 +103,19 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 -- TBC
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (38048,'spell_curse_of_pain'),
+(430,'spell_drink'),
+(431,'spell_drink'),
+(432,'spell_drink'),
+(1133,'spell_drink'),
+(1135,'spell_drink'),
+(1137,'spell_drink'),
+(10250,'spell_drink'),
+(22734,'spell_drink'),
+(27089,'spell_drink'),
+(34291,'spell_drink'),
+(43706,'spell_drink'),
+(46755,'spell_drink'),
+(49472,'spell_drink'),
 (42144,'spell_horseman_create_water_bucket'),
 (42074,'spell_horseman_fire'),
 (43885,'spell_horseman_maniacal_laugh'),
@@ -232,6 +245,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (42783,'spell_wrath_of_the_astromancer'),
 (45043,'spell_power_circle'),
 (44006,'spell_teleport_self_akilzon'),
+(43359,'spell_call_of_the_beast'),
 (43681,'spell_inactive'),
 (40084,'spell_harpooners_mark'),
 (31258,'spell_winterchill_death_and_decay'),
@@ -289,9 +303,20 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (34438,'spell_unstable_affliction'),
 (34439,'spell_unstable_affliction'),
 (35183,'spell_unstable_affliction'),
+(43723,'spell_demon_broiled_surprise'),
 (42399,'spell_send_head'),
 (43101,'spell_head_requests_body'),
-(35831,'spell_ring_of_flame');
+(35831,'spell_ring_of_flame'),
+(41914,'spell_parasitic_shadowfiend'),
+(41917,'spell_parasitic_shadowfiend'),
+(40647,'spell_shadow_prison'),
+(33499,'spell_shape_of_the_beast'),
+(40848,'spell_dragonmaw_knockdown_the_aggro_check'),
+(40985,'spell_dragonmaw_knockdown_the_aggro_check'),
+(40993,'spell_dragonmaw_knockdown_the_aggro_check'),
+(41007,'spell_dragonmaw_knockdown_the_aggro_check'),
+(41015,'spell_dragonmaw_knockdown_the_aggro_check'),
+(41022,'spell_dragonmaw_knockdown_the_aggro_check');
 
 -- Wotlk
 
@@ -329,10 +354,20 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (20307,'spell_seal_of_the_crusader'),
 (20308,'spell_seal_of_the_crusader'),
 (27158,'spell_seal_of_the_crusader'),
-(31789,'spell_righteous_defense');
+(31789,'spell_righteous_defense'),
+(31893,'spell_seal_of_blood_self_damage'),
+(31898,'spell_seal_of_blood_self_damage');
 
 -- Warlock
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
+(172,'spell_corruption'),
+(6222,'spell_corruption'),
+(6223,'spell_corruption'),
+(7648,'spell_corruption'),
+(11671,'spell_corruption'),
+(11672,'spell_corruption'),
+(25311,'spell_corruption'),
+(27216,'spell_corruption'),
 (980,'spell_curse_of_agony'),
 (1014,'spell_curse_of_agony'),
 (6217,'spell_curse_of_agony'),
@@ -347,6 +382,14 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (11688,'spell_life_tap'),
 (11689,'spell_life_tap'),
 (27222,'spell_life_tap'),
+(18265,'spell_siphon_life'),
+(18879,'spell_siphon_life'),
+(18880,'spell_siphon_life'),
+(18881,'spell_siphon_life'),
+(27264,'spell_siphon_life'),
+(30911,'spell_siphon_life'),
+(25228,'spell_soul_link'),
+(27243,'spell_seed_of_corruption'),
 (35696,'spell_demonic_knowledge'),
 (30108,'spell_unstable_affliction'),
 (30404,'spell_unstable_affliction'),

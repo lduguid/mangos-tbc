@@ -281,7 +281,7 @@ void Spell::EffectEnvironmentalDMG(SpellEffectIndex eff_idx)
 
     m_caster->CalculateDamageAbsorbAndResist(m_caster, GetSpellSchoolMask(m_spellInfo), SPELL_DIRECT_DAMAGE, damage, &absorb, &resist);
 
-    m_caster->SendSpellNonMeleeDamageLog(m_caster, m_spellInfo->Id, damage, GetSpellSchoolMask(m_spellInfo), absorb, resist, false, 0, false);
+    Unit::SendSpellNonMeleeDamageLog(m_trueCaster, m_caster, m_spellInfo->Id, damage, GetSpellSchoolMask(m_spellInfo), absorb, resist, false, 0, false);
     if (m_caster->GetTypeId() == TYPEID_PLAYER)
         ((Player*)m_caster)->EnvironmentalDamage(DAMAGE_FIRE, damage);
 }
@@ -2436,15 +2436,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     unitTarget->SetStandState(UNIT_STAND_STATE_DEAD);
                     return;
                 }
-                // Demon Broiled Surprise
-                case 43723:
-                {
-                    if (m_caster->GetTypeId() != TYPEID_PLAYER)
-                        return;
-
-                    ((Player*)m_caster)->CastSpell(unitTarget, 43753, TRIGGERED_OLD_TRIGGERED, m_CastItem, nullptr, m_originalCasterGUID, m_spellInfo);
-                    return;
-                }
                 case 44869:                                 // Spectral Blast
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
@@ -2991,33 +2982,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
         }
         case SPELLFAMILY_HUNTER:
         {
-            // Kill command
-            if (m_spellInfo->SpellFamilyFlags & uint64(0x00080000000000))
-            {
-                if (m_caster->getClass() != CLASS_HUNTER)
-                    return;
-
-                // clear hunter crit aura state
-                m_caster->ModifyAuraState(AURA_STATE_HUNTER_CRIT_STRIKE, false);
-
-                // additional damage from pet to pet target
-                Pet* pet = m_caster->GetPet();
-                if (!pet || !pet->GetVictim())
-                    return;
-
-                uint32 spell_id = 0;
-                switch (m_spellInfo->Id)
-                {
-                    case 34026: spell_id = 34027; break;    // rank 1
-                    default:
-                        sLog.outError("Spell::EffectDummy: Spell %u not handled in KC", m_spellInfo->Id);
-                        return;
-                }
-
-                pet->CastSpell(pet->GetVictim(), spell_id, TRIGGERED_OLD_TRIGGERED);
-                return;
-            }
-
             switch (m_spellInfo->Id)
             {
                 case 23989:                                 // Readiness talent
@@ -4409,8 +4373,8 @@ void Spell::EffectApplyAreaAura(SpellEffectIndex eff_idx)
     if (!unitTarget->IsAlive())
         return;
 
-    AreaAura* Aur = new AreaAura(m_spellInfo, eff_idx, &damage, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, m_caster, m_CastItem);
-    m_spellAuraHolder->AddAura(Aur, eff_idx);
+    Aura* aura = CreateAura(m_spellInfo, eff_idx, &damage, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, m_caster, m_CastItem);
+    m_spellAuraHolder->AddAura(aura, eff_idx);
 }
 
 void Spell::EffectSummonType(SpellEffectIndex eff_idx)
@@ -4585,9 +4549,9 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
                 {
                     if (prop_id == 61)
                     {
-                        // Totem cases
                         if (CreatureInfo const* cInfo = ObjectMgr::GetCreatureTemplate(m_spellInfo->EffectMiscValue[eff_idx]))
                         {
+                            // Totem cases
                             if (cInfo->CreatureType == CREATURE_TYPE_TOTEM)
                             {
                                 summonResult = DoSummonTotem(summonPositions, eff_idx);
@@ -4997,7 +4961,7 @@ void Spell::EvaluateResultLists(std::list<std::pair<SpellAuraHolder*, uint32> >&
                     break;
             }
             if (heal_spell)
-                m_caster->CastSpell(m_caster, heal_spell, TRIGGERED_OLD_TRIGGERED);
+                m_caster->CastSpell(nullptr, heal_spell, TRIGGERED_OLD_TRIGGERED);
         }
     }
     // Send fail log to client
@@ -5154,11 +5118,11 @@ bool Spell::DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry co
 
     TempSpawnType summonType = (m_duration == 0) ? TEMPSPAWN_DEAD_DESPAWN : TEMPSPAWN_TIMED_OR_DEAD_DESPAWN;
 
-    for (CreatureSummonPositions::iterator itr = list.begin(); itr != list.end(); ++itr)
-        if (Creature* summon = WorldObject::SummonCreature(TempSpawnSettings(m_caster, creature_entry, itr->x, itr->y, itr->z, m_caster->GetOrientation(), summonType, m_duration, false,
+    for (auto& itr : list)
+        if (Creature* summon = WorldObject::SummonCreature(TempSpawnSettings(m_caster, creature_entry, itr.x, itr.y, itr.z, m_caster->GetOrientation(), summonType, m_duration, false,
                 IsSpellSetRun(m_spellInfo), 0, 0, false, false, m_spellInfo->Id), m_caster->GetMap()))
         {
-            itr->creature = summon;
+            itr.creature = summon;
 
             switch(m_spellInfo->Id)
             {
@@ -5168,9 +5132,9 @@ bool Spell::DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry co
                     // Enslave demon effect, without mana cost and cooldown
                     summon->CastSpell(nullptr, 22707, TRIGGERED_OLD_TRIGGERED);  // short root spell on infernal from sniffs
                     m_caster->CastSpell(summon, 20882, TRIGGERED_OLD_TRIGGERED);
-                    summon->CastSpell(nullptr, 22699, TRIGGERED_NONE);  // Inferno effect
-                    summon->CastSpell(itr->x, itr->y, itr->z, 20310, TRIGGERED_NONE);  // Stun
+                    summon->CastSpell(nullptr, 22703, TRIGGERED_NONE);  // Inferno effect - in wotlk cast automatically
                     summon->AI()->DoCastSpellIfCan(nullptr, 19483, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+                    summon->CastSpell(nullptr, 22764, TRIGGERED_NONE); // aggro spell
                     break;
                 }
             }
@@ -5638,7 +5602,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
                     OldSummon->Unsummon(PET_SAVE_NOT_IN_SLOT, m_caster);
 
                 // Load pet from db; if any to load
-                if (NewSummon->LoadPetFromDB((Player*)m_caster, petentry))
+                if (NewSummon->LoadPetFromDB(_player, petentry))
                 {
                     NewSummon->SetHealth(NewSummon->GetMaxHealth());
                     NewSummon->SetPower(POWER_MANA, NewSummon->GetMaxPower(POWER_MANA));
@@ -6096,7 +6060,7 @@ void Spell::EffectInterruptCast(SpellEffectIndex eff_idx)
         {
             SpellEntry const* curSpellInfo = spell->m_spellInfo;
             // check if we can interrupt spell
-            if ((curSpellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_INTERRUPT) && curSpellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE)
+            if ((curSpellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_INTERRUPT) && curSpellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE && spell->CanBeInterrupted())
             {
                 unitTarget->LockOutSpells(GetSpellSchoolMask(curSpellInfo), unitTarget->CalculateAuraDuration(m_spellInfo, (1 << eff_idx), GetSpellDuration(m_spellInfo), m_caster));
                 unitTarget->InterruptSpell(CurrentSpellTypes(i), false);
@@ -7246,13 +7210,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         m_caster->AddThreat(target, 100000.f);
                     }
 
-                    return;
-                }
-                case 41914:                                 // Parasitic Shadowfiend
-                {
-                    if (!unitTarget || !m_caster->AI())
-                        return;
-                    m_caster->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, unitTarget, m_caster);
                     return;
                 }
                 case 42179:                                 // Summon Amani'shi Sentries
@@ -9214,8 +9171,25 @@ void Spell::EffectSpiritHeal(SpellEffectIndex /*eff_idx*/)
     if (m_spellInfo->Id == 22012 && !unitTarget->HasAura(2584))
         return;
 
-    ((Player*)unitTarget)->ResurrectPlayer(1.0f);
-    ((Player*)unitTarget)->SpawnCorpseBones();
+    if (Player* player = static_cast<Player*>(unitTarget))
+    {
+        player->ResurrectPlayer(1.0f);
+        player->SpawnCorpseBones();
+
+        if (player->getClass() == CLASS_HUNTER)
+        {
+            Pet* pet = new Pet;
+            if (!pet->LoadPetFromDB(player, 0, 0, false, 100, true))
+            {
+                delete pet;
+                return;
+            }
+        }
+        // resurrects last active minion - Imp, Voidwalker, Succubus, Felhunter, or Felguard
+        // if Doomguard or Infernal were last active minion, or previous minion died before Warlock - Imp summoned instead
+        else if (player->getClass() == CLASS_WARLOCK)
+            player->CastSpell(player, player->GetBGPetSpell() ? player->GetBGPetSpell() : 688, TRIGGERED_OLD_TRIGGERED);
+    }
 }
 
 // remove insignia spell effect

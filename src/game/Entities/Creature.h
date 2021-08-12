@@ -49,7 +49,7 @@ enum CreatureExtraFlags
     CREATURE_EXTRA_FLAG_NO_CRUSH               = 0x00000020,       // 32 creature can't do crush attacks
     CREATURE_EXTRA_FLAG_NO_XP_AT_KILL          = 0x00000040,       // 64 creature kill not provide XP
     CREATURE_EXTRA_FLAG_INVISIBLE              = 0x00000080,       // 128 creature is always invisible for player (mostly trigger creatures)
-    CREATURE_EXTRA_FLAG_NOT_TAUNTABLE          = 0x00000100,       // 256 creature is immune to taunt auras and effect attack me
+    // CREATURE_EXTRA_FLAG_REUSE               = 0x00000100,       // 256
     CREATURE_EXTRA_FLAG_AGGRO_ZONE             = 0x00000200,       // 512 creature sets itself in combat with zone on aggro
     CREATURE_EXTRA_FLAG_GUARD                  = 0x00000400,       // 1024 creature is a guard
     CREATURE_EXTRA_FLAG_NO_CALL_ASSIST         = 0x00000800,       // 2048 creature shouldn't call for assistance on aggro
@@ -62,9 +62,9 @@ enum CreatureExtraFlags
     CREATURE_EXTRA_FLAG_FORCE_ATTACKING_CAPABILITY = 0x00080000,   // 524288 SetForceAttackingCapability(true); for nonattackable, nontargetable creatures that should be able to attack nontheless
     // CREATURE_EXTRA_FLAG_REUSE               = 0x00100000,       // 1048576 - reuse
     CREATURE_EXTRA_FLAG_COUNT_SPAWNS           = 0x00200000,       // 2097152 count creature spawns in Map*
-    CREATURE_EXTRA_FLAG_HASTE_SPELL_IMMUNITY   = 0x00400000,       // 4194304 immunity to COT or Mind Numbing Poison - very common in instances
+    // CREATURE_EXTRA_FLAG_REUSE               = 0x00400000,       // 4194304 - reuse
     CREATURE_EXTRA_FLAG_DUAL_WIELD_FORCED      = 0x00800000,       // 8388606 creature is alwyas dual wielding (even if unarmed)
-    CREATURE_EXTRA_FLAG_POISON_IMMUNITY        = 0x01000000,       // 16777216 creature is immune to poisons
+    // CREATURE_EXTRA_FLAG_REUSE               = 0x01000000,       // 16777216
 };
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
@@ -643,12 +643,6 @@ class Creature : public Unit
         }
 
         void SetWalk(bool enable, bool asDefault = true);
-        void SetLevitate(bool enable) override;
-        void SetSwim(bool enable) override;
-        void SetCanFly(bool enable) override;
-        void SetFeatherFall(bool enable) override;
-        void SetHover(bool enable) override;
-        void SetWaterWalk(bool enable) override;
 
         // TODO: Research mob shield block values
         uint32 GetShieldBlockValue() const override { return (getLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
@@ -656,6 +650,7 @@ class Creature : public Unit
         bool HasSpell(uint32 spellID) const override;
         void UpdateSpell(int32 index, int32 newSpellId) { m_spells[index] = newSpellId; }
         void UpdateSpellSet(uint32 spellSet);
+        void UpdateImmunitiesSet(uint32 immunitySet);
 
         bool UpdateEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr, bool preserveHPAndPower = true);
         void ResetEntry(bool respawn = false);
@@ -814,7 +809,8 @@ class Creature : public Unit
 
         void SetSpawnCounting(bool state) { m_countSpawns = state; }
 
-        uint32 GetDetectionRange() const override { return m_creatureInfo->Detection; }
+        uint32 GetDetectionRange() const override { return m_detectionRange; }
+        void SetDetectionRange(uint32 range) { m_detectionRange = range; }
 
         void SetBaseWalkSpeed(float speed) override;
         void SetBaseRunSpeed(float speed) override;
@@ -875,6 +871,7 @@ class Creature : public Unit
         virtual void RegenerateHealth();
         MovementGeneratorType m_defaultMovementType;
         uint32 m_equipmentId;
+        uint32 m_detectionRange;
 
         // below fields has potential for optimization
         bool m_AlreadyCallAssistance;
@@ -888,6 +885,8 @@ class Creature : public Unit
         Position m_respawnPos;
 
         uint32 m_gameEventVendorId;                         // game event creature data vendor id override
+
+        uint32 m_immunitySet;
 
         std::unique_ptr<UnitAI> m_ai;
         bool m_isInvisible;

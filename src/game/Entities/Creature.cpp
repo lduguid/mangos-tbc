@@ -135,14 +135,15 @@ Creature::Creature(CreatureSubtype subtype) : Unit(),
     m_lootStatus(CREATURE_LOOT_STATUS_NONE),
     m_respawnTime(0), m_respawnDelay(25), m_respawnOverriden(false), m_respawnOverrideOnce(false), m_corpseDelay(60), m_canAggro(false),
     m_respawnradius(5.0f), m_subtype(subtype), m_defaultMovementType(IDLE_MOTION_TYPE),
-    m_equipmentId(0), m_AlreadyCallAssistance(false),
+    m_equipmentId(0), m_detectionRange(20.f), m_AlreadyCallAssistance(false),
     m_isDeadByDefault(false),
     m_temporaryFactionFlags(TEMPFACTION_NONE),
     m_originalEntry(0), m_dbGuid(0), m_gameEventVendorId(0), m_ai(nullptr),
     m_isInvisible(false), m_ignoreMMAP(false), m_forceAttackingCapability(false),
     m_noXP(false), m_noLoot(false), m_noReputation(false),
     m_countSpawns(false),
-    m_creatureInfo(nullptr)
+    m_creatureInfo(nullptr),
+    m_immunitySet(UINT32_MAX)
 {
     m_regenTimer = 200;
     m_valuesCount = UNIT_END;
@@ -442,6 +443,8 @@ bool Creature::InitEntry(uint32 Entry, CreatureData const* data /*=nullptr*/, Ga
     SetNoLoot(false);
     SetNoReputation(false);
 
+    SetDetectionRange(cinfo->Detection);
+
     return true;
 }
 
@@ -522,15 +525,6 @@ bool Creature::UpdateEntry(uint32 Entry, const CreatureData* data /*=nullptr*/, 
     m_isInvisible = (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_INVISIBLE) != 0;
     m_ignoreMMAP = (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_MMAP_FORCE_DISABLE) != 0;
     m_countSpawns = (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_COUNT_SPAWNS) != 0;
-    if (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_NOT_TAUNTABLE)\
-    {
-        ApplySpellImmune(nullptr, IMMUNITY_EFFECT, SPELL_EFFECT_ATTACK_ME, true);
-        ApplySpellImmune(nullptr, IMMUNITY_STATE, SPELL_AURA_MOD_TAUNT, true);
-    }
-    if (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_HASTE_SPELL_IMMUNITY)
-        ApplySpellImmune(nullptr, IMMUNITY_STATE, SPELL_AURA_HASTE_SPELLS, true);
-    if (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_POISON_IMMUNITY)
-        ApplySpellImmune(nullptr, IMMUNITY_DISPEL, DISPEL_POISON, true);
     if (IsWorldBoss())
         ApplySpellImmune(nullptr, IMMUNITY_STATE, SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE, true);
 
@@ -553,6 +547,7 @@ bool Creature::UpdateEntry(uint32 Entry, const CreatureData* data /*=nullptr*/, 
     }
 
     UpdateSpellSet(0); // by default always 0
+    UpdateImmunitiesSet(0);
 
     // if eventData set then event active and need apply spell_start
     if (eventData)
@@ -2213,6 +2208,27 @@ void Creature::UpdateSpellSet(uint32 spellSet)
             m_spells[i] = templateSpells->spells[i];
 }
 
+void Creature::UpdateImmunitiesSet(uint32 immunitySet)
+{
+    if (m_immunitySet == immunitySet)
+        return;
+
+    auto set = sObjectMgr.GetCreatureImmunitySet(GetCreatureInfo()->Entry, immunitySet);
+    if (!set)
+        return;
+
+    if (auto oldSet = sObjectMgr.GetCreatureImmunitySet(GetCreatureInfo()->Entry, m_immunitySet))
+    {
+        for (auto& data : *oldSet)
+            ApplySpellImmune(nullptr, data.type, data.value, false);
+    }
+
+    for (auto& data : *set)
+        ApplySpellImmune(nullptr, data.type, data.value, true);
+
+    m_immunitySet = immunitySet;
+}
+
 time_t Creature::GetRespawnTimeEx() const
 {
     time_t now = time(nullptr);
@@ -2585,79 +2601,6 @@ void Creature::SetWalk(bool enable, bool asDefault)
     SendMessageToSet(data, true);
 }
 
-void Creature::SetLevitate(bool enable)
-{
-    if (enable)
-        m_movementInfo.AddMovementFlag(MOVEFLAG_LEVITATING);
-    else
-        m_movementInfo.RemoveMovementFlag(MOVEFLAG_LEVITATING);
-
-    // TODO: there should be analogic opcode for 2.43
-    // WorldPacket data(enable ? SMSG_SPLINE_MOVE_GRAVITY_DISABLE : SMSG_SPLINE_MOVE_GRAVITY_ENABLE, 9);
-    // data << GetPackGUID();
-    // SendMessageToSet(data, true);
-}
-
-void Creature::SetSwim(bool enable)
-{
-    if (enable)
-        m_movementInfo.AddMovementFlag(MOVEFLAG_SWIMMING);
-    else
-        m_movementInfo.RemoveMovementFlag(MOVEFLAG_SWIMMING);
-
-    WorldPacket data(enable ? SMSG_SPLINE_MOVE_START_SWIM : SMSG_SPLINE_MOVE_STOP_SWIM);
-    data << GetPackGUID();
-    SendMessageToSet(data, true);
-}
-
-void Creature::SetCanFly(bool enable)
-{
-    if (enable)
-        m_movementInfo.AddMovementFlag(MOVEFLAG_CAN_FLY);
-    else
-        m_movementInfo.RemoveMovementFlag(MOVEFLAG_CAN_FLY);
-
-    WorldPacket data(enable ? SMSG_SPLINE_MOVE_SET_FLYING : SMSG_SPLINE_MOVE_UNSET_FLYING, 9);
-    data << GetPackGUID();
-    SendMessageToSet(data, true);
-}
-
-void Creature::SetFeatherFall(bool enable)
-{
-    if (enable)
-        m_movementInfo.AddMovementFlag(MOVEFLAG_SAFE_FALL);
-    else
-        m_movementInfo.RemoveMovementFlag(MOVEFLAG_SAFE_FALL);
-
-    WorldPacket data(enable ? SMSG_SPLINE_MOVE_FEATHER_FALL : SMSG_SPLINE_MOVE_NORMAL_FALL);
-    data << GetPackGUID();
-    SendMessageToSet(data, true);
-}
-
-void Creature::SetHover(bool enable)
-{
-    if (enable)
-        m_movementInfo.AddMovementFlag(MOVEFLAG_HOVER);
-    else
-        m_movementInfo.RemoveMovementFlag(MOVEFLAG_HOVER);
-
-    WorldPacket data(enable ? SMSG_SPLINE_MOVE_SET_HOVER : SMSG_SPLINE_MOVE_UNSET_HOVER, 9);
-    data << GetPackGUID();
-    SendMessageToSet(data, false);
-}
-
-void Creature::SetWaterWalk(bool enable)
-{
-    if (enable)
-        m_movementInfo.AddMovementFlag(MOVEFLAG_WATERWALKING);
-    else
-        m_movementInfo.RemoveMovementFlag(MOVEFLAG_WATERWALKING);
-
-    WorldPacket data(enable ? SMSG_SPLINE_MOVE_WATER_WALK : SMSG_SPLINE_MOVE_LAND_WALK, 9);
-    data << GetPackGUID();
-    SendMessageToSet(data, true);
-}
-
 void Creature::InspectingLoot()
 {
     // until multiple corpse for creature is not supported
@@ -2674,15 +2617,8 @@ void Creature::ReduceCorpseDecayTimer()
     if (!IsInWorld())
         return;
 
-    bool isDungeonEncounter = false;
-    if (GetMap()->IsDungeon())
-    {
-        if (sObjectMgr.IsEncounter(GetEntry(), GetMapId()))
-            isDungeonEncounter = true;
-    }
-
-    if (!isDungeonEncounter && m_corpseExpirationTime > GetMap()->GetCurrentClockTime() + std::chrono::milliseconds(2 * MINUTE * IN_MILLISECONDS))
-        m_corpseExpirationTime = GetMap()->GetCurrentClockTime() + std::chrono::milliseconds(2 * MINUTE * IN_MILLISECONDS);  // 2 minutes for a creature
+    if (m_corpseExpirationTime > GetMap()->GetCurrentClockTime() + std::chrono::milliseconds(MINIMUM_LOOTING_TIME))
+        m_corpseExpirationTime = GetMap()->GetCurrentClockTime() + std::chrono::milliseconds(MINIMUM_LOOTING_TIME);  // 2 minutes for a creature
 }
 
 // Set loot status. Also handle remove corpse timer

@@ -583,6 +583,7 @@ Player::Player(WorldSession* session): Unit(), m_taxiTracker(*this), m_mover(thi
     m_ammoDPS = 0.0f;
 
     m_temporaryUnsummonedPetNumber = 0;
+    m_BGPetSpell = 0;
 
     //////////////////// Rest System/////////////////////
     time_inn_enter = 0;
@@ -1635,8 +1636,8 @@ void Player::SetDeathState(DeathState s)
         // remove form before other mods to prevent incorrect stats calculation
         RemoveSpellsCausingAura(SPELL_AURA_MOD_SHAPESHIFT);
 
-        // FIXME: is pet dismissed at dying or releasing spirit? if second, add SetDeathState(DEAD) to HandleRepopRequestOpcode and define pet unsummon here with (s == DEAD)
-        RemovePet(PET_SAVE_REAGENTS);
+        if (Pet* pet = GetPet())
+            RemovePet(pet->IsAlive() ? PET_SAVE_REAGENTS : PET_SAVE_AS_CURRENT);
 
         // Remove guardians (only players are supposed to have pets/guardians removed on death)
         RemoveGuardians();
@@ -4464,71 +4465,6 @@ void Player::DeleteOldCharacters(uint32 keepDays)
     sLog.outString();
 }
 
-void Player::SetWaterWalk(bool enable)
-{
-    WorldPacket data(enable ? SMSG_MOVE_WATER_WALK : SMSG_MOVE_LAND_WALK, GetPackGUID().size() + 4);
-    data << GetPackGUID();
-    data << uint32(0);
-    GetSession()->SendPacket(data);
-}
-
-void Player::SetLevitate(bool /*enable*/)
-{
-    // TODO: check if there is something similar for 2.4.3.
-    // WorldPacket data;
-    // if (enable)
-    //    data.Initialize(SMSG_MOVE_GRAVITY_DISABLE, 12);
-    // else
-    //    data.Initialize(SMSG_MOVE_GRAVITY_ENABLE, 12);
-    //
-    // data << GetPackGUID();
-    // data << uint32(0);                                      // unk
-    // SendMessageToSet(data, true);
-
-    // data.Initialize(MSG_MOVE_GRAVITY_CHNG, 64);
-    // data << GetPackGUID();
-    // m_movementInfo.Write(data);
-    // SendMessageToSet(data, false);
-}
-
-void Player::SetCanFly(bool enable)
-{
-    WorldPacket data(enable ? SMSG_MOVE_SET_CAN_FLY : SMSG_MOVE_UNSET_CAN_FLY, GetPackGUID().size() + 4);
-    data << GetPackGUID();
-    data << uint32(0);
-    GetSession()->SendPacket(data);
-}
-
-void Player::SetFeatherFall(bool enable)
-{
-    WorldPacket data;
-    if (enable)
-        data.Initialize(SMSG_MOVE_FEATHER_FALL, 8 + 4);
-    else
-        data.Initialize(SMSG_MOVE_NORMAL_FALL, 8 + 4);
-
-    data << GetPackGUID();
-    data << uint32(0);
-    SendMessageToSet(data, true);
-
-    // start fall from current height
-    if (!enable)
-        SetFallInformation(0, GetPositionZ());
-}
-
-void Player::SetHover(bool enable)
-{
-    WorldPacket data;
-    if (enable)
-        data.Initialize(SMSG_MOVE_SET_HOVER, 8 + 4);
-    else
-        data.Initialize(SMSG_MOVE_UNSET_HOVER, 8 + 4);
-
-    data << GetPackGUID();
-    data << uint32(0);
-    SendMessageToSet(data, true);
-}
-
 /* Preconditions:
   - a resurrectable corpse must not be loaded for the player (only bones)
   - the player must be in world
@@ -6168,7 +6104,7 @@ void Player::LearnDefaultSkills()
                     step = (predefined ? tskill.Step : 1);
                     uint32 stepIndex = (step - 1);
 
-                    auto filterfunc = [&] (SkillRaceClassInfoEntry const& entry)
+                    auto filterfunc = [&] (SkillRaceClassInfoEntry const& entry) -> bool
                     {
                         if (entry.skillTierId)
                         {
@@ -6184,6 +6120,12 @@ void Player::LearnDefaultSkills()
                                 return true;
                             }
                         }
+                        else if (entry.flags & SKILL_FLAG_MAXIMIZED)
+                        {
+                            value = max = GetSkillMaxForLevel();
+                            return true;
+                        }
+
                         return false;
                     };
 
@@ -7913,6 +7855,7 @@ void Player::CastItemUseSpell(Item* item, SpellCastTargets& targets, uint8 cast_
         spell->SetCastItem(item);
         item->SetUsedInSpell(true);
         spell->m_cast_count = cast_count;                   // set count of casts
+        spell->m_clientCast = true;
         spell->m_currentBasePoints[EFFECT_INDEX_0] = learning_spell_id;
         spell->SpellStart(&targets);
         return;
@@ -7950,6 +7893,7 @@ void Player::CastItemUseSpell(Item* item, SpellCastTargets& targets, uint8 cast_
         spell->SetCastItem(item);
         item->SetUsedInSpell(true);
         spell->m_cast_count = cast_count;                   // set count of casts
+        spell->m_clientCast = true;
         spell->SpellStart(&targets);
 
         ++count;
@@ -11787,7 +11731,7 @@ void Player::RemoveEnchantmentDurations(Item* item)
     }
 }
 
-void Player::RemoveAllEnchantments(EnchantmentSlot slot)
+void Player::RemoveAllEnchantments(EnchantmentSlot slot, bool arena)
 {
     // remove enchantments from equipped items first to clean up the m_enchantDuration list
     for (EnchantDurationList::iterator itr = m_enchantDuration.begin(), next; itr != m_enchantDuration.end(); itr = next)
@@ -11797,6 +11741,12 @@ void Player::RemoveAllEnchantments(EnchantmentSlot slot)
         {
             if (itr->item && itr->item->GetEnchantmentId(slot))
             {
+                if (arena && sObjectMgr.IsEnchantNonRemoveInArena(itr->item->GetEnchantmentId(slot)))
+                {
+                    ++next;
+                    continue;
+                }
+
                 // remove from stats
                 ApplyEnchantment(itr->item, slot, false, false);
                 // remove visual
@@ -11812,18 +11762,27 @@ void Player::RemoveAllEnchantments(EnchantmentSlot slot)
     // remove enchants from inventory items
     // NOTE: no need to remove these from stats, since these aren't equipped
     // in inventory
-    for (int i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; ++i)
-        if (Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
-            if (pItem->GetEnchantmentId(slot))
-                pItem->ClearEnchantment(slot);
+    for (int i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; i++)
+    {
+        Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i);
+        if (pItem && pItem->GetEnchantmentId(slot) && (!arena || !sObjectMgr.IsEnchantNonRemoveInArena(pItem->GetEnchantmentId(slot))))
+            pItem->ClearEnchantment(slot);
+    }
 
     // in inventory bags
-    for (int i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; ++i)
-        if (Bag* pBag = (Bag*)GetItemByPos(INVENTORY_SLOT_BAG_0, i))
-            for (uint32 j = 0; j < pBag->GetBagSize(); ++j)
-                if (Item* pItem = pBag->GetItemByPos(j))
-                    if (pItem->GetEnchantmentId(slot))
-                        pItem->ClearEnchantment(slot);
+    for (int i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++)
+    {
+        Bag* pBag = (Bag*)GetItemByPos(INVENTORY_SLOT_BAG_0, i);
+        if (pBag)
+        {
+            for (uint32 j = 0; j < pBag->GetBagSize(); j++)
+            {
+                Item* pItem = pBag->GetItemByPos(j);
+                if (pItem && pItem->GetEnchantmentId(slot) && (!arena || !sObjectMgr.IsEnchantNonRemoveInArena(pItem->GetEnchantmentId(slot))))
+                    pItem->ClearEnchantment(slot);
+            }
+        }
+    }
 }
 
 // duration == 0 will remove item enchant
@@ -15613,10 +15572,6 @@ void Player::_LoadAuras(QueryResult* result, uint32 timediff)
 {
     // RemoveAllAuras(); -- some spells casted before aura load, for example in LoadSkills, aura list explicitly cleaned early
 
-    // all aura related fields
-    for (int i = UNIT_FIELD_AURA; i <= UNIT_FIELD_AURASTATE; ++i)
-        SetUInt32Value(i, 0);
-
     // QueryResult *result = CharacterDatabase.PQuery("SELECT caster_guid,item_guid,spell,stackcount,remaincharges,basepoints0,basepoints1,basepoints2,periodictime0,periodictime1,periodictime2,maxduration,remaintime,effIndexMask FROM character_aura WHERE guid = '%u'",GetGUIDLow());
 
     if (result)
@@ -17751,39 +17706,7 @@ void Player::PetSpellInitialize() const
 
     data.put<uint8>(spellsCountPos, addlist);
 
-    // write cooldown data
-    uint32 cdCount = 0;
-    const size_t cdCountPos = data.wpos();
-    data << uint16(0);
-    auto currTime = GetMap()->GetCurrentClockTime();
-
-    for (auto& cdItr : m_cooldownMap)
-    {
-        auto& cdData = cdItr.second;
-        TimePoint spellRecTime = currTime;
-        TimePoint catRecTime = currTime;
-        cdData->GetSpellCDExpireTime(spellRecTime);
-        cdData->GetCatCDExpireTime(catRecTime);
-        uint32 spellCDDuration = 0;
-        uint32 catCDDuration = 0;
-        if (spellRecTime > currTime)
-            spellCDDuration = std::chrono::duration_cast<std::chrono::milliseconds>(spellRecTime - currTime).count();
-        if (catRecTime > currTime)
-            catCDDuration = std::chrono::duration_cast<std::chrono::milliseconds>(catRecTime - currTime).count();
-
-        if (!spellCDDuration && !catCDDuration && !cdData->IsPermanent())
-            continue;
-
-        if (cdData->IsPermanent())
-            catCDDuration |= 0x8000000;
-
-        data << uint32(cdData->GetSpellId());
-        data << uint16(cdData->GetCategory());              // spell category
-        data << uint32(spellCDDuration);                    // cooldown
-        data << uint32(catCDDuration);                      // category cooldown
-        ++cdCount;
-    }
-    data.put<uint16>(cdCountPos, cdCount);
+    CharmCooldownInitialize(data);
 
     GetSession()->SendPacket(data);
 }
@@ -17865,9 +17788,46 @@ void Player::CharmSpellInitialize() const
         }
     }
 
-    data << uint8(0);                                       // cooldowns count
+    CharmCooldownInitialize(data);
 
     GetSession()->SendPacket(data);
+}
+
+void Player::CharmCooldownInitialize(WorldPacket& data) const
+{
+    // write cooldown data
+    uint32 cdCount = 0;
+    const size_t cdCountPos = data.wpos();
+    data << uint16(0);
+    auto currTime = GetMap()->GetCurrentClockTime();
+
+    for (auto& cdItr : m_cooldownMap)
+    {
+        auto& cdData = cdItr.second;
+        TimePoint spellRecTime = currTime;
+        TimePoint catRecTime = currTime;
+        cdData->GetSpellCDExpireTime(spellRecTime);
+        cdData->GetCatCDExpireTime(catRecTime);
+        uint32 spellCDDuration = 0;
+        uint32 catCDDuration = 0;
+        if (spellRecTime > currTime)
+            spellCDDuration = std::chrono::duration_cast<std::chrono::milliseconds>(spellRecTime - currTime).count();
+        if (catRecTime > currTime)
+            catCDDuration = std::chrono::duration_cast<std::chrono::milliseconds>(catRecTime - currTime).count();
+
+        if (!spellCDDuration && !catCDDuration && !cdData->IsPermanent())
+            continue;
+
+        if (cdData->IsPermanent())
+            catCDDuration |= 0x8000000;
+
+        data << uint32(cdData->GetSpellId());
+        data << uint16(cdData->GetCategory());              // spell category
+        data << uint32(spellCDDuration);                    // cooldown
+        data << uint32(catCDDuration);                      // category cooldown
+        ++cdCount;
+    }
+    data.put<uint16>(cdCountPos, cdCount);
 }
 
 void Player::RemovePetActionBar() const
@@ -20420,14 +20380,7 @@ bool Player::IsAtGroupRewardDistance(WorldObject const* pRewardSource) const
     if (IsInWorld() && pRewardSource->GetMap() == GetMap() && (GetMap()->IsDungeon() || pRewardSource->IsWithinDistInMap(this, sWorld.getConfig(CONFIG_FLOAT_GROUP_XP_DISTANCE))))
         return true;
 
-    if (IsAlive())
-        return false;
-
-    Corpse* corpse = GetCorpse();
-    if (!corpse)
-        return false;
-
-    return corpse->IsInWorld() && pRewardSource->GetMap() == corpse->GetMap() && (corpse->GetMap()->IsDungeon() || pRewardSource->IsWithinDistInMap(corpse, sWorld.getConfig(CONFIG_FLOAT_GROUP_XP_DISTANCE)));
+    return false;
 }
 
 void Player::AddResurrectRequest(ObjectGuid casterGuid, SpellEntry const* spellInfo, Position position, uint32 mapId, uint32 health, uint32 mana, bool isSpiritHealer, const char* sentName)
@@ -20650,7 +20603,7 @@ Player* Player::GetNextRaidMemberWithLowestLifePercentage(float radius, AuraType
     {
         Player* target = itr->getSource();
 
-        if (target && target != this)
+        if (target && target != this && target->IsAlive())
         {
             float x, y, z;
             GetPosition(x, y, z);
