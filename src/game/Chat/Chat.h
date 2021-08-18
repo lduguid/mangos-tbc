@@ -581,6 +581,7 @@ class ChatHandler
         bool HandleReloadTaxiShortcuts(char* args);
         bool HandleReloadSpellPetAurasCommand(char* args);
         bool HandleReloadExpectedSpamRecords(char* args);
+        bool HandleReloadCreatureCooldownsCommand(char* args);
 
         bool HandleResetAllCommand(char* args);
         bool HandleResetHonorCommand(char* args);
@@ -755,6 +756,8 @@ class ChatHandler
         bool HandleSunsReachReclamationPhaseCommand(char* args);
         bool HandleSunsReachReclamationSubPhaseCommand(char* args);
         bool HandleSunsReachReclamationCounterCommand(char* args);
+        bool HandleSunwellGateCommand(char* args);
+        bool HandleSunwellGateCounterCommand(char* args);
         bool HandleExpansionRelease(char* args);
 
         // Battleground

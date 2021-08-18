@@ -21,6 +21,8 @@ enum
     NPC_KALECGOS_DRAGON         = 24844,
     NPC_KAELTHAS                = 24664,
 
+    NPC_SCRYERS_BUNNY           = 25042,
+
     // Delrissa adds
     NPC_KAGANI                  = 24557,
     NPC_ELLRYS                  = 24558,
@@ -56,8 +58,6 @@ class instance_magisters_terrace : public ScriptedInstance
         void OnCreatureCreate(Creature* pCreature) override;
         void OnObjectCreate(GameObject* pGo) override;
 
-        void OnCreatureDeath(Creature* pCreature) override;
-
         uint32 GetData(uint32 uiType) const override;
         void SetData(uint32 uiType, uint32 uiData) override;
 
@@ -66,13 +66,16 @@ class instance_magisters_terrace : public ScriptedInstance
         const char* Save() const override { return m_strInstData.c_str(); }
         void Load(const char* chrIn) override;
 
+        bool IsKalecgosOrbHandled() const { return m_kalecgosOrbHandled; }
+        void SetKalecgosOrbHandled() { m_kalecgosOrbHandled = true; }
+
     private:
         uint32 m_auiEncounter[MAX_ENCOUNTER];
         std::string m_strInstData;
 
-        uint32 m_uiDelrissaDeathCount;
-
         GuidList m_lFelCrystalGuid;
+
+        bool m_kalecgosOrbHandled;
 };
 
 #endif

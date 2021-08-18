@@ -64,7 +64,7 @@ struct SpawnAssociation
 enum
 {
     SPELL_GUARDS_MARK               = 38067,
-    AURA_DURATION_TIME_LEFT         = 5000
+    AURA_DURATION_TIME_LEFT         = 10000
 };
 
 const float RANGE_TRIPWIRE          = 15.0f;
@@ -139,10 +139,14 @@ struct npc_air_force_botsAI : public ScriptedAI
 
     Creature* SummonGuard()
     {
-        Creature* pSummoned = m_creature->SummonCreature(m_pSpawnAssoc->m_uiSpawnedCreatureEntry, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 300000);
+        Creature* pSummoned = m_creature->SummonCreature(m_pSpawnAssoc->m_uiSpawnedCreatureEntry, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 360000);
 
         if (pSummoned)
+        {
             m_spawnedGuid = pSummoned->GetObjectGuid();
+            pSummoned->GetMotionMaster()->MovePoint(1, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ() + 10.0f, FORCED_MOVEMENT_FLIGHT);
+        }
+
         else
         {
             error_db_log("SD2: npc_air_force_bots: wasn't able to spawn creature %u", m_pSpawnAssoc->m_uiSpawnedCreatureEntry);
@@ -1267,6 +1271,7 @@ enum npc_burster_worm
     NPC_GREATER_CRUST_BURSTER           = 21380,
 
     // npcs that use bone bore
+    NPC_CRUST_BURSTER                   = 16844,
     NPC_BONE_CRAWLER                    = 21849,
     NPC_HAISHULUD                       = 22038,
     NPC_BONE_SIFTER                     = 22466,
@@ -1329,6 +1334,7 @@ struct npc_burster_wormAI : public CombatAI
     {
         switch (m_creature->GetEntry())
         {
+            case NPC_CRUST_BURSTER:
             case NPC_MARAUDING_BURSTER:
             case NPC_FULGORGE:
                 return SPELL_TUNNEL_BORE_RED_PASSIVE;
@@ -2122,7 +2128,7 @@ struct mob_phoenix_tkAI : public CombatAI
         SetReactState(REACT_PASSIVE);
         AddCustomAction(PHOENIX_EMBER_BLAST, true, [&]() { HandleEmberBlast(); });
         AddCustomAction(PHOENIX_REBIRTH, true, [&]() { HandleRebirth(); });
-        AddCustomAction(PHOENIX_ATTACK_DELAY, 2000u, [&]() { HandleAttackDelay(); });
+        AddCustomAction(PHOENIX_ATTACK_DELAY, 3000u, [&]() { HandleAttackDelay(); });
     }
 
     uint32 m_burnSpellId;
@@ -2173,6 +2179,12 @@ struct mob_phoenix_tkAI : public CombatAI
         summoned->SetCorpseDelay(5); // egg should despawn after 5 seconds when killed
         summoned->SetImmobilizedState(true); // rooted by default
         summoned->AI()->SetReactState(REACT_PASSIVE);
+    }
+
+    void CorpseRemoved(uint32& /*respawnDelay*/) override // safeguard against wipe
+    {
+        if (Creature* egg = m_creature->GetMap()->GetCreature(m_eggGuid))
+            egg->ForcedDespawn();
     }
 
     void DoRebirth()
@@ -2238,8 +2250,6 @@ struct mob_phoenix_tkAI : public CombatAI
 
         DoRebirth();
     }
-
-    void ExecuteAction(uint32 action) override { }
 };
 
 void AddSC_npcs_special()

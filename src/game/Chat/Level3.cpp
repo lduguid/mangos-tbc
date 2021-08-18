@@ -57,6 +57,7 @@
 #include "Loot/LootMgr.h"
 #include "World/WorldState.h"
 #include "Arena/ArenaTeam.h"
+#include "Metric/Metric.h"
 
 #ifdef BUILD_AHBOT
 #include "AuctionHouseBot/AuctionHouseBot.h"
@@ -322,6 +323,9 @@ bool ChatHandler::HandleReloadConfigCommand(char* /*args*/)
     sLog.outString("Re-Loading config settings...");
     sWorld.LoadConfigSettings(true);
     sMapMgr.InitializeVisibilityDistanceInfo();
+#ifdef BUILD_METRICS
+    metric::metric::instance().reload_config();
+#endif
     SendGlobalSysMessage("World config settings reloaded.");
     return true;
 }
@@ -1085,6 +1089,14 @@ bool ChatHandler::HandleReloadExpectedSpamRecords(char* /*args*/)
     sLog.outString("Reloading expected spam records...");
     sWorld.LoadSpamRecords(true);
     SendGlobalSysMessage("Reloaded expected spam records.");
+    return true;
+}
+
+bool ChatHandler::HandleReloadCreatureCooldownsCommand(char* /*args*/)
+{
+    sLog.outString("Reloading creature cooldowns...");
+    sObjectMgr.LoadCreatureCooldowns();
+    SendGlobalSysMessage("Reloaded creature cooldowns.");
     return true;
 }
 
@@ -6824,6 +6836,38 @@ bool ChatHandler::HandleSunsReachReclamationCounterCommand(char* args)
     }
 
     sWorldState.SetSunsReachCounter(SunsReachCounters(index), value);
+    return true;
+}
+
+bool ChatHandler::HandleSunwellGateCommand(char* args)
+{
+    uint32 param;
+    if (!ExtractUInt32(&args, param))
+    {
+        PSendSysMessage("%s", sWorldState.GetSunsReachPrintout().data());
+        return true;
+    }
+    sWorldState.HandleSunwellGateTransition(param);
+    return true;
+}
+
+bool ChatHandler::HandleSunwellGateCounterCommand(char* args)
+{
+    uint32 index;
+    if (!ExtractUInt32(&args, index) || index >= COUNTERS_MAX_GATES)
+    {
+        PSendSysMessage("Enter valid index for counter.");
+        return true;
+    }
+
+    uint32 value;
+    if (!ExtractUInt32(&args, value))
+    {
+        PSendSysMessage("Enter valid value for counter.");
+        return true;
+    }
+
+    sWorldState.SetSunwellGateCounter(SunwellGateCounters(index), value);
     return true;
 }
 

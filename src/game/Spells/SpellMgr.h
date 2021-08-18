@@ -633,6 +633,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 22856:         // Ice Lock (Guard Slip'kik ice trap in Dire Maul)
         case 25592:         // Hate to Zero (Hate to Zero)
         case 26341:         // Saurfang's Rage
+        case 27578:         // Battle Shout
         case 27987:         // Unholy Aura
         case 28126:         // Spirit Particles (purple)
         case 28902:         // Bloodlust
@@ -651,6 +652,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 32939:         // Phase Burst
         case 32942:         // Phasing Invisibility
         case 33460:         // Inhibit Magic
+        case 33483:         // Mana Tap
         case 33900:         // Shroud of Death
         case 33908:         // Burning Spikes
         case 34343:         // Thorns
@@ -692,9 +694,14 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 40899:         // Felfire Proc
         case 41634:         // Invisibility and Stealth Detection
         case 42459:         // Dual Wield (Passive)
+        case 44118:         // Fists of Arcane Fury
+        case 44480:         // Seal of Wrath
+        case 44505:         // Drink Fel Infusion
+        case 44520:         // Fel Armor (Rank 2)
         case 44537:         // Fel Lightning
         case 44604:         // Enchantment of Spell Haste
         case 44855:         // Out of Phase
+        case 44977:         // Fel Armor (Rank 2)
         case 45033:         // Abyssal Transformation
         case 45187:         // Dawnblade Attack
         case 45822:         // Iceblood Warmaster
@@ -705,12 +712,14 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 45829:         // Dun Baldar South Marshal
         case 45830:         // Stonehearth Marshal
         case 45831:         // Icewing Marshal
+        case 46030:         // Seal of Wrath
         case 46048:         // Fel Lightning
         case 46277:         // Bring Pain
         case 46308:         // Burning Winds
         case 46565:         // Holyform
         case 46744:         // Chilling Touch
         case 47287:         // Burning Destruction
+        case 47399:         // Frenzy
             return false;
         default:
             return true;
@@ -1521,15 +1530,18 @@ inline bool IsPositiveSpell(uint32 spellId, const WorldObject* caster = nullptr,
     return IsPositiveSpell(sSpellTemplate.LookupEntry<SpellEntry>(spellId), caster, target);
 }
 
-inline bool CanPierceImmuneAura(SpellEntry const* spellInfo, SpellEntry const* auraSpellInfo)
+inline bool CanPierceImmuneAura(SpellEntry const* spellInfo, SpellEntry const* auraSpellInfo, uint8 effectMask = 0, SpellEffectIndex effIdx = EFFECT_INDEX_0)
 {
     // aura can't be pierced
-    if (!auraSpellInfo || auraSpellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+    if (auraSpellInfo && auraSpellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
         return false;
 
     // these spells pierce all available spells (Resurrection Sickness for example)
     if (spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
         return true;
+
+    if (!auraSpellInfo)
+        return false;
 
     // these spells (Cyclone for example) can pierce all...
     if (spellInfo->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) || spellInfo->HasAttribute(SPELL_ATTR_EX2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE))
@@ -1539,6 +1551,18 @@ inline bool CanPierceImmuneAura(SpellEntry const* spellInfo, SpellEntry const* a
             auraSpellInfo->Mechanic != MECHANIC_INVULNERABILITY &&
             auraSpellInfo->Mechanic != MECHANIC_BANISH)
             return true;
+    }
+
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
+    {
+        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+        {
+            uint32 miscValue = (uint32)spellInfo->EffectMiscValue[i];
+            if (spellInfo->Effect[i] && spellInfo->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY_MASK)
+                if (effectMask & (1 << i))
+                    if (miscValue & (1 << auraSpellInfo->Mechanic) || miscValue & (1 << auraSpellInfo->EffectMechanic[effIdx]))
+                        return true;
+        }
     }
 
     // TODO: Add SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY logic
@@ -1569,6 +1593,11 @@ inline void GetChainJumpRange(SpellEntry const* spellInfo, SpellEffectIndex effI
         case 40861:
             minSearchRangeCaster = 0.f;
             maxSearchRangeTarget = 150.f;
+            break;
+        case 44537: // Fel Lightning - MgT / SWP
+        case 46048:
+        case 46480:
+            maxSearchRangeTarget = 50.f;
             break;
         default:   // default jump radius
             break;
@@ -1748,7 +1777,8 @@ inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex
     {
         case TARGET_UNIT_FRIEND_CHAIN_HEAL: // checked for LOS but in a custom chain way
         case TARGET_UNIT_FRIEND_AND_PARTY:
-        case TARGET_UNIT_RAID_AND_CLASS: return true;
+        case TARGET_UNIT_RAID_AND_CLASS:
+        case TARGET_ENUM_UNITS_PARTY_WITHIN_CASTER_RANGE: return true;
         default: break;
     }
 

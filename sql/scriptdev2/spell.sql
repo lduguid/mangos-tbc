@@ -311,12 +311,32 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (41917,'spell_parasitic_shadowfiend'),
 (40647,'spell_shadow_prison'),
 (33499,'spell_shape_of_the_beast'),
+(44329,'spell_fel_crystal_dummy'),
+(44320,'spell_mana_rage_selin'),
 (40848,'spell_dragonmaw_knockdown_the_aggro_check'),
 (40985,'spell_dragonmaw_knockdown_the_aggro_check'),
 (40993,'spell_dragonmaw_knockdown_the_aggro_check'),
 (41007,'spell_dragonmaw_knockdown_the_aggro_check'),
 (41015,'spell_dragonmaw_knockdown_the_aggro_check'),
-(41022,'spell_dragonmaw_knockdown_the_aggro_check');
+(41022,'spell_dragonmaw_knockdown_the_aggro_check'),
+(45219,'spell_shattered_sun_marksman_shoot'),
+(45223,'spell_shattered_sun_marksman_shoot'),
+(45229,'spell_shattered_sun_marksman_shoot'),
+(45233,'spell_shattered_sun_marksman_shoot'),
+(32863,'spell_seed_of_corruption_npc'),
+(36123,'spell_seed_of_corruption_npc'),
+(38252,'spell_seed_of_corruption_npc'),
+(39367,'spell_seed_of_corruption_npc'),
+(44141,'spell_seed_of_corruption_npc'),
+(45091,'spell_spar_auras'),
+(45092,'spell_spar_auras'),
+(47108,'spell_clear_energy_feedback'),
+(44224,'spell_gravity_lapse_mgt'),
+(44232,'spell_clear_flight_mgt'),
+(34480,'spell_gravity_lapse_knockup'),
+(44226,'spell_gravity_lapse_knockup'),
+(49887,'spell_gravity_lapse_knockup'),
+(32727,'spell_arena_preparation');
 
 -- Wotlk
 
@@ -360,6 +380,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 
 -- Warlock
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
+(126,'spell_eye_of_kilrogg'),
 (172,'spell_corruption'),
 (6222,'spell_corruption'),
 (6223,'spell_corruption'),
@@ -390,12 +411,19 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (30911,'spell_siphon_life'),
 (25228,'spell_soul_link'),
 (27243,'spell_seed_of_corruption'),
+(27285,'spell_seed_of_corruption_damage'),
 (35696,'spell_demonic_knowledge'),
 (30108,'spell_unstable_affliction'),
 (30404,'spell_unstable_affliction'),
 (30405,'spell_unstable_affliction'),
 (32379,'spell_shadow_word_death'),
-(32996,'spell_shadow_word_death');
+(32996,'spell_shadow_word_death'),
+(19505,'spell_devour_magic'),
+(19731,'spell_devour_magic'),
+(19734,'spell_devour_magic'),
+(19736,'spell_devour_magic'),
+(27276,'spell_devour_magic'),
+(27277,'spell_devour_magic');
 
 -- Pet Scaling
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -488,7 +516,17 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (974,'spell_earth_shield'),
 (32593,'spell_earth_shield'),
-(32594,'spell_earth_shield');
+(32594,'spell_earth_shield'),
+(324,'spell_damage_trigger_shield'),
+(325,'spell_damage_trigger_shield'),
+(905,'spell_damage_trigger_shield'),
+(945,'spell_damage_trigger_shield'),
+(8134,'spell_damage_trigger_shield'),
+(8788,'spell_damage_trigger_shield'),
+(10431,'spell_damage_trigger_shield'),
+(10432,'spell_damage_trigger_shield'),
+(24398,'spell_damage_trigger_shield'),
+(33736,'spell_damage_trigger_shield');
 
 -- Battleground and Outdoor PvP
 -- Alterac Valley

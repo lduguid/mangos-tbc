@@ -18,6 +18,7 @@
  
 #include "Spells/Scripts/SpellScript.h"
 #include "Spells/SpellAuras.h"
+#include "Spells/SpellMgr.h"
 
 enum
 {
@@ -195,12 +196,89 @@ struct Corruption : public AuraScript
     }
 };
 
+struct EyeOfKilrogg : public SpellScript
+{
+    void OnSummon(Spell* spell, Creature* summon) const override
+    {
+        summon->CastSpell(nullptr, 2585, TRIGGERED_OLD_TRIGGERED);
+        summon->DisableThreatPropagationToOwner();
+    }
+};
+
+struct DevourMagic : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool strict) const override
+    {
+        Unit* target = spell->m_targets.getUnitTarget();
+        Unit* caster = spell->GetCaster();
+        if (target && caster)
+        {
+            auto auras = target->GetSpellAuraHolderMap();
+            for (auto itr : auras)
+            {
+                SpellEntry const* spell = itr.second->GetSpellProto();
+                if (itr.second->GetTarget()->GetObjectGuid() != caster->GetObjectGuid() && spell->Dispel == DISPEL_MAGIC && IsPositiveSpell(spell) && !IsPassiveSpell(spell))
+                    return SPELL_CAST_OK;
+            }
+        }
+        return SPELL_FAILED_NOTHING_TO_DISPEL;
+    }
+};
+
+enum
+{
+    SPELL_SEED_DAMAGE = 27285,
+};
+
 struct SeedOfCorruption : public AuraScript
 {
     void OnApply(Aura* aura, bool apply) const override
     {
-        if (!apply)
+        if (apply)
+            return;
+        if (aura->GetEffIndex() != EFFECT_INDEX_1)
+        {
             RemoveShadowEmbraceIfNecessary(aura);
+            return;
+        }
+        if (aura->GetRemoveMode() == AURA_REMOVE_BY_DEATH)
+            if (Unit* caster = aura->GetCaster())
+                caster->CastSpell(aura->GetTarget(), SPELL_SEED_DAMAGE, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+    }
+
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
+    {
+        if (aura->GetEffIndex() != EFFECT_INDEX_1)
+            return SPELL_AURA_PROC_OK;
+        Modifier* mod = procData.triggeredByAura->GetModifier();
+        // if damage is more than need
+        if (mod->m_amount <= (int32)procData.damage)
+        {
+            // remember guid before aura delete
+            ObjectGuid casterGuid = procData.triggeredByAura->GetCasterGuid();
+
+            // Remove aura (before cast for prevent infinite loop handlers)
+            procData.victim->RemoveAurasByCasterSpell(procData.triggeredByAura->GetId(), procData.triggeredByAura->GetCasterGuid());
+
+            // Cast finish spell (triggeredByAura already not exist!)
+            if (Unit* caster = procData.triggeredByAura->GetCaster())
+                caster->CastSpell(procData.victim, SPELL_SEED_DAMAGE, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+            return SPELL_AURA_PROC_OK;              // no hidden cooldown
+        }
+
+        // Damage counting
+        mod->m_amount -= procData.damage;
+        return SPELL_AURA_PROC_OK;
+    }
+};
+
+struct SeedOfCorruptionDamage : public SpellScript
+{
+    bool OnCheckTarget(const Spell* spell, Unit* target, SpellEffectIndex /*eff*/) const override
+    {
+        if (target->GetObjectGuid() == spell->m_targets.getUnitTargetGuid()) // in TBC skip target of initial aura
+            return false;
+        return true;
     }
 };
 
@@ -215,4 +293,7 @@ void LoadWarlockScripts()
     RegisterAuraScript<Corruption>("spell_corruption");
     RegisterAuraScript<SiphonLife>("spell_siphon_life");
     RegisterAuraScript<CurseOfAgony>("spell_curse_of_agony");
+    RegisterSpellScript<EyeOfKilrogg>("spell_eye_of_kilrogg");
+    RegisterSpellScript<DevourMagic>("spell_devour_magic");
+    RegisterSpellScript<SeedOfCorruptionDamage>("spell_seed_of_corruption_damage");
 }
