@@ -1123,7 +1123,7 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
 WorldObject::WorldObject() :
     m_transportInfo(nullptr), m_isOnEventNotified(false),
     m_visibilityData(this), m_currMap(nullptr),
-    m_mapId(0), m_InstanceId(0),
+    m_mapId(0), m_InstanceId(0), m_phaseMask(1),
     m_isActiveObject(false), m_debugFlags(0), m_transport(nullptr)
 {
 }
@@ -1133,9 +1133,10 @@ void WorldObject::CleanupsBeforeDelete()
     RemoveFromWorld();
 }
 
-void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh)
+void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask)
 {
     Object::_Create(guidlow, 0, guidhigh);
+    m_phaseMask = phaseMask;
 }
 
 void WorldObject::Relocate(float x, float y, float z, float orientation)
@@ -2292,6 +2293,11 @@ void WorldObject::GetNearPointAt(const float posX, const float posY, const float
         UpdateGroundPositionZ(x, y, z);
 }
 
+void WorldObject::SetPhaseMask(uint32 newPhaseMask)
+{
+    m_phaseMask = newPhaseMask;
+}
+
 void WorldObject::PlayDistanceSound(uint32 sound_id, PlayPacketParameters parameters /*= PlayPacketParameters(PLAY_SET)*/) const
 {
     WorldPacket data(SMSG_PLAY_OBJECT_SOUND, 4 + 8);
@@ -2968,7 +2974,17 @@ float Position::GetDistance(Position const& other) const
     return distsq;
 }
 
+std::string Position::to_string() const
+{
+    return "X: " + std::to_string(x) + " Y: " + std::to_string(y) + " Z: " + std::to_string(z) + " O: " + std::to_string(o);
+}
+
 bool operator!=(const Position& left, const Position& right)
 {
     return left.x != right.x || left.y != right.y || left.z != right.z || left.o != right.o;
+}
+
+bool WorldObject::IsUsingNewSpawningSystem() const
+{
+    return GetDbGuid() && GetDbGuid() != GetGUIDLow();
 }

@@ -60,7 +60,7 @@ enum CreatureExtraFlags
     CREATURE_EXTRA_FLAG_CIVILIAN               = 0x00010000,       // 65536 CreatureInfo->civilian substitute (for new expansions)
     CREATURE_EXTRA_FLAG_NO_MELEE               = 0x00020000,       // 131072 creature can't melee
     CREATURE_EXTRA_FLAG_FORCE_ATTACKING_CAPABILITY = 0x00080000,   // 524288 SetForceAttackingCapability(true); for nonattackable, nontargetable creatures that should be able to attack nontheless
-    // CREATURE_EXTRA_FLAG_REUSE               = 0x00100000,       // 1048576 - reuse
+    CREATURE_EXTRA_FLAG_DYNGUID                = 0x00100000,       // 1048576 Temporary transition flag - spawns of this entry use dynguid system
     CREATURE_EXTRA_FLAG_COUNT_SPAWNS           = 0x00200000,       // 2097152 count creature spawns in Map*
     // CREATURE_EXTRA_FLAG_REUSE               = 0x00400000,       // 4194304 - reuse
     CREATURE_EXTRA_FLAG_DUAL_WIELD_FORCED      = 0x00800000,       // 8388606 creature is alwyas dual wielding (even if unarmed)
@@ -157,6 +157,7 @@ struct CreatureInfo
     uint32  EquipmentTemplateId;
     uint32  GossipMenuId;
     VisibilityDistanceType visibilityDistanceType;
+    uint32  CorpseDelay;
     char const* AIName;
     uint32  ScriptID;
 
@@ -708,6 +709,7 @@ class Creature : public Unit
         uint32 GetLootGroupRecipientId() const { return m_lootGroupRecipientId; }
         Player* GetLootRecipient() const;                   // use group cases as prefered
         Group* GetGroupLootRecipient() const;
+        void SetCorpseAccelerationDelay(uint32 delay) { m_corpseAccelerationDecayDelay = delay; } // in miliseconds
 
         bool HasLootRecipient() const { return m_lootGroupRecipientId || m_lootRecipientGuid; }
         bool IsGroupLootRecipient() const { return m_lootGroupRecipientId != 0; }
@@ -725,6 +727,8 @@ class Creature : public Unit
         void SetNoCallAssistance(bool val) { m_AlreadyCallAssistance = val; }
         bool CanAssistTo(const Unit* u, const Unit* enemy, bool checkfaction = true) const;
         bool CanInitiateAttack() const;
+        bool CanCallForAssistance() const override { return m_canCallForAssistance; }
+        void SetCanCallForAssistance(bool state) { m_canCallForAssistance = state; }
         bool IsInGroup(Unit const* other, bool party/* = false*/, bool ignoreCharms/* = false*/) const override;
 
         MovementGeneratorType GetDefaultMovementType() const { return m_defaultMovementType; }
@@ -836,7 +840,9 @@ class Creature : public Unit
         void UnregisterHitBySpell(uint32 spellId);
         void ResetSpellHitCounter();
 
-        uint32 GetDbGuid() const { return m_dbGuid; }
+        uint32 GetDbGuid() const override { return m_dbGuid; }
+        HighGuid GetParentHigh() const override { return HIGHGUID_UNIT; }
+
     protected:
         bool CreateFromProto(uint32 guidlow, CreatureInfo const* cinfo, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
         bool InitEntry(uint32 Entry, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
@@ -854,6 +860,7 @@ class Creature : public Unit
         ObjectGuid m_lootRecipientGuid;                     // player who will have rights for looting if m_lootGroupRecipient==0 or group disbanded
         uint32 m_lootGroupRecipientId;                      // group who will have rights for looting if set and exist
         CreatureLootStatus m_lootStatus;                    // loot status (used to know when we could loot, pickpocket or skin)
+        uint32 m_corpseAccelerationDecayDelay;              // time for ReduceCorpseDecayTimer
 
         /// Timers
         TimePoint m_corpseExpirationTime;                   // (msecs) time point of corpse decay
@@ -875,6 +882,7 @@ class Creature : public Unit
 
         // below fields has potential for optimization
         bool m_AlreadyCallAssistance;
+        bool m_canCallForAssistance;
         bool m_isDeadByDefault;
         uint32 m_temporaryFactionFlags;                     // used for real faction changes (not auras etc)
 

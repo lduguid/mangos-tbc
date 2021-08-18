@@ -20,6 +20,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (12948,'spell_hakkar_summoned'),
 (13278,'spell_gdr_channel'),
 (13493,'spell_gdr_periodic'),
+(11610,'spell_gammerita_turtle_camera'),
 (16380,'spell_greater_invisibility_mob'),
 (17016,'spell_placing_beacon_torch'),
 (17244,'spell_anastari_possess'),
@@ -179,6 +180,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (31624,'spell_raise_dead_hyjal'),
 (31625,'spell_raise_dead_hyjal'),
 (38028,'spell_watery_grave'),
+(39601,'spell_grasp_of_the_emerald_dream'),
 (34231,'spell_increased_holy_light_healing'),
 (33793,'spell_vazruden_liquid_fire_script'),
 (33794,'spell_vazruden_liquid_fire_script'),
@@ -313,6 +315,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (33499,'spell_shape_of_the_beast'),
 (44329,'spell_fel_crystal_dummy'),
 (44320,'spell_mana_rage_selin'),
+(40657,'spell_terokk_ancient_flames'),
 (40848,'spell_dragonmaw_knockdown_the_aggro_check'),
 (40985,'spell_dragonmaw_knockdown_the_aggro_check'),
 (40993,'spell_dragonmaw_knockdown_the_aggro_check'),
@@ -374,6 +377,8 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (20307,'spell_seal_of_the_crusader'),
 (20308,'spell_seal_of_the_crusader'),
 (27158,'spell_seal_of_the_crusader'),
+(20271,'spell_judgement'),
+(40470,'spell_paladin_tier_6_trinket'),
 (31789,'spell_righteous_defense'),
 (31893,'spell_seal_of_blood_self_damage'),
 (31898,'spell_seal_of_blood_self_damage');
@@ -389,6 +394,9 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (11672,'spell_corruption'),
 (25311,'spell_corruption'),
 (27216,'spell_corruption'),
+(603,'spell_curse_of_doom'),
+(30910,'spell_curse_of_doom'),
+(18662,'spell_curse_of_doom_effect'),
 (980,'spell_curse_of_agony'),
 (1014,'spell_curse_of_agony'),
 (6217,'spell_curse_of_agony'),
@@ -499,7 +507,11 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (9856,'spell_regrowth'),
 (9857,'spell_regrowth'),
 (9858,'spell_regrowth'),
-(26980,'spell_regrowth');
+(26980,'spell_regrowth'),
+(1178,'spell_druid_form_scaling_ap_auras'),
+(3025,'spell_druid_form_scaling_ap_auras'),
+(9635,'spell_druid_form_scaling_ap_auras'),
+(24905,'spell_druid_form_scaling_ap_auras');
 
 -- Rogue
 INSERT INTO spell_scripts(Id, ScriptName) VALUES

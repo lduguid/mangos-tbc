@@ -781,7 +781,7 @@ enum SpellAuraProcResult
     SPELL_AURA_PROC_CANT_TRIGGER    = 2,                    // aura can't trigger - skip charges taking, move to next aura if exists
 };
 
-// Unit* victim, uint32 procAttacker, uint32 procVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType, SpellEntry const* procSpell, bool dontTriggerSpecial
+// Unit* victim, uint32 procAttacker, uint32 procVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType, SpellEntry const* spellInfo, bool dontTriggerSpecial
 
 // External struct for passing on data
 struct ProcSystemArguments
@@ -794,7 +794,7 @@ struct ProcSystemArguments
     uint32 procExtra;
 
     uint32 damage; // contains full heal or full damage
-    SpellEntry const* procSpell;
+    SpellEntry const* spellInfo;
     WeaponAttackType attType;
 
     Spell* spell;
@@ -804,8 +804,8 @@ struct ProcSystemArguments
     bool isHeal;
 
     explicit ProcSystemArguments(Unit* attacker, Unit* victim, uint32 procFlagsAttacker, uint32 procFlagsVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType = BASE_ATTACK,
-        SpellEntry const* procSpell = nullptr, Spell* spell = nullptr, uint32 healthGain = 0, bool isHeal = false) : attacker(attacker), victim(victim), procFlagsAttacker(procFlagsAttacker), procFlagsVictim(procFlagsVictim), procExtra(procExtra), damage(amount),
-        procSpell(procSpell), attType(attType), spell(spell), healthGain(healthGain), isHeal(isHeal)
+        SpellEntry const* spellInfo = nullptr, Spell* spell = nullptr, uint32 healthGain = 0, bool isHeal = false) : attacker(attacker), victim(victim), procFlagsAttacker(procFlagsAttacker), procFlagsVictim(procFlagsVictim), procExtra(procExtra), damage(amount),
+        spellInfo(spellInfo), attType(attType), spell(spell), healthGain(healthGain), isHeal(isHeal)
     {
     }
 };
@@ -827,9 +827,9 @@ struct ProcExecutionData
 
     WeaponAttackType attType;
     uint32 damage; // contains full heal or full damage
-    SpellEntry const* procSpell;
+    SpellEntry const* spellInfo; // filled always even on aura tick
 
-    Spell* spell;
+    Spell* spell; // only filled on direct spell execution
 
     // Healing specific information
     uint32 healthGain;
@@ -948,7 +948,7 @@ struct CharmInfo
         void InitCharmCreateSpells();
         void InitPetActionBar();
         void InitEmptyActionBar();
-        void ProcessUnattackableTargets();
+        void ProcessUnattackableTargets(CombatData* combatData);
 
         // return true if successful
         bool AddSpellToActionBar(uint32 spellId, ActiveStates newstate = ACT_DECIDE, uint8 forceSlot = 255);
@@ -1097,6 +1097,7 @@ enum SelectFlags
     SELECT_FLAG_SKIP_TANK           = 0x4000,               // Not GetVictim - tank is not always top threat
     SELECT_FLAG_CASTING             = 0x8000,               // Selects only targets that are casting
     SELECT_FLAG_SKIP_CUSTOM         =0x10000,               // skips custom target
+    SELECT_FLAG_NOT_IMMUNE          =0x20000,
 };
 
 struct SelectAttackingTargetParams
@@ -1240,7 +1241,7 @@ class Unit : public WorldObject
          */
         bool CanUseEquippedWeapon(WeaponAttackType attackType) const
         {
-            if (IsInFeralForm())
+            if (IsNoWeaponShapeShift())
                 return false;
 
             switch (attackType)
@@ -1464,6 +1465,7 @@ class Unit : public WorldObject
         void SetImmuneToNPC(bool state);
         bool IsImmuneToPlayer() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER); }
         void SetImmuneToPlayer(bool state);
+        bool IsPlayerControlled() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED); }
 
         bool IsPvP() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP); }
         void SetPvP(bool state);
@@ -1881,7 +1883,7 @@ class Unit : public WorldObject
 
         void AddGuardian(Pet* pet);
         void RemoveGuardian(Pet* pet);
-        void RemoveGuardians();
+        void RemoveGuardians(bool force = true); // do not remove guardians in combat unless forced
         Pet* FindGuardianWithEntry(uint32 entry);
         uint32 CountGuardiansWithEntry(uint32 entry);
 
@@ -1999,11 +2001,7 @@ class Unit : public WorldObject
         void  SetShapeshiftForm(ShapeshiftForm form) { SetByteValue(UNIT_FIELD_BYTES_2, 3, form); }
 
         bool IsShapeShifted() const;
-        bool IsInFeralForm() const
-        {
-            ShapeshiftForm form = GetShapeshiftForm();
-            return form == FORM_CAT || form == FORM_BEAR || form == FORM_DIREBEAR;
-        }
+        bool IsNoWeaponShapeShift() const;
 
         bool IsInDisallowedMountForm() const
         {
@@ -2378,7 +2376,7 @@ class Unit : public WorldObject
         void DisableThreatPropagationToOwner() { m_ownerThreatPropagation = false; }
         bool IsPropagatingThreatToOwner() { return m_ownerThreatPropagation; } // TBC+ - Eye of Kilrogg
 
-        float GetAttackDistance(Unit const* pl) const;
+        float GetAttackDistance(Unit const* target) const;
         virtual uint32 GetDetectionRange() const { return 20.f; }
 
         virtual UnitAI* AI() { return nullptr; }
@@ -2425,6 +2423,8 @@ class Unit : public WorldObject
         void OverrideMountDisplayId(uint32 newDisplayId);
 
         void UpdateSplinePosition(bool relocateOnly = false);
+
+        virtual bool CanCallForAssistance() const { return true; }
     protected:
         bool MeetsSelectAttackingRequirement(Unit* target, SpellEntry const* spellInfo, uint32 selectFlags, SelectAttackingTargetParams params) const;
 

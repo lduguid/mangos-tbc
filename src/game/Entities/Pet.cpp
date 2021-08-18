@@ -693,9 +693,9 @@ void Pet::Update(const uint32 diff)
         {
             // unsummon pet that lost owner
             Unit* owner = GetOwner();
-            if (!owner ||
+            if ((!owner ||
                     (!IsWithinDistInMap(owner, GetMap()->GetVisibilityDistance()) && (owner->HasCharm() && !owner->HasCharm(GetObjectGuid()))) ||
-                    (isControlled() && !owner->GetPetGuid()))
+                    (isControlled() && !owner->GetPetGuid())) && (!IsGuardian() || !IsInCombat()))
             {
                 Unsummon(PET_SAVE_REAGENTS);
                 return;
@@ -1463,6 +1463,8 @@ void Pet::InitPetScalingAuras()
             CastSpell(nullptr, 34958, TRIGGERED_NONE);
             break;
         case 12740: // Infernal - Warlock - unique - isnt updated on stat changes
+        case 18541: // Doomguard - Ritual of Doom
+        case 18662: // Doomguard - Curse of Doom
             CastSpell(nullptr, 36186, TRIGGERED_NONE);
             CastSpell(nullptr, 36188, TRIGGERED_NONE);
             CastSpell(nullptr, 36189, TRIGGERED_NONE);

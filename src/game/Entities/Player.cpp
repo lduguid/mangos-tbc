@@ -1416,6 +1416,9 @@ void Player::Update(const uint32 diff)
     Unit::Update(diff);
     SetCanDelayTeleport(false);
 
+    if (IsHasDelayedTeleport() && m_semaphoreTeleport_Near)
+        TeleportTo(m_teleport_dest, m_teleport_options);
+
     time_t now = time(nullptr);
 
     UpdatePvPFlagTimer(diff);
@@ -1600,7 +1603,7 @@ void Player::Update(const uint32 diff)
     if (pet && !pet->IsWithinDistInMap(this, GetMap()->GetVisibilityDistance()) && (GetCharmGuid() && (pet->GetObjectGuid() != GetCharmGuid())))
         pet->Unsummon(PET_SAVE_REAGENTS, this);
 
-    if (IsHasDelayedTeleport())
+    if (IsHasDelayedTeleport() && !m_semaphoreTeleport_Near)
         TeleportTo(m_teleport_dest, m_teleport_options);
 
 #ifdef BUILD_PLAYERBOT
@@ -1970,14 +1973,14 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
         {
             if (Unit* charm = GetCharm())
             {
-                if (!charm->IsWithinDist3d(x, y, z, GetMap()->GetVisibilityDistance()))
+                if (!charm->IsWithinDist3d(x, y, z, 100.f))
                     BreakCharmOutgoing(charm);
             }
 
             if (Pet* pet = GetPet())
             {
                 // same map, only remove pet if out of range for new position
-                if (!pet->IsWithinDist3d(x, y, z, GetMap()->GetVisibilityDistance()))
+                if (!pet->IsWithinDist3d(x, y, z, 50.f))
                     UnsummonPetTemporaryIfAny();
             }
         }
@@ -2032,7 +2035,6 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
 
         // this will be used instead of the current location in SaveToDB
         m_teleport_dest = WorldLocation(mapid, x, y, z, orientation);
-        SetFallInformation(0, z);
 
         // code for finish transfer called in WorldSession::HandleMovementOpcodes()
         // at client packet MSG_MOVE_TELEPORT_ACK
@@ -2529,14 +2531,14 @@ void Player::SetGameMaster(bool on)
     UnitList deadUnits;
     MaNGOS::AnyDeadUnitCheck u_check(this);
     MaNGOS::UnitListSearcher<MaNGOS::AnyDeadUnitCheck > searcher(deadUnits, u_check);
-    Cell::VisitAllObjects(this, searcher, GetMap()->GetVisibilityDistance());
+    Cell::VisitAllObjects(this, searcher, MAX_VISIBILITY_DISTANCE);
     for (auto deadUnit : deadUnits)
     {
         if (deadUnit->GetTypeId() == TYPEID_UNIT)
             deadUnit->ForceValuesUpdateAtIndex(UNIT_DYNAMIC_FLAGS);
     }
 
-    m_camera.UpdateVisibilityForOwner();
+    m_camera.UpdateVisibilityForOwner(true);
     UpdateObjectVisibility();
     UpdateEverything();
 }
@@ -5544,11 +5546,8 @@ void Player::UpdateWeaponSkill(WeaponAttackType attType)
     if (pVictim && pVictim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
         return;
 
-    if (IsInFeralForm())
-        return;                                             // always maximized SKILL_FERAL_COMBAT in fact
-
-    if (GetShapeshiftForm() == FORM_TREE)
-        return;                                             // use weapon but not skill up
+    if (IsNoWeaponShapeShift())
+        return;
 
     uint32 weaponSkillGain = sWorld.getConfig(CONFIG_UINT32_SKILL_GAIN_WEAPON);
 
@@ -5570,10 +5569,6 @@ void Player::UpdateCombatSkills(Unit* pVictim, WeaponAttackType attType, bool de
 
     // Max skill reached: nothing to gain
     if (room <= 0)
-        return;
-
-    // Target is less proficient than player (i.e. trivial): nothing to gain
-    if (defence && pVictim->GetSkillMaxForLevel(this) <= skill)
         return;
 
     // The farther player is from the cap, the easier it gets to level up the skill
@@ -7803,7 +7798,7 @@ void Player::CastItemCombatSpell(Unit* Target, WeaponAttackType attType, bool sp
 
             // some weapon enchantments have proc flags which need to be checked
             if (spellInfo->procFlags)
-                if (!(spellInfo->procFlags & PROC_FLAG_SUCCESSFUL_MELEE_SPELL_HIT) && spellProc)
+                if (!(spellInfo->procFlags & PROC_FLAG_DEAL_MELEE_ABILITY) && spellProc)
                     continue;
 
             // Use first rank to access spell item enchant procs
@@ -14185,18 +14180,17 @@ void Player::ItemRemovedQuestCheck(uint32 entry, uint32 count)
             {
                 QuestStatusData& q_status = mQuestStatus[questid];
 
-                uint32 reqitemcount = qInfo->ReqItemCount[j];
-                uint32 curitemcount;
+                uint32 reqItemCount = qInfo->ReqItemCount[j];
+                uint32 curItemCount = q_status.m_itemcount[j];
 
-                if (q_status.m_status != QUEST_STATUS_COMPLETE)
-                    curitemcount = q_status.m_itemcount[j];
-                else
-                    curitemcount = GetItemCount(entry, true);
+                // With items you can have more than the required by the quest.
+                if (curItemCount >= reqItemCount)
+                    curItemCount = GetItemCount(entry, false);
 
-                if (curitemcount < reqitemcount + count)
+                if (q_status.m_itemcount[j] > curItemCount - count)
                 {
-                    uint32 remitemcount = (curitemcount <= reqitemcount ? count : count + reqitemcount - curitemcount);
-                    q_status.m_itemcount[j] = curitemcount - remitemcount;
+                    uint32 remitemcount = (curItemCount <= reqItemCount ? count : count + reqItemCount - curItemCount);
+                    q_status.m_itemcount[j] = curItemCount - remitemcount;
                     if (q_status.uState != QUEST_NEW)
                         q_status.uState = QUEST_CHANGED;
 

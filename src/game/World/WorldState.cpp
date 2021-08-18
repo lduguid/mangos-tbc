@@ -1027,8 +1027,6 @@ enum
     QUEST_A_CHARITABLE_DONATION             = 11545,
     QUEST_A_MAGNANIMOUS_BENEFACTOR          = 11549,
 
-    COUNTER_MAX_VAL_REQ                     = 10000,
-
     // optional Sunwell Plateau PTR progressive release gates
     QUEST_AGAMATH_THE_FIRST_GATE            = 11551,
     QUEST_ROHENDOR_THE_SECOND_GATE          = 11552,
@@ -1076,59 +1074,63 @@ void WorldState::AddSunsReachProgress(uint32 questId)
         SendWorldstateUpdate(m_sunsReachData.m_sunsReachReclamationMutex, m_sunsReachData.m_sunsReachReclamationPlayers, newValue, worldState);
 
     bool save = true;
-    if (m_sunsReachData.m_sunsReachReclamationCounters[counter] >= COUNTER_MAX_VAL_REQ)
+    uint32 counterValue = m_sunsReachData.m_sunsReachReclamationCounters[counter];
+    uint32 modifier = 1;
+    if (otherCounter != -1)
     {
-        if (otherCounter == -1 || m_sunsReachData.m_sunsReachReclamationCounters[otherCounter] >= COUNTER_MAX_VAL_REQ)
+        modifier = 2;
+        counterValue += m_sunsReachData.m_sunsReachReclamationCounters[otherCounter];
+    }
+    if (counterValue >= sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER) * modifier)
+    {
+        save = false;
+        switch (questId)
         {
-            save = false;
-            switch (questId)
+            case QUEST_ERRATIC_BEHAVIOR:
+            case QUEST_SANCTUM_WARDS:
             {
-                case QUEST_ERRATIC_BEHAVIOR:
-                case QUEST_SANCTUM_WARDS:
-                {
-                    if (m_sunsReachData.m_phase == SUNS_REACH_PHASE_1_STAGING_AREA)
-                        HandleSunsReachPhaseTransition(SUNS_REACH_PHASE_2_SANCTUM);
-                    break;
-                }
-                case QUEST_BATTLE_FOR_THE_SUNS_REACH_ARMORY:
-                case QUEST_DISTRACTION_AT_THE_DEAD_SCAR:
-                {
-                    if (m_sunsReachData.m_phase == SUNS_REACH_PHASE_2_SANCTUM)
-                        HandleSunsReachPhaseTransition(SUNS_REACH_PHASE_3_ARMORY);
-                    break;
-                }
-                case QUEST_INTERCEPTING_THE_MANA_CELLS:
-                {
-                    if ((m_sunsReachData.m_subphaseMask & SUBPHASE_PORTAL) == 0)
-                        HandleSunsReachSubPhaseTransition(SUBPHASE_PORTAL);
-                    break;
-                }
-                case QUEST_INTERCEPT_THE_REINFORCEMENTS:
-                case QUEST_TAKING_THE_HARBOR:
-                {
-                    if (m_sunsReachData.m_phase == SUNS_REACH_PHASE_3_ARMORY)
-                        HandleSunsReachPhaseTransition(SUNS_REACH_PHASE_4_HARBOR);
-                    break;
-                }
-                case QUEST_MAKING_READY:
-                {
-                    if ((m_sunsReachData.m_subphaseMask & SUBPHASE_ANVIL) == 0)
-                        HandleSunsReachSubPhaseTransition(SUBPHASE_ANVIL);
-                    break;
-                }
-                case QUEST_DISCOVERING_YOUR_ROOTS:
-                {
-                    if ((m_sunsReachData.m_subphaseMask & SUBPHASE_ALCHEMY_LAB) == 0)
-                        HandleSunsReachSubPhaseTransition(SUBPHASE_ALCHEMY_LAB);
-                    break;
-                }
-                case QUEST_A_CHARITABLE_DONATION:
-                case QUEST_A_MAGNANIMOUS_BENEFACTOR:
-                {
-                    if ((m_sunsReachData.m_subphaseMask & SUBPHASE_MONUMENT) == 0)
-                        HandleSunsReachSubPhaseTransition(SUBPHASE_MONUMENT);
-                    break;
-                }
+                if (m_sunsReachData.m_phase == SUNS_REACH_PHASE_1_STAGING_AREA)
+                    HandleSunsReachPhaseTransition(SUNS_REACH_PHASE_2_SANCTUM);
+                break;
+            }
+            case QUEST_BATTLE_FOR_THE_SUNS_REACH_ARMORY:
+            case QUEST_DISTRACTION_AT_THE_DEAD_SCAR:
+            {
+                if (m_sunsReachData.m_phase == SUNS_REACH_PHASE_2_SANCTUM)
+                    HandleSunsReachPhaseTransition(SUNS_REACH_PHASE_3_ARMORY);
+                break;
+            }
+            case QUEST_INTERCEPTING_THE_MANA_CELLS:
+            {
+                if ((m_sunsReachData.m_subphaseMask & SUBPHASE_PORTAL) == 0)
+                    HandleSunsReachSubPhaseTransition(SUBPHASE_PORTAL);
+                break;
+            }
+            case QUEST_INTERCEPT_THE_REINFORCEMENTS:
+            case QUEST_TAKING_THE_HARBOR:
+            {
+                if (m_sunsReachData.m_phase == SUNS_REACH_PHASE_3_ARMORY)
+                    HandleSunsReachPhaseTransition(SUNS_REACH_PHASE_4_HARBOR);
+                break;
+            }
+            case QUEST_MAKING_READY:
+            {
+                if ((m_sunsReachData.m_subphaseMask & SUBPHASE_ANVIL) == 0)
+                    HandleSunsReachSubPhaseTransition(SUBPHASE_ANVIL);
+                break;
+            }
+            case QUEST_DISCOVERING_YOUR_ROOTS:
+            {
+                if ((m_sunsReachData.m_subphaseMask & SUBPHASE_ALCHEMY_LAB) == 0)
+                    HandleSunsReachSubPhaseTransition(SUBPHASE_ALCHEMY_LAB);
+                break;
+            }
+            case QUEST_A_CHARITABLE_DONATION:
+            case QUEST_A_MAGNANIMOUS_BENEFACTOR:
+            {
+                if ((m_sunsReachData.m_subphaseMask & SUBPHASE_MONUMENT) == 0)
+                    HandleSunsReachSubPhaseTransition(SUBPHASE_MONUMENT);
+                break;
             }
         }
     }
@@ -1247,14 +1249,20 @@ void WorldState::HandleSunsReachSubPhaseTransition(int32 subPhaseMask, bool init
             all = true;
         m_sunsReachData.m_subphaseMask &= ~subPhaseMask;
     }
-    if (initial && subPhaseMask == 0)
+    if (initial)
     {
-        switch (m_sunsReachData.m_phase)
+        if (m_sunsReachData.m_phase >= SUNS_REACH_PHASE_2_SANCTUM)
+            if ((subPhaseMask & SUBPHASE_PORTAL) == 0)
+                sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_2_NO_PORTAL);
+        if (m_sunsReachData.m_phase >= SUNS_REACH_PHASE_3_ARMORY)
+            if ((subPhaseMask & SUBPHASE_ANVIL) == 0)
+                sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_3_NO_ANVIL);
+        if (m_sunsReachData.m_phase >= SUNS_REACH_PHASE_4_HARBOR)
         {
-            case SUNS_REACH_PHASE_2_SANCTUM: sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_2_NO_PORTAL); break;
-            case SUNS_REACH_PHASE_3_ARMORY: sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_3_NO_ANVIL); break;
-            case SUNS_REACH_PHASE_4_HARBOR: sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_4_NO_MONUMENT); sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_4_NO_ALCHEMY_LAB); break;
-            default: break;
+            if ((subPhaseMask & SUBPHASE_ALCHEMY_LAB) == 0)
+                sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_4_NO_ALCHEMY_LAB);
+            if ((subPhaseMask & SUBPHASE_MONUMENT) == 0)
+                sGameEventMgr.StartEvent(GAME_EVENT_QUEL_DANAS_PHASE_4_NO_MONUMENT);
         }
     }
     if ((subPhaseMask & SUBPHASE_PORTAL))
@@ -1482,9 +1490,9 @@ uint32 SunsReachReclamationData::GetPhasePercentage(uint32 phase)
 {
     switch (phase)
     {
-        case SUNS_REACH_PHASE_1_STAGING_AREA: return uint32((m_sunsReachReclamationCounters[COUNTER_ERRATIC_BEHAVIOR] + m_sunsReachReclamationCounters[COUNTER_SANCTUM_WARDS]) * 100 / (2 * COUNTER_MAX_VAL_REQ));
-        case SUNS_REACH_PHASE_2_SANCTUM: return uint32((m_sunsReachReclamationCounters[COUNTER_BATTLE_FOR_THE_SUNS_REACH_ARMORY] + m_sunsReachReclamationCounters[COUNTER_DISTRACTION_AT_THE_DEAD_SCAR]) * 100 / (2 * COUNTER_MAX_VAL_REQ));
-        case SUNS_REACH_PHASE_3_ARMORY: return uint32((m_sunsReachReclamationCounters[COUNTER_INTERCEPT_THE_REINFORCEMENTS] + m_sunsReachReclamationCounters[COUNTER_TAKING_THE_HARBOR]) * 100 / (2 * COUNTER_MAX_VAL_REQ));
+        case SUNS_REACH_PHASE_1_STAGING_AREA: return uint32((m_sunsReachReclamationCounters[COUNTER_ERRATIC_BEHAVIOR] + m_sunsReachReclamationCounters[COUNTER_SANCTUM_WARDS]) * 100 / (2 * sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER)));
+        case SUNS_REACH_PHASE_2_SANCTUM: return uint32((m_sunsReachReclamationCounters[COUNTER_BATTLE_FOR_THE_SUNS_REACH_ARMORY] + m_sunsReachReclamationCounters[COUNTER_DISTRACTION_AT_THE_DEAD_SCAR]) * 100 / (2 * sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER)));
+        case SUNS_REACH_PHASE_3_ARMORY: return uint32((m_sunsReachReclamationCounters[COUNTER_INTERCEPT_THE_REINFORCEMENTS] + m_sunsReachReclamationCounters[COUNTER_TAKING_THE_HARBOR]) * 100 / (2 * sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER)));
         default: return 0;
     }
 }
@@ -1493,10 +1501,10 @@ uint32 SunsReachReclamationData::GetSubPhasePercentage(uint32 subPhase)
 {
     switch (subPhase)
     {
-        case SUBPHASE_PORTAL: return uint32(m_sunsReachReclamationCounters[COUNTER_INTERCEPTING_THE_MANA_CELLS] * 100 / COUNTER_MAX_VAL_REQ);
-        case SUBPHASE_ANVIL: return uint32(m_sunsReachReclamationCounters[COUNTER_MAKING_READY] * 100 / COUNTER_MAX_VAL_REQ);
-        case SUBPHASE_ALCHEMY_LAB: return uint32(m_sunsReachReclamationCounters[COUNTER_DISCOVERING_YOUR_ROOTS] * 100 / COUNTER_MAX_VAL_REQ);
-        case SUBPHASE_MONUMENT: return uint32(m_sunsReachReclamationCounters[COUNTER_A_CHARITABLE_DONATION] * 100 / COUNTER_MAX_VAL_REQ);
+        case SUBPHASE_PORTAL: return uint32(m_sunsReachReclamationCounters[COUNTER_INTERCEPTING_THE_MANA_CELLS] * 100 / sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER));
+        case SUBPHASE_ANVIL: return uint32(m_sunsReachReclamationCounters[COUNTER_MAKING_READY] * 100 / sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER));
+        case SUBPHASE_ALCHEMY_LAB: return uint32(m_sunsReachReclamationCounters[COUNTER_DISCOVERING_YOUR_ROOTS] * 100 / sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER));
+        case SUBPHASE_MONUMENT: return uint32(m_sunsReachReclamationCounters[COUNTER_A_CHARITABLE_DONATION] * 100 / sWorld.getConfig(CONFIG_UINT32_SUNSREACH_COUNTER));
         default: return 0;
     }
 }

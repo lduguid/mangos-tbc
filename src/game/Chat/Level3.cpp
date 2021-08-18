@@ -1739,7 +1739,7 @@ bool ChatHandler::HandleAddItemCommand(char* args)
     // Subtract
     if (count < 0)
     {
-        plTarget->DestroyItemCount(itemId, -count, true, false);
+        plTarget->DestroyItemCount(itemId, -count, true, true);
         PSendSysMessage(LANG_REMOVEITEM, itemId, -count, GetNameLink(plTarget).c_str());
         return true;
     }
@@ -3428,7 +3428,7 @@ bool ChatHandler::HandleNpcInfoCommand(char* /*args*/)
     PSendSysMessage("Combat Script: %s", target->AI()->GetCombatScriptStatus() ? "true" : "false");
     PSendSysMessage("Movementflags: %u", target->m_movementInfo.moveFlags);
 
-    if (auto vector = sObjectMgr.GetAllRandomEntries(target->GetGUIDLow()))
+    if (auto vector = sObjectMgr.GetAllRandomCreatureEntries(target->GetGUIDLow()))
     {
         std::string output;
         for (uint32 entry : *vector)
@@ -6809,8 +6809,8 @@ bool ChatHandler::HandleSunsReachReclamationPhaseCommand(char* args)
 
 bool ChatHandler::HandleSunsReachReclamationSubPhaseCommand(char* args)
 {
-    uint32 param;
-    if (!ExtractUInt32(&args, param))
+    int32 param;
+    if (!ExtractInt32(&args, param))
     {
         PSendSysMessage("%s", sWorldState.GetSunsReachPrintout().data());
         return true;

@@ -106,6 +106,11 @@ void UnitAI::EnterEvadeMode()
     m_unit->TriggerEvadeEvents();
 }
 
+void UnitAI::JustDied(Unit* killer)
+{
+    ClearSelfRoot();
+}
+
 void UnitAI::AttackedBy(Unit* attacker)
 {
     if (!m_unit->IsInCombat() && !m_unit->GetVictim())
@@ -436,7 +441,7 @@ void UnitAI::CheckForHelp(Unit* who, Unit* me, float distance)
     if (!victim)
         return;
 
-    if (me->IsInCombat())
+    if (me->IsInCombat() || !me->CanCallForAssistance() || !who->CanCallForAssistance())
         return;
 
     // pulling happens once panic/retreating ends

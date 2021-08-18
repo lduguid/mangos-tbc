@@ -577,6 +577,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 10095:         // Hate to Zero (Hate to Zero)
         case 11838:         // Hate to Zero (Hate to Zero)
         case 11919:         // Poison Proc
+        case 11959:         // Poison Proc
         case 11964:         // Fevered Fatigue
         case 11966:         // Fire Shield
         case 11984:         // Immolate
@@ -647,6 +648,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 31792:         // Bear Form (Shapeshift)
         case 32007:         // Mo'arg Engineer Transform Visual
         case 32064:         // Battle Shout
+        case 32732:         // Flay
         case 32900:         // Bone Shards Proc
         case 32912:         // Windfury
         case 32939:         // Phase Burst
@@ -701,8 +703,40 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 44537:         // Fel Lightning
         case 44604:         // Enchantment of Spell Haste
         case 44855:         // Out of Phase
+        case 44962:         // Archer - BE Male Transform Tier 1
+        case 44918:         // Archer - BE Male Transform Tier 2
+        case 44919:         // Archer - BE Male Transform Tier 3
+        case 44920:         // Archer - BE Male Transform Tier 4
+        case 44921:         // Archer - BE Female Transform Tier 1
+        case 44922:         // Archer - BE Female Transform Tier 2
+        case 44923:         // Archer - BE Female Transform Tier 3
+        case 44924:         // Archer - BE Female Transform Tier 4
+        case 44925:         // Archer - Draenei Male Transform Tier 1
+        case 44926:         // Archer - Draenei Male Transform Tier 2
+        case 44927:         // Archer - Draenei Male Transform Tier 3
+        case 44928:         // Archer - Draenei Male Transform Tier 4
+        case 44929:         // Archer - Draenei Female Transform Tier 1
+        case 44930:         // Archer - Draenei Female Transform Tier 2
+        case 44931:         // Archer - Draenei Female Transform Tier 3
+        case 44932:         // Archer - Draenei Female Transform Tier 4
         case 44977:         // Fel Armor (Rank 2)
         case 45033:         // Abyssal Transformation
+        case 45155:         // Warrior - BE Female Transform Tier 1
+        case 45156:         // Warrior - BE Female Transform Tier 2
+        case 45157:         // Warrior - BE Female Transform Tier 3
+        case 45158:         // Warrior - BE Female Transform Tier 4
+        case 45159:         // Warrior - BE Male Transform Tier 1
+        case 45160:         // Warrior - BE Male Transform Tier 2
+        case 45161:         // Warrior - BE Male Transform Tier 3
+        case 45162:         // Warrior - BE Male Transform Tier 4
+        case 45163:         // Warrior - Draenei Female Transform Tier 1
+        case 45164:         // Warrior - Draenei Female Transform Tier 2
+        case 45165:         // Warrior - Draenei Female Transform Tier 3
+        case 45166:         // Warrior - Draenei Female Transform Tier 4
+        case 45167:         // Warrior - Draenei Male Transform Tier 1
+        case 45168:         // Warrior - Draenei Male Transform Tier 2
+        case 45169:         // Warrior - Draenei Male Transform Tier 3
+        case 45170:         // Warrior - Draenei Male Transform Tier 4
         case 45187:         // Dawnblade Attack
         case 45822:         // Iceblood Warmaster
         case 45823:         // Tower Point Warmaster
@@ -2222,6 +2256,8 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         case SPELL_AURA_HASTE_SPELLS: // Post 2.0 Mind-numbing Poison and Curse of Tongues
             return false; // Never stacking auras
             break;
+        case SPELL_AURA_MOD_DETECT_RANGE: // Never stack
+            return false;
     }
     if (nonmui && instance && !IsChanneledSpell(entry) && !IsChanneledSpell(entry2))
         return false; // Forbids multi-ranking and multi-application on rule, exclude channeled spells (like Mind Flay)
@@ -2331,63 +2367,63 @@ bool IsCreatureDRSpell(SpellEntry const* spellInfo);
 typedef std::map<uint32, uint64> SpellAffectMap;
 
 // Spell proc event related declarations (accessed using SpellMgr functions)
-enum ProcFlags
+enum ProcFlags : uint32
 {
     PROC_FLAG_NONE                          = 0x00000000,
 
-    PROC_FLAG_KILLED                        = 0x00000001,   // 00 Killed by aggressor
+    PROC_FLAG_HEARTBEAT                     = 0x00000001,   // 00 Killed by aggressor - TODO: change meaning
     PROC_FLAG_KILL                          = 0x00000002,   // 01 Kill target (in most cases need XP/Honor reward, see Unit::IsTriggeredAtSpellProcEvent for additinoal check)
 
-    PROC_FLAG_SUCCESSFUL_MELEE_HIT          = 0x00000004,   // 02 Successful melee auto attack
-    PROC_FLAG_TAKEN_MELEE_HIT               = 0x00000008,   // 03 Taken damage from melee auto attack hit
+    PROC_FLAG_DEAL_MELEE_SWING              = 0x00000004,   // 02 Successful melee auto attack
+    PROC_FLAG_TAKE_MELEE_SWING              = 0x00000008,   // 03 Taken damage from melee auto attack hit
 
-    PROC_FLAG_SUCCESSFUL_MELEE_SPELL_HIT    = 0x00000010,   // 04 Successful attack by Spell that use melee weapon
-    PROC_FLAG_TAKEN_MELEE_SPELL_HIT         = 0x00000020,   // 05 Taken damage by Spell that use melee weapon
+    PROC_FLAG_DEAL_MELEE_ABILITY            = 0x00000010,   // 04 Successful attack by Spell that use melee weapon
+    PROC_FLAG_TAKE_MELEE_ABILITY            = 0x00000020,   // 05 Taken damage by Spell that use melee weapon
 
-    PROC_FLAG_SUCCESSFUL_RANGED_HIT         = 0x00000040,   // 06 Successful Ranged auto attack
-    PROC_FLAG_TAKEN_RANGED_HIT              = 0x00000080,   // 07 Taken damage from ranged auto attack
+    PROC_FLAG_DEAL_RANGED_ATTACK            = 0x00000040,   // 06 Successful Ranged auto attack
+    PROC_FLAG_TAKE_RANGED_ATTACK            = 0x00000080,   // 07 Taken damage from ranged auto attack
 
-    PROC_FLAG_SUCCESSFUL_RANGED_SPELL_HIT   = 0x00000100,   // 08 Successful Ranged attack by Spell that use ranged weapon
-    PROC_FLAG_TAKEN_RANGED_SPELL_HIT        = 0x00000200,   // 09 Taken damage by Spell that use ranged weapon
+    PROC_FLAG_DEAL_RANGED_ABILITY           = 0x00000100,   // 08 Successful Ranged attack by Spell that use ranged weapon
+    PROC_FLAG_TAKE_RANGED_ABILITY           = 0x00000200,   // 09 Taken damage by Spell that use ranged weapon
 
-    PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_POS     = 0x00000400,  // 10 Done positive spell that has dmg class none
-    PROC_FLAG_TAKEN_SPELL_NONE_DMG_CLASS_POS    = 0x00000800,  // 11 Taken positive spell that has dmg class none
+    PROC_FLAG_DEAL_HELPFUL_ABILITY          = 0x00000400,   // 10 Done positive spell that has dmg class none
+    PROC_FLAG_TAKE_HELPFUL_ABILITY          = 0x00000800,   // 11 Taken positive spell that has dmg class none
 
-    PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_NEG     = 0x00001000,  // 12 Done negative spell that has dmg class none
-    PROC_FLAG_TAKEN_SPELL_NONE_DMG_CLASS_NEG    = 0x00002000,  // 13 Taken negative spell that has dmg class none
+    PROC_FLAG_DEAL_HARMFUL_ABILITY          = 0x00001000,   // 12 Done negative spell that has dmg class none
+    PROC_FLAG_TAKE_HARMFUL_ABILITY          = 0x00002000,   // 13 Taken negative spell that has dmg class none
 
-    PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_POS    = 0x00004000,  // 14 Successful cast positive spell (by default only on healing)
-    PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_POS   = 0x00008000,  // 15 Taken positive spell hit (by default only on healing)
+    PROC_FLAG_DEAL_HELPFUL_SPELL            = 0x00004000,   // 14 Successful cast positive spell (by default only on healing)
+    PROC_FLAG_TAKE_HELPFUL_SPELL            = 0x00008000,   // 15 Taken positive spell hit (by default only on healing)
 
-    PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_NEG    = 0x00010000,  // 16 Successful negative spell cast (by default only on damage)
-    PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_NEG   = 0x00020000,  // 17 Taken negative spell (by default only on damage)
+    PROC_FLAG_DEAL_HARMFUL_SPELL            = 0x00010000,   // 16 Successful negative spell cast (by default only on damage)
+    PROC_FLAG_TAKE_HARMFUL_SPELL            = 0x00020000,   // 17 Taken negative spell (by default only on damage)
 
-    PROC_FLAG_ON_DO_PERIODIC                = 0x00040000,   // 18 Successful do periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
-    PROC_FLAG_ON_TAKE_PERIODIC              = 0x00080000,   // 19 Taken spell periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
+    PROC_FLAG_DEAL_HARMFUL_PERIODIC         = 0x00040000,   // 18 Successful do periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
+    PROC_FLAG_TAKE_HARMFUL_PERIODIC         = 0x00080000,   // 19 Taken spell periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
 
-    PROC_FLAG_TAKEN_ANY_DAMAGE              = 0x00100000,   // 20 Taken any damage
-    PROC_FLAG_ON_TRAP_ACTIVATION            = 0x00200000,   // 21 On trap activation
+    PROC_FLAG_TAKE_ANY_DAMAGE               = 0x00100000,   // 20 Taken any damage
+    PROC_FLAG_DEAL_HELPFUL_PERIODIC         = 0x00200000,   // 21 On trap activation - TODO: change meaning
 
-    PROC_FLAG_TAKEN_OFFHAND_HIT             = 0x00400000,   // 22 Taken off-hand melee attacks(not used)
-    PROC_FLAG_SUCCESSFUL_OFFHAND_HIT        = 0x00800000,   // 23 Successful off-hand melee attacks
+    PROC_FLAG_MAIN_HAND_WEAPON_SWING        = 0x00400000,   // 22 Taken off-hand melee attacks(not used) - TODO: change meaning
+    PROC_FLAG_OFF_HAND_WEAPON_SWING         = 0x00800000,   // 23 Successful off-hand melee attacks
 
     PROC_FLAG_DEATH                         = 0x01000000,   // 24 On death by any means
 };
 
-#define MELEE_BASED_TRIGGER_MASK (PROC_FLAG_SUCCESSFUL_MELEE_HIT        | \
-                                  PROC_FLAG_TAKEN_MELEE_HIT             | \
-                                  PROC_FLAG_SUCCESSFUL_MELEE_SPELL_HIT  | \
-                                  PROC_FLAG_TAKEN_MELEE_SPELL_HIT       | \
-                                  PROC_FLAG_SUCCESSFUL_RANGED_HIT       | \
-                                  PROC_FLAG_TAKEN_RANGED_HIT            | \
-                                  PROC_FLAG_SUCCESSFUL_RANGED_SPELL_HIT | \
-                                  PROC_FLAG_TAKEN_RANGED_SPELL_HIT)
+#define MELEE_BASED_TRIGGER_MASK (PROC_FLAG_DEAL_MELEE_SWING        | \
+                                  PROC_FLAG_TAKE_MELEE_SWING             | \
+                                  PROC_FLAG_DEAL_MELEE_ABILITY  | \
+                                  PROC_FLAG_TAKE_MELEE_ABILITY       | \
+                                  PROC_FLAG_DEAL_RANGED_ATTACK       | \
+                                  PROC_FLAG_TAKE_RANGED_ABILITY            | \
+                                  PROC_FLAG_DEAL_RANGED_ABILITY | \
+                                  PROC_FLAG_TAKE_RANGED_ABILITY)
 
 #define NEGATIVE_TRIGGER_MASK (MELEE_BASED_TRIGGER_MASK                | \
-                               PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_NEG      | \
-                               PROC_FLAG_TAKEN_SPELL_NONE_DMG_CLASS_NEG           | \
-                               PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_NEG | \
-                               PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_NEG)
+                               PROC_FLAG_DEAL_HARMFUL_ABILITY      | \
+                               PROC_FLAG_TAKE_HARMFUL_ABILITY           | \
+                               PROC_FLAG_DEAL_HARMFUL_SPELL | \
+                               PROC_FLAG_TAKE_HARMFUL_SPELL)
 
 enum ProcFlagsEx
 {
@@ -2895,7 +2931,7 @@ class SpellMgr
             return itr->second;
         }
 
-        static bool IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const* spellProcEvent, uint32 EventProcFlag, SpellEntry const* procSpell, uint32 procFlags, uint32 procExtra);
+        static bool IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const* spellProcEvent, uint32 EventProcFlag, SpellEntry const* spellInfo, uint32 procFlags, uint32 procExtra);
 
         // Spell bonus data
         SpellBonusEntry const* GetSpellBonusData(uint32 spellId) const

@@ -319,7 +319,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS] =
     &Aura::HandleUnused,                                    //258 unused
     &Aura::HandleUnused,                                    //259 unused
     &Aura::HandleUnused,                                    //260 unused
-    &Aura::HandleNULL                                       //261 SPELL_AURA_261 some phased state (44856 spell)
+    &Aura::HandleAuraPhase                                  //261 SPELL_AURA_PHASE some phased state (44856 spell)
 };
 
 static AuraType const frozenAuraTypes[] = { SPELL_AURA_MOD_ROOT, SPELL_AURA_MOD_STUN, SPELL_AURA_NONE };
@@ -336,6 +336,7 @@ Aura::Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* curr
     m_currentBasePoints = currentBasePoints ? *currentBasePoints : spellproto->CalculateSimpleValue(eff);
 
     m_positive = IsPositiveAuraEffect(spellproto, m_effIndex, caster, target);
+
     m_applyTime = time(nullptr);
 
     int32 damage = currentDamage ? *currentDamage : m_currentBasePoints;
@@ -1664,13 +1665,6 @@ void Aura::TriggerSpell()
                         if (UnitAI* ai = target->AI())
                             ai->SendAIEvent(AI_EVENT_CUSTOM_B, target, target, GetAuraTicks());
                         break;
-                    case 40657:                             // Ancient Flames
-                    {
-                        // 40720 is called Terokk Shield
-                        if (target->GetEntry() == 21838)
-                            target->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, target, (Creature*)target);
-                        return;
-                    }
 //                    // Ethereal Ring Cannon: Cannon Aura
 //                    case 40734: break;
                     case 40760:                             // Cage Trap
@@ -4196,7 +4190,7 @@ void Aura::HandleAuraModDisarm(bool apply, bool Real)
     target->ApplyModFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISARMED, apply);
 
     // main-hand attack speed already set to special value for feral form already and don't must change and reset at remove.
-    if (target->IsInFeralForm())
+    if (target->IsNoWeaponShapeShift())
         return;
 
     if (target->GetTypeId() == TYPEID_PLAYER)
@@ -4222,6 +4216,10 @@ void Aura::HandleAuraModStun(bool apply, bool Real)
         // Frost stun aura -> freeze/unfreeze target
         if (GetSpellSchoolMask(GetSpellProto()) & SPELL_SCHOOL_MASK_FROST)
             target->ModifyAuraState(AURA_STATE_FROZEN, apply);
+
+        // Creature specific
+        if (target->GetTypeId() != TYPEID_PLAYER && !target->IsStunned())
+            target->SetFacingTo(target->GetOrientation());
 
         Unit* caster = GetCaster();
         target->SetStunned(true, (caster ? caster->GetObjectGuid() : ObjectGuid()), GetSpellProto()->Id);
@@ -4470,7 +4468,10 @@ void Aura::HandleInvisibilityDetect(bool apply, bool Real)
             target->GetVisibilityData().SetInvisibilityDetectMask(aura->GetModifier()->m_miscvalue, true);
     }
     if (GetId() == 44855) // hack for nonexistant phasing system in tbc core
+    {
+        GetTarget()->SetPhaseMask(apply ? 2u : 1u);
         HandleInvisibility(apply, Real);
+    }
     if (Real && target->GetTypeId() == TYPEID_PLAYER)
         ((Player*)target)->GetCamera().UpdateVisibilityForOwner();
 }
@@ -5837,10 +5838,18 @@ void Aura::HandleAuraModIncreaseHealth(bool apply, bool Real)
 
         // Cases where m_amount already has the correct value (spells cast with CastCustomSpell or absolute values)
         case 12976:                                         // Warrior Last Stand triggered spell (Cast with percentage-value by CastCustomSpell)
+        case 16609:                                         // Warchief's Blessing
+        case 28506:                                         // Potion of Heroes (i.22837 - Heroic Potion)
         case 28726:                                         // Nightmare Seed
-        case 33668:                                         // Tenacity (Regal Protectorate)
-        case 34511:                                         // Valor (Bulwark of Kings, Bulwark of the Ancient Kings
-        case 44055:                                         // Tremendous Fortitude (Battlemaster's Alacrity)
+        case 33053:                                         // Mr Pinchy's Blessing (s.33060 - Make a Wish)
+        case 33668:                                         // Tenacity (i.28042 - Regal Protectorate)
+        case 39625:                                         // Elixir of Major Fortitude (i.32062 - Elixir of Major Fortitude)
+        case 34410:                                         // Hellscream's Warsong (Thrall Nagrand)
+        case 34511:                                         // Valor (Bulwark of Kings, Bulwark of the Ancient Kings)
+        case 40464:                                         // Protector's Vigor (i.32501 - Shadowmoon Insignia)
+        case 40538:                                         // Tenacity (i.32534 - Brooch of the Immortal King)
+        case 44055:                                         // Tremendous Fortitude (Battlemaster's Trinkets)
+        case 45049:                                         // Tenacity (i.34428 - Steely Naaru Sliver)
         {
             if (Real)
             {
@@ -6916,8 +6925,8 @@ void Aura::PeriodicTick()
             Unit::DealDamageMods(caster, target, pdamage, &absorb, DOT, spellProto);
 
             // Set trigger flag
-            uint32 procAttacker = PROC_FLAG_ON_DO_PERIODIC; //  | PROC_FLAG_SUCCESSFUL_HARMFUL_SPELL_HIT;
-            uint32 procVictim   = PROC_FLAG_ON_TAKE_PERIODIC;// | PROC_FLAG_TAKEN_HARMFUL_SPELL_HIT;
+            uint32 procAttacker = PROC_FLAG_DEAL_HARMFUL_PERIODIC; //  | PROC_FLAG_SUCCESSFUL_HARMFUL_SPELL_HIT;
+            uint32 procVictim   = PROC_FLAG_TAKE_HARMFUL_PERIODIC;// | PROC_FLAG_TAKEN_HARMFUL_SPELL_HIT;
 
             const uint32 bonus = (resist < 0 ? uint32(std::abs(resist)) : 0);
             pdamage += bonus;
@@ -6928,7 +6937,7 @@ void Aura::PeriodicTick()
             target->SendPeriodicAuraLog(&pInfo);
 
             if (pdamage)
-                procVictim |= PROC_FLAG_TAKEN_ANY_DAMAGE;
+                procVictim |= PROC_FLAG_TAKE_ANY_DAMAGE;
 
             CleanDamage cleanDamage(pdamage, BASE_ATTACK, MELEE_HIT_NORMAL, pdamage || absorb);
             Unit::DealDamage(caster, target, pdamage, &cleanDamage, DOT, GetSpellSchoolMask(spellProto), spellProto, true);
@@ -6989,8 +6998,8 @@ void Aura::PeriodicTick()
             float multiplier = spellProto->EffectMultipleValue[GetEffIndex()] > 0 ? spellProto->EffectMultipleValue[GetEffIndex()] : 1;
 
             // Set trigger flag
-            uint32 procAttacker = PROC_FLAG_ON_DO_PERIODIC; // | PROC_FLAG_SUCCESSFUL_HARMFUL_SPELL_HIT;
-            uint32 procVictim   = PROC_FLAG_ON_TAKE_PERIODIC;// | PROC_FLAG_TAKEN_HARMFUL_SPELL_HIT;
+            uint32 procAttacker = PROC_FLAG_DEAL_HARMFUL_PERIODIC; // | PROC_FLAG_SUCCESSFUL_HARMFUL_SPELL_HIT;
+            uint32 procVictim   = PROC_FLAG_TAKE_HARMFUL_PERIODIC;// | PROC_FLAG_TAKEN_HARMFUL_SPELL_HIT;
 
             const uint32 bonus = (resist < 0 ? uint32(std::abs(resist)) : 0);
             pdamage += bonus;
@@ -7000,7 +7009,7 @@ void Aura::PeriodicTick()
             pdamage = std::min(pdamage, target->GetHealth());
 
             if (pdamage)
-                procVictim |= PROC_FLAG_TAKEN_ANY_DAMAGE;
+                procVictim |= PROC_FLAG_TAKE_ANY_DAMAGE;
 
             CleanDamage cleanDamage(pdamage, BASE_ATTACK, MELEE_HIT_NORMAL, pdamage || absorb);
             int32 new_damage = Unit::DealDamage(pCaster, target, pdamage, &cleanDamage, DOT, GetSpellSchoolMask(spellProto), spellProto, false);
@@ -7070,8 +7079,8 @@ void Aura::PeriodicTick()
             target->SendPeriodicAuraLog(&pInfo);
 
             // Set trigger flag
-            uint32 procAttacker = PROC_FLAG_ON_DO_PERIODIC;
-            uint32 procVictim = PROC_FLAG_ON_TAKE_PERIODIC;
+            uint32 procAttacker = PROC_FLAG_DEAL_HARMFUL_PERIODIC;
+            uint32 procVictim = PROC_FLAG_TAKE_HARMFUL_PERIODIC;
             uint32 procEx = PROC_EX_NORMAL_HIT | PROC_EX_INTERNAL_HOT;
 
             // add HoTs to amount healed in bgs
@@ -7349,11 +7358,11 @@ void Aura::PeriodicTick()
             pCaster->SendSpellNonMeleeDamageLog(&spellDamageInfo);
 
             // Set trigger flag
-            uint32 procAttacker = PROC_FLAG_ON_DO_PERIODIC; //  | PROC_FLAG_SUCCESSFUL_HARMFUL_SPELL_HIT;
-            uint32 procVictim   = PROC_FLAG_ON_TAKE_PERIODIC;// | PROC_FLAG_TAKEN_HARMFUL_SPELL_HIT;
+            uint32 procAttacker = PROC_FLAG_DEAL_HARMFUL_PERIODIC; //  | PROC_FLAG_SUCCESSFUL_HARMFUL_SPELL_HIT;
+            uint32 procVictim   = PROC_FLAG_TAKE_HARMFUL_PERIODIC;// | PROC_FLAG_TAKEN_HARMFUL_SPELL_HIT;
             uint32 procEx       = createProcExtendMask(&spellDamageInfo, SPELL_MISS_NONE);
             if (spellDamageInfo.damage)
-                procVictim |= PROC_FLAG_TAKEN_ANY_DAMAGE;
+                procVictim |= PROC_FLAG_TAKE_ANY_DAMAGE;
 
             pCaster->DealSpellDamage(&spellDamageInfo, true, false);
 
@@ -7468,7 +7477,7 @@ void Aura::PeriodicDummyTick()
 //              // Steal Weapon
 //              case 36207: break;
                 case 37025: // Coilfang Water
-                    if (target->IsInSwimmableWater())
+                    if (target->IsInSwimmableWater() && target->GetPositionZ() < -20.0f) // Exclude Water at Lady Vashj
                         target->CastSpell(target, 37026, TRIGGERED_OLD_TRIGGERED, nullptr, this);
                     return;          
                 case 39993: // Simon Game START timer, (DND)
@@ -7828,6 +7837,15 @@ void Aura::HandleOverrideClassScript(bool apply, bool /*real*/)
     GetTarget()->RegisterOverrideScriptAura(this, m_modifier.m_miscvalue, apply);
 }
 
+void Aura::HandleAuraPhase(bool apply, bool real)
+{
+    if (!real)
+        return;
+    GetTarget()->SetPhaseMask(apply ? GetMiscValue() : 1u);
+    if (Pet* pet = GetTarget()->GetPet())
+        pet->SetPhaseMask(apply ? GetMiscValue() : 1u);
+}
+
 bool Aura::IsLastAuraOnHolder()
 {
     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
@@ -7846,6 +7864,9 @@ inline bool IsRemovedOnShapeshiftLost(SpellEntry const* spellproto, ObjectGuid c
 {
     if (casterGuid == targetGuid)
     {
+        if (spellproto->HasAttribute(SPELL_ATTR_AURA_IS_DEBUFF))
+            return false;
+
         if (spellproto->Stances)
         {
             switch (spellproto->Id)
@@ -8516,6 +8537,9 @@ void SpellAuraHolder::Update(uint32 diff)
 
 void SpellAuraHolder::RefreshHolder()
 {
+    if (GetSpellProto()->HasAttribute(SPELL_ATTR_EX_DONT_REFRESH_DURATION_ON_RECAST))
+        return;
+
     SetAuraDuration(GetAuraMaxDuration());
     UpdateAuraDuration();
 }

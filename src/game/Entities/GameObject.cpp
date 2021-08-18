@@ -118,7 +118,11 @@ void GameObject::AddToWorld()
 {
     ///- Register the gameobject for guid lookup
     if (!IsInWorld())
+    {
         GetMap()->GetObjectsStore().insert<GameObject>(GetObjectGuid(), (GameObject*)this);
+        if (GetDbGuid())
+            GetMap()->AddDbGuidObject(this);
+    }
 
     if (m_model)
         GetMap()->InsertGameObjectModel(*m_model);
@@ -170,6 +174,8 @@ void GameObject::RemoveFromWorld()
             GetMap()->RemoveGameObjectModel(*m_model);
 
         GetMap()->GetObjectsStore().erase<GameObject>(GetObjectGuid(), (GameObject*)nullptr);
+        if (GetDbGuid())
+            GetMap()->RemoveDbGuidObject(this);
     }
 
     WorldObject::RemoveFromWorld();
@@ -276,6 +282,9 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map* map, float x, float
     // Check if GameObject is Large
     if (GetGOInfo()->IsLargeGameObject())
         GetVisibilityData().SetVisibilityDistanceOverride(VisibilityDistanceType::Large);
+
+    if (GetEntry() == 187039) // Smuggled Mana Cell - only GO in phase in TBC
+        SetPhaseMask(2);
 
     return true;
 }
@@ -642,8 +651,6 @@ void GameObject::Update(const uint32 diff)
             if (!m_respawnDelay)
                 return;
 
-            m_forcedDespawn = false;
-
             if (AI())
                 AI()->JustDespawned();
 
@@ -651,7 +658,7 @@ void GameObject::Update(const uint32 diff)
             {
                 // since pool system can fail to roll unspawned object, this one can remain spawned, so must set respawn nevertheless
                 if (IsSpawnedByDefault())
-                    if (GameObjectData const* data = sObjectMgr.GetGOData(GetObjectGuid().GetCounter()))
+                    if (GameObjectData const* data = sObjectMgr.GetGOData(GetDbGuid()))
                         m_respawnDelay = data->GetRandomRespawnTime();
             }
             else if (m_respawnOverrideOnce)
@@ -670,6 +677,18 @@ void GameObject::Update(const uint32 diff)
             // can be not in world at pool despawn
             if (IsInWorld())
                 UpdateObjectVisibility();
+
+            if (IsUsingNewSpawningSystem()) // does not work nicely with pooling right now
+            {
+                m_respawnTime = std::numeric_limits<time_t>::max();
+                if (m_respawnDelay)
+                    GetMap()->GetSpawnManager().AddGameObject(m_respawnDelay, GetDbGuid());
+
+                if (m_respawnDelay || !m_spawnedByDefault || m_forcedDespawn)
+                    AddObjectToRemoveList();
+            }
+
+            m_forcedDespawn = false;
 
             break;
         }
@@ -825,6 +844,9 @@ bool GameObject::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid)
     GOState go_state = data->go_state;
 
     m_dbGuid = dbGuid;
+
+    if (uint32 randomEntry = sObjectMgr.GetRandomGameObjectEntry(GetDbGuid()))
+        entry = randomEntry;
 
     if (!Create(newGuid, entry, map, x, y, z, ang, rotation0, rotation1, rotation2, rotation3, animprogress, go_state))
         return false;
@@ -1031,10 +1053,6 @@ bool GameObject::isVisibleForInState(Player const* u, WorldObject const* viewPoi
                 break;
             }
         }
-
-        // Smuggled Mana Cell required 10 invisibility type detection/state - hack for nonexistant phasing tech
-        if ((GetEntry() == 187039) == (((u->GetVisibilityData().GetInvisibilityDetectMask() | u->GetVisibilityData().GetInvisibilityMask()) & (1 << 10)) == 0))
-            return false;
     }
 
     // check distance
@@ -2579,6 +2597,11 @@ void GameObject::GenerateLootFor(Player* player)
 {
     if (!m_loot)
         m_loot = new Loot(player, this, LOOT_SKINNING, true);
+}
+
+void GameObject::SetCooldown(uint32 cooldown)
+{
+    m_cooldownTime = time(nullptr) + cooldown;
 }
 
 QuaternionData GameObject::GetWorldRotation() const

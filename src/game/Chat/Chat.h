@@ -300,7 +300,13 @@ class ChatHandler
 
         bool HandleDebugFlyCommand(char* args);
 
-        bool HandleDebugPacketHistory(char* args);
+        bool HandleDebugOutPacketHistory(char* args);
+        bool HandleDebugIncPacketHistory(char* args);
+
+        bool HandleDebugTransports(char* args);
+
+        bool HandleDebugSpawnsList(char* args);
+        bool HandleDebugRespawnDynguid(char* args);
 
         bool HandleSD2HelpCommand(char* args);
         bool HandleSD2ScriptCommand(char* args);
