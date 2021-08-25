@@ -391,18 +391,18 @@ void WorldSession::HandleForceSpeedChangeAckOpcodes(WorldPacket& recv_data)
             return;
     }
 
-    if (!_player->GetTransport() && fabs(_player->GetSpeed(move_type) - newspeed) > 0.01f)
+    if (!_player->GetTransport() && fabs(mover->GetSpeed(move_type) - newspeed) > 0.01f)
     {
-        if (_player->GetSpeed(move_type) > newspeed)        // must be greater - just correct
+        if (mover->GetSpeed(move_type) > newspeed)        // must be greater - just correct
         {
             sLog.outError("%sSpeedChange player %s is NOT correct (must be %f instead %f), force set to correct value",
-                          move_type_name[move_type], _player->GetName(), _player->GetSpeed(move_type), newspeed);
-            _player->SetSpeedRate(move_type, _player->GetSpeedRate(move_type), true);
+                          move_type_name[move_type], _player->GetName(), mover->GetSpeed(move_type), newspeed);
+            mover->SetSpeedRate(move_type, _player->GetSpeedRate(move_type), true);
         }
         else                                                // must be lesser - cheating
         {
             BASIC_LOG("Player %s from account id %u kicked for incorrect speed (must be %f instead %f)",
-                      _player->GetName(), _player->GetSession()->GetAccountId(), _player->GetSpeed(move_type), newspeed);
+                      _player->GetName(), _player->GetSession()->GetAccountId(), mover->GetSpeed(move_type), newspeed);
             _player->GetSession()->KickPlayer();
         }
     }
@@ -489,7 +489,7 @@ void WorldSession::HandleMoveKnockBackAck(WorldPacket& recv_data)
     data << movementInfo.jump.cosAngle;
     data << movementInfo.jump.sinAngle;
     data << movementInfo.jump.xyspeed;
-    data << movementInfo.jump.velocity;
+    data << movementInfo.jump.zspeed;
     mover->SendMessageToSetExcept(data, _player);
 }
 
@@ -591,7 +591,7 @@ void WorldSession::HandleSummonResponseOpcode(WorldPacket& recv_data)
     recv_data >> summonerGuid;
     recv_data >> agree;
 
-    _player->SummonIfPossible(agree);
+    _player->SummonIfPossible(agree, summonerGuid);
 }
 
 bool WorldSession::VerifyMovementInfo(MovementInfo const& movementInfo, Unit* mover, bool unroot) const

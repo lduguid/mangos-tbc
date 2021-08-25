@@ -1356,12 +1356,12 @@ class Unit : public WorldObject
         void clearUnitState(uint32 f) { m_state &= ~f; }
         bool CanFreeMove() const { return !hasUnitState(UNIT_STAT_NO_FREE_MOVE) && !GetOwnerGuid(); }
 
-        virtual uint32 GetLevelForTarget(Unit const* /*target*/) const { return getLevel(); }
+        virtual uint32 GetLevelForTarget(Unit const* /*target*/) const { return GetLevel(); }
         bool IsTrivialForTarget(Unit const* pov) const;
 
         void SetLevel(uint32 lvl);
 
-        uint32 getLevel() const { return GetUInt32Value(UNIT_FIELD_LEVEL); }
+        uint32 GetLevel() const { return GetUInt32Value(UNIT_FIELD_LEVEL); }
         uint8 getRace() const { return GetByteValue(UNIT_FIELD_BYTES_0, 0); }
         uint32 getRaceMask() const { return 1 << (getRace() - 1); }
         uint8 getClass() const { return GetByteValue(UNIT_FIELD_BYTES_0, 1); }
@@ -1458,6 +1458,7 @@ class Unit : public WorldObject
         virtual bool CanAssistSpell(Unit const* target, SpellEntry const* spellInfo = nullptr) const override;
 
         bool CanAttackOnSight(Unit const* target) const; // Used in MoveInLineOfSight checks
+        bool CanAttackInCombat(Unit const* target) const;
         bool CanAssistInCombatAgainst(Unit const* who, Unit const* enemy) const;
         bool CanJoinInAttacking(Unit const* enemy) const;
 
@@ -1496,7 +1497,7 @@ class Unit : public WorldObject
         virtual bool Mount(uint32 displayid, const Aura* aura = nullptr);
         virtual bool Unmount(const Aura* aura = nullptr);
 
-        uint16 GetSkillMaxForLevel(Unit const* target = nullptr) const { return (target ? GetLevelForTarget(target) : getLevel()) * 5; }
+        uint16 GetSkillMaxForLevel(Unit const* target = nullptr) const { return (target ? GetLevelForTarget(target) : GetLevel()) * 5; }
 
         void Suicide();
         static void DealDamageMods(Unit* dealer, Unit* victim, uint32& damage, uint32* absorb, DamageEffectType damagetype, SpellEntry const* spellProto = nullptr);
@@ -1520,16 +1521,16 @@ class Unit : public WorldObject
         void CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* calcDamageInfo, WeaponAttackType attackType = BASE_ATTACK);
         void DealMeleeDamage(CalcDamageInfo* calcDamageInfo, bool durabilityLoss);
 
-        bool IsAllowedDamageInArea(Unit* pVictim) const;
+        static bool IsAllowedDamageInArea(Unit* attacker, Unit* victim);
 
         void CalculateSpellDamage(SpellNonMeleeDamage* spellDamageInfo, int32 damage, SpellEntry const* spellInfo, WeaponAttackType attackType = BASE_ATTACK);
-        void DealSpellDamage(SpellNonMeleeDamage* spellDamageInfo, bool durabilityLoss, bool resetLeash);
+        static void DealSpellDamage(Unit* affectiveCaster, SpellNonMeleeDamage* spellDamageInfo, bool durabilityLoss, bool resetLeash);
 
         uint32 GetResilienceRatingDamageReduction(uint32 damage, SpellDmgClass dmgClass, bool periodic = false, Powers pwrType = POWER_HEALTH) const;
 
         SpellMissInfo MeleeSpellHitResult(Unit* pVictim, SpellEntry const* spell, uint32* heartbeatResistChance = nullptr);
         SpellMissInfo MagicSpellHitResult(Unit* pVictim, SpellEntry const* spell, SpellSchoolMask schoolMask, uint32* heartbeatResistChance = nullptr);
-        SpellMissInfo SpellHitResult(Unit* pVictim, SpellEntry const* spell, uint8 effectMask, bool reflectable = false, bool reflected = false, uint32* heartbeatResistChance = nullptr);
+        static SpellMissInfo SpellHitResult(WorldObject* caster, Unit* victim, SpellEntry const* spell, uint8 effectMask, bool reflectable = false, bool reflected = false, uint32* heartbeatResistChance = nullptr);
 
         bool CanDualWield() const { return m_canDualWield; }
         virtual void SetCanDualWield(bool value) { m_canDualWield = value; }
@@ -1618,7 +1619,7 @@ class Unit : public WorldObject
         /*Hack to support always hitting creatures. TODO: investigate Serpentshrine Parasite*/
         void SetAlwaysHit(bool value) { m_alwaysHit = value; }
 
-        bool RollSpellCritOutcome(const Unit* victim, SpellSchoolMask schoolMask, const SpellEntry* spell) const;
+        static bool RollSpellCritOutcome(Unit* caster, const Unit* victim, SpellSchoolMask schoolMask, const SpellEntry* spell);
 
         float GetExpertisePercent(WeaponAttackType attType) const;
 
@@ -1630,7 +1631,7 @@ class Unit : public WorldObject
         float CalculateSpellResistChance(const Unit* victim, SpellSchoolMask schoolMask, const SpellEntry* spell) const;
 
         virtual uint32 GetShieldBlockValue() const = 0;
-        uint32 GetUnitMeleeSkill(Unit const* target = nullptr) const { return (target ? GetLevelForTarget(target) : getLevel()) * 5; }
+        uint32 GetUnitMeleeSkill(Unit const* target = nullptr) const { return (target ? GetLevelForTarget(target) : GetLevel()) * 5; }
         uint32 GetDefenseSkillValue(Unit const* target = nullptr) const;
         uint32 GetWeaponSkillValue(WeaponAttackType attType, Unit const* target = nullptr) const;
         float GetWeaponProcChance() const;
@@ -1768,7 +1769,7 @@ class Unit : public WorldObject
 
         void SendEnchantmentLog(ObjectGuid targetGuid, uint32 itemEntry, uint32 enchantId) const;
 
-        void CasterHitTargetWithSpell(Unit* realCaster, Unit* target, SpellEntry const* spellInfo, bool triggered, bool success = true);
+        static void CasterHitTargetWithSpell(Unit* realCaster, Unit* target, SpellEntry const* spellInfo, bool triggered, bool success = true);
         bool CanInitiateAttack() const;
 
         Unit* SelectAttackingTarget(AttackingTarget target, uint32 position, uint32 spellId, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
@@ -1858,8 +1859,6 @@ class Unit : public WorldObject
         Unit* GetSpawner(WorldObject const* pov = nullptr) const;
 
         // Additional related server-side and client-side ownership-related methods
-        // Spell mod owner: static player whose spell mods apply to this unit (server-side)
-        virtual Player* GetSpellModOwner() const { return nullptr; }
         // Beneficiary: owner of the xp/loot/etc credit, master or self (server-side)
         Unit* GetBeneficiary() const;
         Player* GetBeneficiaryPlayer() const;
@@ -1986,9 +1985,6 @@ class Unit : public WorldObject
 
         Spell* GetCurrentSpell(CurrentSpellTypes spellType) const { return m_currentSpells[spellType]; }
         Spell* FindCurrentSpellBySpellId(uint32 spell_id) const;
-
-        bool CheckAndIncreaseCastCounter();
-        void DecreaseCastCounter() { if (m_castCounter) --m_castCounter; }
 
         ObjectGuid m_ObjectSlotGuid[4];
 
@@ -2226,9 +2222,9 @@ class Unit : public WorldObject
         virtual bool IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index, bool castOnSelf) const;
         bool IsImmuneToSchool(SpellEntry const* spellInfo, uint8 effectMask) const;
 
-        float CalcArmorReducedDamage(Unit* pVictim, const float damage);
+        static float CalcArmorReducedDamage(WorldObject* attacker, Unit* victim, const float damage);
         void CalculateDamageAbsorbAndResist(Unit* caster, SpellSchoolMask schoolMask, DamageEffectType damagetype, const uint32 damage, uint32* absorb, int32* resist, bool canReflect = false, bool canResist = true, bool binary = false);
-        void CalculateAbsorbResistBlock(Unit* pCaster, SpellNonMeleeDamage* spellDamageInfo, SpellEntry const* spellProto, WeaponAttackType attType = BASE_ATTACK);
+        void CalculateAbsorbResistBlock(Unit* caster, SpellNonMeleeDamage* spellDamageInfo, SpellEntry const* spellProto, WeaponAttackType attType = BASE_ATTACK);
 
         void  UpdateSpeed(UnitMoveType mtype, bool forced, float ratio = 1.0f);
         float GetSpeedInMotion() const;
@@ -2284,6 +2280,7 @@ class Unit : public WorldObject
         bool IsFeigningDeath() const { return HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH); }
         bool IsFeigningDeathSuccessfully() const { return hasUnitState(UNIT_STAT_FEIGN_DEATH); }
         void SetFeignDeath(bool apply, ObjectGuid casterGuid = ObjectGuid(), uint32 spellID = 0, bool dynamic = true, bool success = true);
+        virtual bool IsIgnoringFeignDeath() const { return false; }
 
         void InterruptSpellsCastedOnMe(bool killDelayed = false);
 
@@ -2420,6 +2417,7 @@ class Unit : public WorldObject
         void UpdateSplinePosition(bool relocateOnly = false);
 
         virtual bool CanCallForAssistance() const { return true; }
+        virtual bool CanCheckForHelp() const { return true; }
     protected:
         bool MeetsSelectAttackingRequirement(Unit* target, SpellEntry const* spellInfo, uint32 selectFlags, SelectAttackingTargetParams params) const;
 
@@ -2558,7 +2556,6 @@ class Unit : public WorldObject
 
         AttackerSet m_attackers;                            // Used to help know who is currently attacking this unit
         Spell* m_currentSpells[CURRENT_MAX_SPELL];
-        uint32 m_castCounter;                               // count casts chain of triggered spells for prevent infinity cast crashes
 
         UnitVisibility m_Visibility;
         Position m_last_notified_position;
@@ -2710,12 +2707,12 @@ bool Unit::CheckAllControlledUnits(Func const& func, uint32 controlledMask) cons
 // The spell target is always first unless there is a target at _completely_ the same position (unbelievable case)
 struct TargetDistanceOrderNear
 {
-    Unit const* m_mainTarget;
+    WorldObject const* m_mainTarget;
     DistanceCalculation m_distcalc;
 
-    TargetDistanceOrderNear(Unit const* target, DistanceCalculation distcalc = DIST_CALC_NONE) : m_mainTarget(target), m_distcalc(distcalc) {}
+    TargetDistanceOrderNear(WorldObject const* target, DistanceCalculation distcalc = DIST_CALC_NONE) : m_mainTarget(target), m_distcalc(distcalc) {}
     // functor for operator ">"
-    bool operator()(Unit const* _Left, Unit const* _Right) const
+    bool operator()(WorldObject const* _Left, WorldObject const* _Right) const
     {
         return m_mainTarget->GetDistanceOrder(_Left, _Right, m_distcalc);
     }
@@ -2725,11 +2722,11 @@ struct TargetDistanceOrderNear
 // The spell target is always first unless there is a target at _completely_ the same position (unbelievable case)
 struct TargetDistanceOrderFarAway
 {
-    Unit const* m_mainTarget;
+    WorldObject const* m_mainTarget;
     DistanceCalculation m_distcalc;
-    TargetDistanceOrderFarAway(Unit const* target, DistanceCalculation distcalc = DIST_CALC_NONE) : m_mainTarget(target), m_distcalc(distcalc) {}
+    TargetDistanceOrderFarAway(WorldObject const* target, DistanceCalculation distcalc = DIST_CALC_NONE) : m_mainTarget(target), m_distcalc(distcalc) {}
     // functor for operator "<"
-    bool operator()(Unit const* _Left, Unit const* _Right) const
+    bool operator()(WorldObject const* _Left, WorldObject const* _Right) const
     {
         return !m_mainTarget->GetDistanceOrder(_Left, _Right, m_distcalc);
     }
@@ -2737,10 +2734,10 @@ struct TargetDistanceOrderFarAway
 
 struct LowestHPNearestOrder
 {
-    Unit const* m_mainTarget;
+    WorldObject const* m_mainTarget;
     DistanceCalculation m_distcalc;
 
-    LowestHPNearestOrder(Unit const* target, DistanceCalculation distcalc = DIST_CALC_NONE) : m_mainTarget(target), m_distcalc(distcalc) {}
+    LowestHPNearestOrder(WorldObject const* target, DistanceCalculation distcalc = DIST_CALC_NONE) : m_mainTarget(target), m_distcalc(distcalc) {}
     // functor for operator ">"
     bool operator()(Unit const* _Left, Unit const* _Right) const
     {
@@ -2748,6 +2745,21 @@ struct LowestHPNearestOrder
             return m_mainTarget->GetDistanceOrder(_Left, _Right, m_distcalc);
         return _Left->GetHealthPercent() < _Right->GetHealthPercent();
     }
+};
+
+class UnitLambdaEvent : public BasicEvent
+{
+    public:
+    UnitLambdaEvent(Unit& owner, std::function<void(Unit&)> const& func) : m_owner(owner), m_func(func) {}
+
+    virtual bool Execute(uint64 /*e_time*/, uint32 /*p_time*/)
+    {
+        m_func(m_owner);
+        return true;
+    }
+
+    Unit& m_owner;
+    std::function<void(Unit&)> m_func;
 };
 
 /** @} */
