@@ -411,7 +411,7 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     CleanupTargetList();
 
     m_spellLog.Initialize();
-    m_needSpellLog = (m_spellInfo->Attributes & (SPELL_ATTR_HIDE_IN_COMBAT_LOG | SPELL_ATTR_HIDDEN_CLIENTSIDE)) == 0;
+    m_needSpellLog = (m_spellInfo->Attributes & (SPELL_ATTR_HIDE_IN_COMBAT_LOG | SPELL_ATTR_DO_NOT_DISPLAY)) == 0;
 
     m_travellingStart = UINT32_MAX;
 
@@ -573,6 +573,18 @@ void Spell::FillTargetMap()
                             }
                         }
                     }
+
+                    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_REQUIRE_ALL_TARGETS))
+                    {
+                        // spells which should only be cast if a target was found
+                        if (unitTargetList.size() <= 0)
+                        {
+                            SendCastResult(SPELL_FAILED_BAD_TARGETS);
+                            finish(false);
+                            return;
+                        }
+                    }
+
                     for (Unit* unit : unitTargetList)
                         AddUnitTarget(unit, effectMask);
                 }
@@ -640,7 +652,7 @@ void Spell::prepareDataForTriggerSystem()
     // TODO: possible exist spell attribute for this
     m_canTrigger = true;
 
-    if ((m_CastItem && m_spellInfo->SpellFamilyFlags == nullptr) || m_spellInfo->HasAttribute(SPELL_ATTR_EX3_CANT_TRIGGER_PROC) || m_doNotProc)
+    if ((m_CastItem && m_spellInfo->SpellFamilyFlags == nullptr) || m_doNotProc)
         m_canTrigger = false;                               // Do not trigger from item cast spell
 
     // some negative spells have positive effects to another or same targets
@@ -726,6 +738,12 @@ void Spell::PrepareMasksForProcSystem(uint8 effectMask, uint32& procAttacker, ui
         procAttacker = PROC_FLAG_DEAL_HARMFUL_PERIODIC;
         procVictim = PROC_FLAG_TAKE_HARMFUL_PERIODIC;
     }
+
+    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX3_SUPPRESS_CASTER_PROCS))
+        procAttacker = 0;
+
+    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX3_SUPPRESS_TARGET_PROCS))
+        procVictim = 0;
 }
 
 void Spell::CleanupTargetList()
@@ -1081,7 +1099,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
 
         spellDamageInfo.damage = m_damage;
         spellDamageInfo.HitInfo = target->HitInfo;
-        if (!m_spellInfo->HasAttribute(SPELL_ATTR_EX3_NO_DONE_BONUS))
+        if (!m_spellInfo->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
         {
             if (target->isCrit) // GOs cant crit
             {
@@ -1188,7 +1206,7 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, TargetInfo* target, 
     const bool traveling = m_spellState == SPELL_STATE_TRAVELING;
 
     // Recheck immune (only for delayed spells)
-    if (traveling && !m_spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+    if (traveling && !m_spellInfo->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
     {
         uint8 notImmunedMask = 0;
         for (uint8 effIndex = 0; effIndex < MAX_EFFECT_INDEX; ++effIndex)
@@ -2141,16 +2159,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targ
 
             switch (m_spellInfo->Id)
             {
-                case 40307: // AOEs which should only be cast if a target was found
-                case 40350:
-                {
-                    if (tempUnitList.size() <= 0)
-                    {
-                        finish(false);
-                        return;
-                    }
-                    break;
-                }
                 case 45339:
                 {
                     for (auto iter = tempUnitList.begin(); iter != tempUnitList.end();)
@@ -3017,7 +3025,7 @@ SpellCastResult Spell::cast(bool skipCheck)
         return SPELL_FAILED_ERROR;
     }
 
-    if (m_trueCaster->IsCreature() && m_targets.getUnitTarget() && m_targets.getUnitTarget() != m_caster && !m_spellInfo->HasAttribute(SPELL_ATTR_EX5_DONT_TURN_DURING_CAST))
+    if (m_trueCaster->IsCreature() && m_targets.getUnitTarget() && m_targets.getUnitTarget() != m_caster && !m_spellInfo->HasAttribute(SPELL_ATTR_EX5_AI_DOESNT_FACE_TARGET))
     {
         Unit* charmer = m_caster->GetCharmer();
         if (charmer && !(charmer->GetTypeId() == TYPEID_PLAYER && ((Player*)charmer)->GetCamera().GetBody() == m_caster)) // need to check if target doesnt have a player controlling it
@@ -3142,6 +3150,32 @@ SpellCastResult Spell::cast(bool skipCheck)
             m_spellState = SPELL_STATE_TRAVELING;
             SetDelayStart(0);
             SetSpellStartTravelling(m_caster->GetMap()->GetCurrentMSTime());
+
+            if (!m_spellInfo->HasAttribute(SPELL_ATTR_EX_NO_THREAT) &&
+                !m_spellInfo->HasAttribute(SPELL_ATTR_EX_THREAT_ONLY_ON_MISS) &&
+                !m_spellInfo->HasAttribute(SPELL_ATTR_EX2_NO_INITIAL_THREAT)) // attribute checks
+            {
+                if (m_caster && m_caster->IsPlayerControlled()) // only player casters
+                {
+                    if (Unit* target = m_targets.getUnitTarget())
+                    {
+                        for (auto& ihit : m_UniqueTargetInfo)
+                        {
+                            if (target->GetObjectGuid() == ihit.targetGUID)                 // Found in list
+                            {
+                                if (m_caster->CanAttack(target)) // can attack
+                                    if ((!IsPositiveEffectMask(m_spellInfo, ihit.effectHitMask, m_caster, target)
+                                        && m_caster->IsVisibleForOrDetect(target, target, false)
+                                        && m_caster->CanEnterCombat() && target->CanEnterCombat())) // can see and enter combat
+                                    {
+                                        m_caster->SetInCombatWithVictim(target);
+                                        m_caster->GetCombatManager().TriggerCombatTimer(uint32(ihit.timeDelay + 500));
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     else // Immediate spell, no big deal
@@ -4808,6 +4842,9 @@ SpellCastResult Spell::CheckCast(bool strict)
 
             if (m_spellInfo->MaxTargetLevel && target->GetLevel() > m_spellInfo->MaxTargetLevel)
                 return SPELL_FAILED_HIGHLEVEL;
+
+            if (m_spellInfo->HasAttribute(SPELL_ATTR_EX5_NOT_ON_TRIVIAL) && target->IsTrivialForTarget(m_caster))
+                return SPELL_FAILED_TARGET_IS_TRIVIAL;
         }
     }
 
@@ -6966,6 +7003,9 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff, bool targetB, CheckE
 
     // If spell have ingore CC attr & unit is CC
     if (m_spellInfo->AttributesEx6 & SPELL_ATTR_EX6_IGNORE_CC_TARGETS && target != m_targets.getUnitTarget() && target->IsCrowdControlled())
+        return false;
+
+    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX5_NOT_ON_TRIVIAL) && target->IsTrivialForTarget(m_caster))
         return false;
 
     if (target->GetTypeId() != TYPEID_PLAYER && m_spellInfo->HasAttribute(SPELL_ATTR_EX3_TARGET_ONLY_PLAYER)
