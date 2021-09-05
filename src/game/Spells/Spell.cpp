@@ -545,6 +545,8 @@ void Spell::FillTargetMap()
                     UnitList& unitTargetList = targetingData.data[i].tmpUnitList[rightTarget];
                     uint8 effectMask = targetMask[rightTarget];
                     SpellTargetFilterScheme scheme = filterScheme[rightTarget];
+                    uint32 target = rightTarget ? m_spellInfo->EffectImplicitTargetB[i] : m_spellInfo->EffectImplicitTargetA[i];
+                    SpellTargetImplicitType type = SpellTargetInfoTable[target].type;
                     if (!unitTargetList.empty()) // Unit case
                     {
                         for (auto itr = unitTargetList.begin(); itr != unitTargetList.end();)
@@ -574,7 +576,8 @@ void Spell::FillTargetMap()
                         }
                     }
 
-                    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_REQUIRE_ALL_TARGETS))
+                    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_REQUIRE_ALL_TARGETS) &&
+                        (type == TARGET_TYPE_UNIT || type == TARGET_TYPE_PLAYER))
                     {
                         // spells which should only be cast if a target was found
                         if (unitTargetList.size() <= 0)
@@ -3159,18 +3162,19 @@ SpellCastResult Spell::cast(bool skipCheck)
                 {
                     if (Unit* target = m_targets.getUnitTarget())
                     {
-                        for (auto& ihit : m_UniqueTargetInfo)
+                        for (auto const& ihit : m_UniqueTargetInfo)
                         {
                             if (target->GetObjectGuid() == ihit.targetGUID)                 // Found in list
                             {
                                 if (m_caster->CanAttack(target)) // can attack
-                                    if ((!IsPositiveEffectMask(m_spellInfo, ihit.effectHitMask, m_caster, target)
+                                    if ((!IsPositiveEffectMask(m_spellInfo, ihit.effectMask, m_caster, target)
                                         && m_caster->IsVisibleForOrDetect(target, target, false)
                                         && m_caster->CanEnterCombat() && target->CanEnterCombat())) // can see and enter combat
                                     {
                                         m_caster->SetInCombatWithVictim(target);
                                         m_caster->GetCombatManager().TriggerCombatTimer(uint32(ihit.timeDelay + 500));
                                     }
+                                break;
                             }
                         }
                     }
