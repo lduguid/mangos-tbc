@@ -520,7 +520,6 @@ class ChatHandler
         bool HandleReloadCreaturesStatsCommand(char* args);
         bool HandleReloadCreatureQuestRelationsCommand(char* args);
         bool HandleReloadCreatureQuestInvRelationsCommand(char* args);
-        bool HandleReloadDbScriptStringCommand(char* args);
         bool HandleReloadDBScriptsOnCreatureDeathCommand(char* args);
         bool HandleReloadDBScriptsOnEventCommand(char* args);
         bool HandleReloadDBScriptsOnGossipCommand(char* args);
@@ -530,7 +529,6 @@ class ChatHandler
         bool HandleReloadDBScriptsOnSpellCommand(char* args);
         bool HandleReloadDBScriptsOnRelayCommand(char* args);
 
-        bool HandleReloadEventAITextsCommand(char* args);
         bool HandleReloadEventAISummonsCommand(char* args);
         bool HandleReloadEventAIScriptsCommand(char* args);
         bool HandleReloadGameGraveyardZoneCommand(char* args);
