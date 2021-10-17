@@ -403,6 +403,7 @@ class Object
         void SendForcedObjectUpdate();
 
         void BuildValuesUpdateBlockForPlayer(UpdateData& data, Player* target) const;
+        void BuildValuesUpdateBlockForPlayerWithFlags(UpdateData& data, Player* target, UpdateFieldFlags flags) const;
         void BuildValuesUpdateBlockForPlayer(UpdateData& data, UpdateMask& updateMask, Player* target) const;
         void BuildForcedValuesUpdateBlockForPlayer(UpdateData* data, Player* target) const;
         void BuildOutOfRangeUpdateBlock(UpdateData* data) const;
@@ -472,7 +473,7 @@ class Object
         }
 
         void ForceValuesUpdateAtIndex(uint16 index);
-        void MarkUpdateFieldsWithFlagForUpdate(UpdateMask& updateMask, uint16 flag);
+        void MarkUpdateFieldsWithFlagForUpdate(UpdateMask& updateMask, uint16 flag) const;
 
         void SetFlag(uint16 index, uint32 newFlag);
         void RemoveFlag(uint16 index, uint32 oldFlag);
@@ -986,6 +987,10 @@ class WorldObject : public Object
         float GetDistance(float x, float y, float z, DistanceCalculation distcalc = DIST_CALC_BOUNDING_RADIUS, bool transport = false) const;
         float GetDistance2d(float x, float y, DistanceCalculation distcalc = DIST_CALC_BOUNDING_RADIUS) const;
         float GetDistanceZ(const WorldObject* obj) const;
+        bool IsInMapIgnorePhase(const WorldObject* obj) const // only to be used by spells which ignore phase during search and similar
+        {
+            return IsInWorld() && obj->IsInWorld() && (GetMap() == obj->GetMap());
+        }
         bool IsInMap(const WorldObject* obj) const
         {
             return IsInWorld() && obj->IsInWorld() && (GetMap() == obj->GetMap()) && InSamePhase(obj);
@@ -994,9 +999,9 @@ class WorldObject : public Object
         {
             return obj && _IsWithinCombatDist(obj, dist2compare, is3D);
         }
-        bool IsWithinCombatDistInMap(WorldObject const* obj, float dist2compare, bool is3D = true) const
+        bool IsWithinCombatDistInMap(WorldObject const* obj, float dist2compare, bool is3D = true, bool ignorePhase = false) const
         {
-            return obj && IsInMap(obj) && _IsWithinCombatDist(obj, dist2compare, is3D);
+            return obj && (ignorePhase ? IsInMapIgnorePhase(obj) : IsInMap(obj)) && _IsWithinCombatDist(obj, dist2compare, is3D);
         }
         bool IsWithinDist3d(float x, float y, float z, float dist2compare) const;
         bool IsWithinDist2d(float x, float y, float dist2compare) const;
@@ -1009,9 +1014,9 @@ class WorldObject : public Object
             return obj && _IsWithinDist(obj, dist2compare, is3D);
         }
 
-        bool IsWithinDistInMap(WorldObject const* obj, float dist2compare, bool is3D = true) const
+        bool IsWithinDistInMap(WorldObject const* obj, float dist2compare, bool is3D = true, bool ignorePhase = false) const
         {
-            return obj && IsInMap(obj) && _IsWithinDist(obj, dist2compare, is3D);
+            return obj && (ignorePhase ? IsInMapIgnorePhase(obj) : IsInMap(obj)) && _IsWithinDist(obj, dist2compare, is3D);
         }
         bool IsWithinLOS(float ox, float oy, float oz, bool ignoreM2Model = false) const;
         bool IsWithinLOSForMe(float x, float y, float z, float collisionHeight, bool ignoreM2Model = false) const;
