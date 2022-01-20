@@ -4657,16 +4657,23 @@ void Unit::SetFacingTo(float ori)
         transport->CalculatePassengerOrientation(ori);
     init.SetFacing(ori);
     init.Launch();
+    // orientation change is in-place
+    UpdateSplinePosition();
+    movespline->_Finalize();
 }
 
-void Unit::SetFacingToObject(WorldObject* pObject)
+void Unit::SetFacingToObject(WorldObject* object)
 {
     // never face when already moving
     if (!IsStopped())
         return;
 
-    // TODO: figure out under what conditions creature will move towards object instead of facing it where it currently is.
-    SetFacingTo(GetAngle(pObject));
+    Movement::MoveSplineInit init(*this);
+    init.SetFacing(object);
+    init.Launch();
+    // orientation change is in-place
+    UpdateSplinePosition();
+    movespline->_Finalize();
 }
 
 bool Unit::isInAccessablePlaceFor(Unit const* unit) const
@@ -5474,7 +5481,7 @@ void Unit::RemoveAurasOnCast(uint32 flag, SpellEntry const* castedSpellEntry)
         SpellEntry const* spellEntry = holder->GetSpellProto();
         bool removeThisHolder = false;
 
-        if (spellEntry->AuraInterruptFlags & flag)
+        if (spellEntry->AuraInterruptFlags & flag && (spellEntry->Id != castedSpellEntry->Id || GetObjectGuid() != holder->GetCasterGuid()))
         {
             if (castedSpellEntry->HasAttribute(SPELL_ATTR_EX_NOT_BREAK_STEALTH))
             {
@@ -8456,7 +8463,7 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
         if (InstanceData* mapInstance = GetInstanceData())
             mapInstance->OnCreatureEnterCombat(creature);
 
-        creature->CallAssistance();
+        creature->CallAssistance(enemy);
 
         creature->SetCanCheckForHelp(false);
         creature->m_events.AddEvent(new UnitLambdaEvent(*creature, [](Unit& unit)
@@ -11582,7 +11589,7 @@ void Unit::UpdateSplinePosition(bool relocateOnly)
     {
         if (movespline->isFacingTarget())
         {
-            if (Unit const* target = ObjectAccessor::GetUnit(*this, ObjectGuid(movespline->GetFacing().target)))
+            if (WorldObject const* target = GetMap()->GetWorldObject(ObjectGuid(movespline->GetFacing().target)))
             {
                 pos.o = GetAngle(target);
                 faced = true;

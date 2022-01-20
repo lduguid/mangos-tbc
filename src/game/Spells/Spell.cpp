@@ -1446,8 +1446,8 @@ void Spell::DoAllTargetlessEffects(bool dest)
     uint32 effectMask;
     if (dest) // can have delay
     {
-        effectMask = m_destTargetInfo.effectMask;
-        m_destTargetInfo.processed = true;
+        effectMask = m_destTargetInfo.effectMask &~ m_destTargetInfo.effectMaskProcessed;
+        m_destTargetInfo.effectMaskProcessed = m_destTargetInfo.effectMask;
         for (uint32 j = 0; j < MAX_EFFECT_INDEX; ++j)
         {
             if ((effectMask & (1 << j)) != 0)
@@ -1462,6 +1462,19 @@ void Spell::DoAllTargetlessEffects(bool dest)
             if ((effectMask & (1 << j)) != 0)
                 HandleEffect(nullptr, nullptr, nullptr, SpellEffectIndex(j));
         }
+
+        // dest effects that are immediate
+        uint32 destMaskImmediate = m_destTargetInfo.effectMask;
+        for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+            if (!IsEffectHandledImmediatelySpellLaunch(m_spellInfo, SpellEffectIndex(i)))
+                destMaskImmediate &= ~(destMaskImmediate & (1 << i));
+
+        for (uint32 j = 0; j < MAX_EFFECT_INDEX; ++j)
+        {
+            if ((destMaskImmediate & (1 << j)) != 0)
+                HandleEffect(nullptr, nullptr, nullptr, SpellEffectIndex(j));
+        }
+        m_destTargetInfo.effectMaskProcessed = destMaskImmediate;
     }
 
     if (effectMask)
@@ -3323,7 +3336,7 @@ uint64 Spell::handle_delayed(uint64 t_offset)
 
     uint64 next_time = 0;
 
-    if (!m_destTargetInfo.processed)
+    if (m_destTargetInfo.effectMaskProcessed != m_destTargetInfo.effectMask)
     {
         if (m_destTargetInfo.timeDelay <= t_offset)
             DoAllTargetlessEffects(true);
@@ -3753,7 +3766,7 @@ void Spell::finish(bool ok)
     if (!m_TriggerSpells.empty())
         CastTriggerSpells();
 
-    if (m_caster)
+    if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject())
         m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
 
     // Stop Attack for some spells
@@ -5897,7 +5910,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                     {
                         SpellCastResult result = partialApplication(i);
                         if (result != SPELL_CAST_OK)
-                            return result;
+                            return SPELL_FAILED_TARGET_NO_WEAPONS;
                     }
                 }
                 break;
@@ -6583,7 +6596,7 @@ SpellCastResult Spell::CheckItems()
     // if not item target then required item must be equipped (for triggered case not report error)
     else
     {
-        if (m_caster->GetTypeId() == TYPEID_PLAYER && !((Player*)m_caster)->HasItemFitToSpellReqirements(m_spellInfo))
+        if (m_caster->IsPlayer() && !static_cast<Player*>(m_caster)->HasItemFitToSpellReqirements(m_spellInfo))
             return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
     }
 

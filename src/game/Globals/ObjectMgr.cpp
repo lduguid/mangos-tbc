@@ -1117,7 +1117,7 @@ void ObjectMgr::LoadSpawnGroups()
         } while (result->NextRow());
     }
 
-    result.reset(WorldDatabase.Query("SELECT SpawnGroupID, FormationType, FormationSpread, FormationOptions, MovementID, MovementType, Comment FROM spawn_group_formation"));
+    result.reset(WorldDatabase.Query("SELECT Id, FormationType, FormationSpread, FormationOptions, PathId, MovementType, Comment FROM spawn_group_formation"));
     if (result)
     {
         do
@@ -1165,9 +1165,9 @@ void ObjectMgr::LoadSpawnGroups()
 
             fEntry->Type = static_cast<SpawnGroupFormationType>(fType);
 
-            if (fEntry->Spread > 15.0f || fEntry->Spread < 0.5f)
+            if (fEntry->Spread > 15.0f || fEntry->Spread < -15)
             {
-                sLog.outErrorDb("LoadSpawnGroups: Invalid spread value (%5.2f) should be between (0.5..15) in formation ID:%u . Skipping.", fEntry->Spread, fEntry->GroupId);
+                sLog.outErrorDb("LoadSpawnGroups: Invalid spread value (%5.2f) should be between (-15..15) in formation ID:%u . Skipping.", fEntry->Spread, fEntry->GroupId);
                 continue;
             }
 
@@ -1961,7 +1961,7 @@ void ObjectMgr::LoadCreatures()
             data.spawntimesecsmax = data.spawntimesecsmin;
         }
 
-        if (mapEntry->IsDungeon())
+        if (mapEntry->IsDungeon() || mapEntry->IsBattleGround())
         {
             if (data.spawnMask & ~SPAWNMASK_DUNGEON_ALL)
                 sLog.outErrorDb("Table `creature` have creature (GUID: %u) that have wrong spawn mask %u for non-raid dungeon map (Id: %u).", guid, data.spawnMask, data.mapid);
@@ -2196,7 +2196,7 @@ void ObjectMgr::LoadGameObjects()
             continue;
         }
 
-        if (mapEntry->IsDungeon())
+        if (mapEntry->IsDungeon() || mapEntry->IsBattleGround())
         {
             if (data.spawnMask & ~SPAWNMASK_DUNGEON_ALL)
                 sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) that have wrong spawn mask %u for dungeon map (Id: %u), skip", guid, data.id, data.spawnMask, data.mapid);
@@ -5749,7 +5749,7 @@ void ObjectMgr::LoadGossipTextLocales()
     {
         BarGoLink bar(1);
         bar.step();
-        sLog.outString(">> Loaded 0 Quest locale strings. DB table `locales_npc_text` is empty.");
+        sLog.outString(">> Loaded 0 NpcText locale strings. DB table `locales_npc_text` is empty.");
         return;
     }
 
