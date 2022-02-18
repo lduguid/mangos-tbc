@@ -1773,6 +1773,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targ
         case TARGET_LOCATION_CASTER_LEFT:
         case TARGET_LOCATION_CASTER_RIGHT:
         {
+            WorldObject* caster = m_trueCaster;
             float angle = m_trueCaster->GetOrientation();
             switch (targetMode)
             {
@@ -1782,13 +1783,13 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targ
                 case TARGET_LOCATION_CASTER_FRONT_RIGHT: angle += M_PI_F * 1.75f; break;
                 case TARGET_LOCATION_CASTER_FRONT:                                break;
                 case TARGET_LOCATION_CASTER_BACK:        angle += M_PI_F;         break;
-                case TARGET_LOCATION_UNIT_MINION_POSITION:
+                case TARGET_LOCATION_UNIT_MINION_POSITION: caster = GetCastingObject(); // projected from original caster if necessary
                 case TARGET_LOCATION_CASTER_LEFT:        angle += M_PI_F / 2;     break;
                 case TARGET_LOCATION_CASTER_RIGHT:       angle -= M_PI_F / 2;     break;
             }
 
             Position pos;
-            m_trueCaster->GetFirstCollisionPosition(pos, radius, angle);
+            caster->GetFirstCollisionPosition(pos, radius, angle);
             m_targets.setDestination(pos.x, pos.y, pos.z);
             break;
         }
@@ -1801,10 +1802,10 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targ
                 m_targets.setDestination(x, y, z);
             }
             break;
-        case TARGET_LOCATION_DYNOBJ_POSITION:
+        case TARGET_LOCATION_CHANNEL_TARGET_DEST:
             // if parent spell create dynamic object extract area from it
-            if (DynamicObject* dynObj = m_caster->GetDynObject(m_triggeredByAuraSpell ? m_triggeredByAuraSpell->Id : m_spellInfo->Id))
-                m_targets.setDestination(dynObj->GetPositionX(), dynObj->GetPositionY(), dynObj->GetPositionZ());
+            if (WorldObject* channelObject = m_caster->GetChannelObject())
+                m_targets.setDestination(channelObject->GetPositionX(), channelObject->GetPositionY(), channelObject->GetPositionZ());
             break;
         case TARGET_LOCATION_NORTH:
         case TARGET_LOCATION_SOUTH:
@@ -2513,7 +2514,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targ
             break;
         case TARGET_UNIT_CHANNEL_TARGET:
         {
-            if (Unit* target = m_caster->GetChannelObject())
+            if (Unit* target = dynamic_cast<Unit*>(m_caster->GetChannelObject()))
                 if (!CheckAndAddMagnetTarget(target, effIndex, targetB, targetingData))
                     tempUnitList.push_back(target);
             break;
@@ -3576,7 +3577,7 @@ void Spell::update(uint32 difftime)
 
                     if (m_spellInfo->HasAttribute(SPELL_ATTR_EX2_TAME_BEAST)) // these fail on lost target attention (aggro)
                     {
-                        if (Unit* target = m_caster->GetChannelObject())
+                        if (Unit* target = dynamic_cast<Unit*>(m_caster->GetChannelObject()))
                         {
                             Unit* targetsTarget = target->GetTarget();
                             if (targetsTarget && targetsTarget != m_caster)
@@ -3586,7 +3587,7 @@ void Spell::update(uint32 difftime)
 
                     if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_CHANNEL_TRACK_TARGET) && m_UniqueTargetInfo.begin() != m_UniqueTargetInfo.end())
                     {
-                        if (Unit* target = m_caster->GetChannelObject())
+                        if (WorldObject* target = m_caster->GetChannelObject())
                         {
                             if (target != m_caster)
                             {
@@ -3624,7 +3625,7 @@ void Spell::update(uint32 difftime)
                     // need check distance for channeled target only - but only when its set
                     if (m_maxRange && !m_caster->HasChannelObject(m_caster->GetObjectGuid()))
                     {
-                        if (Unit* channelTarget = m_caster->GetChannelObject())
+                        if (WorldObject* channelTarget = m_caster->GetChannelObject())
                         {
                             if (!m_caster->IsWithinCombatDistInMap(channelTarget, m_maxRange * 1.5f))
                             {
@@ -4171,7 +4172,7 @@ void Spell::SendChannelUpdate(uint32 time, uint32 lastTick) const
 
         if (!m_caster->HasChannelObject(m_caster->GetObjectGuid()))
         {
-            if (Unit* target = m_caster->GetChannelObject())
+            if (Unit* target = dynamic_cast<Unit*>(m_caster->GetChannelObject()))
             {
                 if (lastTick)
                 {
@@ -5249,7 +5250,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (gmmode)
                     tameTarget = caster->GetTarget();
                 else
-                    tameTarget = m_caster->GetChannelObject();
+                    tameTarget = dynamic_cast<Unit*>(m_caster->GetChannelObject());
 
                 if (!caster || caster->GetTypeId() != TYPEID_PLAYER ||
                         !tameTarget || tameTarget->GetTypeId() == TYPEID_PLAYER)
@@ -6492,7 +6493,7 @@ SpellCastResult Spell::CheckPower(bool strict)
 
 bool Spell::IgnoreItemRequirements() const
 {
-    if (m_channelOnly)
+    if (m_channelOnly || m_ignoreCosts)
         return true;
 
     // Workaround for double shard problem
@@ -7118,7 +7119,7 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff, bool targetB, CheckE
                         case TARGET_LOS_CASTER:
                             if (target != m_trueCaster)
                             {
-                                if (m_spellInfo->EffectImplicitTargetA[eff] == TARGET_LOCATION_DYNOBJ_POSITION)
+                                if (m_spellInfo->EffectImplicitTargetA[eff] == TARGET_LOCATION_CHANNEL_TARGET_DEST)
                                 {
                                     if (DynamicObject* dynObj = m_caster->GetDynObject(m_triggeredByAuraSpell ? m_triggeredByAuraSpell->Id : m_spellInfo->Id))
                                         if (!target->IsWithinLOSInMap(dynObj, true))
@@ -8315,10 +8316,6 @@ bool Spell::OnCheckTarget(Unit* target, SpellEffectIndex eff) const
         case 32124:                                         // Cant hit players
         case 33512:                                         // Kazzak's Assault - likely should not hit players
             if (target->GetTypeId() == TYPEID_PLAYER)
-                return false;
-            break;
-        case 33812:                                         // Gruul the Dragonkiller - Hurtful Strike Primer
-            if (target->GetTypeId() != TYPEID_PLAYER || !m_caster->CanReachWithMeleeAttack(target))
                 return false;
             break;
         case 36819:                                         // Always should hit main tank, no clue why rigged as AOE
