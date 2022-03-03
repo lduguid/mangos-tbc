@@ -79,7 +79,7 @@ class PrioritizeHealthUnitWraper
     public:
     explicit PrioritizeHealthUnitWraper(Unit* unit) : i_unit(unit)
     {
-        i_percent = unit->GetHealth() * 100 / unit->GetMaxHealth();
+        i_percent = unit->GetHealthPercent();
     }
     Unit* getUnit() const { return i_unit; }
     uint32 getPercent() const { return i_percent; }
@@ -472,6 +472,8 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     m_targetlessMask = 0;
 
     m_overrideSpeed = false;
+
+    m_ignoreRoot = IsIgnoreRootSpell(m_spellInfo);
 
     OnInit();
 }
@@ -3261,6 +3263,9 @@ SpellCastResult Spell::cast(bool skipCheck)
 
     OnCast();
 
+    if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject())
+        m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
+
     // process immediate effects (items, ground, etc.) also initialize some variables
     _handle_immediate_phase();
 
@@ -3784,9 +3789,6 @@ void Spell::finish(bool ok)
     // call triggered spell only at successful cast (after clear combo points -> for add some if need)
     if (!m_TriggerSpells.empty())
         CastTriggerSpells();
-
-    if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject())
-        m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
 
     // Stop Attack for some spells
     if (m_caster && m_spellInfo->HasAttribute(SPELL_ATTR_STOP_ATTACK_TARGET))
@@ -5240,8 +5242,11 @@ SpellCastResult Spell::CheckCast(bool strict)
             {
                 if (Unit* target = m_targets.getUnitTarget())
                 {
-                    if (target->GetTypeId() != TYPEID_PLAYER && m_spellInfo->EffectImplicitTargetA[i] != TARGET_UNIT_CASTER)
+                    if (target->IsPlayer() && m_spellInfo->EffectImplicitTargetA[i] != TARGET_UNIT_CASTER && m_spellInfo->EffectImplicitTargetB[i] != TARGET_UNIT_CASTER)
                         return SPELL_FAILED_BAD_TARGETS;
+
+                    if (!target->IsPlayer())
+                        target = m_caster;
 
                     if (i != EFFECT_INDEX_0) // TODO: Partial application
                         break;
@@ -5400,7 +5405,7 @@ SpellCastResult Spell::CheckCast(bool strict)
             }
             case SPELL_EFFECT_CHARGE:
             {
-                if (m_caster->hasUnitState(UNIT_STAT_ROOT))
+                if (!m_ignoreRoot && m_caster->hasUnitState(UNIT_STAT_ROOT))
                     return SPELL_FAILED_ROOTED;
 
                 if (Unit* target = m_targets.getUnitTarget())
@@ -5573,7 +5578,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 {
                     if (summon_prop->Group == SUMMON_PROP_GROUP_PETS && m_caster)
                     {
-                        if (m_caster->GetPetGuid())
+                        if (!m_spellInfo->HasAttribute(SPELL_ATTR_EX_DISMISS_PET) && m_caster->GetPetGuid())
                             return SPELL_FAILED_ALREADY_HAVE_SUMMON;
 
                         if (m_caster->HasCharm())
@@ -5709,13 +5714,8 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (!m_caster || m_caster->IsTaxiFlying())
                     return SPELL_FAILED_NOT_ON_TAXI;
 
-                // Blink has leap first and then removing of auras with root effect
-                // need further research with this
-                if (m_spellInfo->Effect[i] != SPELL_EFFECT_LEAP)
-                {
-                    if (m_caster->hasUnitState(UNIT_STAT_ROOT))
-                        return SPELL_FAILED_ROOTED;
-                }
+                if (!m_ignoreRoot && m_caster->hasUnitState(UNIT_STAT_ROOT))
+                    return SPELL_FAILED_ROOTED;
 
                 if (m_caster->GetTypeId() == TYPEID_PLAYER)
                 {

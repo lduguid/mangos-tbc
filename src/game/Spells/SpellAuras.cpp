@@ -329,7 +329,7 @@ Aura::Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* curr
     m_spellmod(nullptr), m_periodicTimer(0), m_periodicTick(0), m_removeMode(AURA_REMOVE_BY_DEFAULT),
     m_effIndex(eff), m_positive(false), m_isPeriodic(false), m_isAreaAura(false),
     m_isPersistent(false), m_magnetUsed(false), m_spellAuraHolder(holder),
-    m_scriptValue(0)
+    m_scriptValue(0), m_storage(nullptr)
 {
     MANGOS_ASSERT(target);
     MANGOS_ASSERT(spellproto && spellproto == sSpellTemplate.LookupEntry<SpellEntry>(spellproto->Id) && "`info` must be pointer to sSpellTemplate element");
@@ -424,6 +424,7 @@ Aura::Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* curr
 
 Aura::~Aura()
 {
+    delete m_storage;
 }
 
 AreaAura::AreaAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* currentDamage, int32 const* currentBasePoints, SpellAuraHolder* holder, Unit* target,
@@ -3412,11 +3413,10 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                 case FORM_BERSERKERSTANCE:
                 {
                     ShapeshiftForm previousForm = target->GetShapeshiftForm();
-                    uint32 ragePercent = 0;
+                    uint32 remainingRage = 0;
                     if (previousForm == FORM_DEFENSIVESTANCE)
                         if (Aura* aura = target->GetOverrideScript(831))
-                            ragePercent = aura->GetModifier()->m_amount;
-                    uint32 Rage_val = 0;
+                            remainingRage += aura->GetModifier()->m_amount * 10;
                     // Stance mastery + Tactical mastery (both passive, and last have aura only in defense stance, but need apply at any stance switch)
                     if (target->GetTypeId() == TYPEID_PLAYER)
                     {
@@ -3428,17 +3428,12 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
 
                             SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(itr.first);
                             if (spellInfo && spellInfo->SpellFamilyName == SPELLFAMILY_WARRIOR && spellInfo->SpellIconID == 139)
-                                Rage_val += target->CalculateSpellEffectValue(target, spellInfo, EFFECT_INDEX_0) * 10;
+                                remainingRage += target->CalculateSpellEffectValue(target, spellInfo, EFFECT_INDEX_0) * 10;
                         }
                     }
 
-                    if (ragePercent) // not zero
-                    {
-                        if (ragePercent != 100) // optimization
-                            target->SetPower(POWER_RAGE, (target->GetPower(POWER_RAGE) * ragePercent) / 100);
-                    }
-                    else if (target->GetPower(POWER_RAGE) > Rage_val)
-                        target->SetPower(POWER_RAGE, Rage_val);
+                    if (target->GetPower(POWER_RAGE) > remainingRage)
+                        target->SetPower(POWER_RAGE, remainingRage);
                     break;
                 }
                 default:
@@ -4591,6 +4586,9 @@ void Aura::HandleModTaunt(bool /*apply*/, bool Real)
         return;
 
     target->TauntUpdate();
+
+    if (target->AI())
+        target->AI()->OnTaunt();
 }
 
 /*********************************************************/
@@ -4774,7 +4772,7 @@ void Aura::HandleAuraModEffectImmunity(bool apply, bool /*Real*/)
     target->ApplySpellImmune(this, IMMUNITY_EFFECT, m_modifier.m_miscvalue, apply);
 
     if (apply && IsPositive())
-        target->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_INVULNERABILITY_BUFF_CANCELS);
+        target->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_INVULNERABILITY_BUFF_CANCELS, GetHolder());
 
     switch (GetSpellProto()->Id)
     {
@@ -6328,7 +6326,8 @@ void Aura::HandleModDamagePercentDone(bool apply, bool Real)
     // Send info to client
     if (target->GetTypeId() == TYPEID_PLAYER)
         for (int i = SPELL_SCHOOL_HOLY; i < MAX_SPELL_SCHOOL; ++i)
-            target->ApplyModSignedFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT + i, m_modifier.m_amount / 100.0f, apply);
+            if (m_modifier.m_miscvalue & (1 << i))
+                target->ApplyModSignedFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT + i, m_modifier.m_amount / 100.0f, apply);
 
     if (!apply && m_removeMode == AURA_REMOVE_BY_EXPIRE)
         if (GetId() == 30423)

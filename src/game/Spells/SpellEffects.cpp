@@ -3492,7 +3492,7 @@ void Spell::EffectPowerDrain(SpellEffectIndex eff_idx)
     m_spellLog.AddLog(uint32(SPELL_EFFECT_POWER_DRAIN), unitTarget->GetPackGUID(), new_damage, uint32(powerType), gainMultiplier);
 
     if (int32 gain = int32(new_damage * gainMultiplier))
-        m_caster->EnergizeBySpell(m_caster, m_spellInfo, gain, powerType);
+        m_caster->EnergizeBySpell(m_caster, m_spellInfo, gain, powerType, false);
 }
 
 void Spell::EffectSendEvent(SpellEffectIndex effectIndex)
@@ -4935,7 +4935,6 @@ bool Spell::DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry co
             {
                 case 1122: // Warlock Infernal - requires custom code - generalized in WOTLK
                 {
-                    summon->SelectLevel(level); // needs to have casters level
                     // Enslave demon effect, without mana cost and cooldown
                     summon->CastSpell(nullptr, 22707, TRIGGERED_OLD_TRIGGERED);  // short root spell on infernal from sniffs
                     m_caster->CastSpell(summon, 20882, TRIGGERED_OLD_TRIGGERED);

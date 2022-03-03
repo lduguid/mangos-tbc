@@ -809,7 +809,7 @@ struct ProcExecutionData
     uint32 cooldown;
 
     // Scripting data
-    uint32 triggeredSpellId;
+    uint32 triggeredSpellId; // used to designate if a proc was overriden if > 0
     std::array<int32, MAX_EFFECT_INDEX> basepoints = { 0, 0, 0 };
     bool procOnce;
     Unit* triggerTarget;
@@ -1691,7 +1691,7 @@ class Unit : public WorldObject
         virtual bool IsUnderwater() const;
         bool isInAccessablePlaceFor(Unit const* unit) const;
 
-        void EnergizeBySpell(Unit* victim, SpellEntry const* spellInfo, uint32 damage, Powers powerType);
+        void EnergizeBySpell(Unit* victim, SpellEntry const* spellInfo, uint32 damage, Powers powerType, bool sendLog = true);
         uint32 SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage);
         SpellCastResult CastSpell(Unit* Victim, uint32 spellId, uint32 triggeredFlags, Item* castItem = nullptr, Aura* triggeredByAura = nullptr, ObjectGuid originalCaster = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
         SpellCastResult CastSpell(Unit* Victim, SpellEntry const* spellInfo, uint32 triggeredFlags, Item* castItem = nullptr, Aura* triggeredByAura = nullptr, ObjectGuid originalCaster = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
@@ -1899,6 +1899,7 @@ class Unit : public WorldObject
         void RemoveRankAurasDueToSpell(uint32 spellId);
         bool RemoveNoStackAurasDueToAuraHolder(SpellAuraHolder* holder);
         void RemoveAurasWithInterruptFlags(uint32 flags);
+        void RemoveAurasWithInterruptFlags(uint32 flags, SpellAuraHolder* except);
         void RemoveAurasWithAttribute(uint32 flags);
         void RemoveAurasWithDispelType(DispelType type, ObjectGuid casterGuid = ObjectGuid());
         void RemoveAllAuras(AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
@@ -2180,10 +2181,7 @@ class Unit : public WorldObject
             return SPELL_AURA_PROC_CANT_TRIGGER;
         }
 
-        void SetLastManaUse()
-        {
-            m_lastManaUseTimer = 5000;
-        }
+        void SetLastManaUse() { m_lastManaUseTimer = 5000; }
         bool IsUnderLastManaUseEffect() const { return m_lastManaUseTimer != 0 && m_lastManaUseTimer != 5000; }
 
         void SetContestedPvP(Player* attackedPlayer = nullptr);

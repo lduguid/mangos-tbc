@@ -150,7 +150,6 @@ Creature::Creature(CreatureSubtype subtype) : Unit(),
     m_immunitySet(UINT32_MAX),
     m_creatureGroup(nullptr)
 {
-    m_regenTimer = 200;
     m_valuesCount = UNIT_END;
 
     SetWalk(true, true);
@@ -793,16 +792,10 @@ void Creature::Update(const uint32 diff)
     }
 }
 
-void Creature::RegenerateAll(uint32 update_diff)
+void Creature::RegenerateAll(uint32 diff)
 {
-    if (m_regenTimer > 0)
-    {
-        if (update_diff >= m_regenTimer)
-            m_regenTimer = 0;
-        else
-            m_regenTimer -= update_diff;
-    }
-    if (m_regenTimer != 0)
+    m_regenTimer += diff;
+    if (m_regenTimer < REGEN_TIME_FULL)
         return;
 
     if (!IsInCombat() || GetCombatManager().IsEvadeRegen())
@@ -810,7 +803,7 @@ void Creature::RegenerateAll(uint32 update_diff)
 
     RegeneratePower(2.f);
 
-    m_regenTimer = REGEN_TIME_FULL;
+    m_regenTimer -= REGEN_TIME_FULL;
 }
 
 void Creature::RegeneratePower(float timerMultiplier)
@@ -1261,7 +1254,7 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask)
        << GetGUIDLow() << ","
        << data.id << ","
        << data.mapid << ","
-       << uint32(data.spawnMask) << ","                    // cast to prevent save as symbol
+       << static_cast<uint32>(data.spawnMask) << ","       // cast to prevent save as symbol
        << data.modelid_override << ","
        << data.equipmentId << ","
        << data.posX << ","
@@ -1270,12 +1263,12 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask)
        << data.orientation << ","
        << data.spawntimesecsmin << ","                     // respawn time minimum
        << data.spawntimesecsmax << ","                     // respawn time maximum
-       << (float) data.spawndist << ","                    // spawn distance (float)
+       << static_cast<float>(data.spawndist) << ","        // spawn distance (float)
        << data.currentwaypoint << ","                      // currentwaypoint
        << data.curhealth << ","                            // curhealth
        << data.curmana << ","                              // curmana
        << (data.is_dead  ? 1 : 0) << ","                   // is_dead
-       << uint32(data.movementType) << ")";                // default movement generator type, cast to prevent save as symbol
+       << static_cast<uint32>(data.movementType) << ")";   // default movement generator type, cast to prevent save as symbol
 
     WorldDatabase.PExecuteLog("%s", ss.str().c_str());
 

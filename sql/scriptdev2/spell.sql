@@ -614,6 +614,9 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (25228,'spell_soul_link'),
 (27243,'spell_seed_of_corruption'),
 (27285,'spell_seed_of_corruption_damage'),
+(30293,'spell_soul_leech'),
+(30295,'spell_soul_leech'),
+(30296,'spell_soul_leech'),
 (35696,'spell_demonic_knowledge'),
 (30108,'spell_unstable_affliction'),
 (30404,'spell_unstable_affliction'),
@@ -724,7 +727,11 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (1856,'spell_vanish'),
 (1857,'spell_vanish'),
 (26889,'spell_vanish'),
-(14185,'spell_preparation');
+(14185,'spell_preparation'),
+(13983,'spell_setup_rogue'),
+(14070,'spell_setup_rogue'),
+(14071,'spell_setup_rogue');
+
 
 -- Shaman
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
