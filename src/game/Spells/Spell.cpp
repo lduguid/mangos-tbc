@@ -441,7 +441,7 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     m_petCast = (triggeredFlags & TRIGGERED_PET_CAST) != 0;
     m_notifyAI = (triggeredFlags & TRIGGERED_NORMAL_COMBAT_CAST) != 0;
     m_ignoreGCD = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_GCD) != 0);
-    m_ignoreCosts = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_COSTS) != 0);
+    m_ignoreCosts = ((triggeredFlags & TRIGGERED_IGNORE_COSTS) != 0);
     m_ignoreCooldowns = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_COOLDOWNS) != 0);
     m_ignoreConcurrentCasts = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_CURRENT_CASTED_SPELL) != 0) || m_spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING);
     m_hideInCombatLog = (m_IsTriggeredSpell && !IsAutoRepeatRangedSpell(m_spellInfo)) || ((triggeredFlags & TRIGGERED_HIDE_CAST_IN_COMBAT_LOG) != 0);
@@ -5107,7 +5107,7 @@ SpellCastResult Spell::CheckCast(bool strict)
         }
     }
 
-    if (!m_ignoreCosts)
+    if (!m_ignoreCosts && !m_IsTriggeredSpell)
     {
         SpellCastResult castResult = CheckPower(strict);
         if (castResult != SPELL_CAST_OK)
@@ -5242,7 +5242,7 @@ SpellCastResult Spell::CheckCast(bool strict)
             {
                 if (Unit* target = m_targets.getUnitTarget())
                 {
-                    if (target->IsPlayer() && m_spellInfo->EffectImplicitTargetA[i] != TARGET_UNIT_CASTER && m_spellInfo->EffectImplicitTargetB[i] != TARGET_UNIT_CASTER)
+                    if (!target->IsPlayer() && m_spellInfo->EffectImplicitTargetA[i] != TARGET_UNIT_CASTER && m_spellInfo->EffectImplicitTargetB[i] != TARGET_UNIT_CASTER)
                         return SPELL_FAILED_BAD_TARGETS;
 
                     if (!target->IsPlayer())

@@ -138,7 +138,7 @@ Creature::Creature(CreatureSubtype subtype) : Unit(),
     m_lootStatus(CREATURE_LOOT_STATUS_NONE),
     m_corpseAccelerationDecayDelay(MINIMUM_LOOTING_TIME),
     m_respawnTime(0), m_respawnDelay(25), m_respawnOverriden(false), m_respawnOverrideOnce(false), m_corpseDelay(60), m_canAggro(false),
-    m_respawnradius(5.0f), m_subtype(subtype), m_defaultMovementType(IDLE_MOTION_TYPE),
+    m_respawnradius(5.0f), m_interactionPauseTimer(0), m_subtype(subtype), m_defaultMovementType(IDLE_MOTION_TYPE),
     m_equipmentId(0), m_detectionRange(20.f), m_AlreadyCallAssistance(false), m_canCallForAssistance(true),
     m_isDeadByDefault(false),
     m_temporaryFactionFlags(TEMPFACTION_NONE),
@@ -494,6 +494,11 @@ bool Creature::InitEntry(uint32 Entry, CreatureData const* data /*=nullptr*/, Ga
         }
     }
 
+    if (cinfo->InteractionPauseTimer != -1)
+        m_interactionPauseTimer = cinfo->InteractionPauseTimer;
+    else
+        m_interactionPauseTimer = sWorld.getConfig(CONFIG_UINT32_INTERACTION_PAUSE_TIMER);
+
     return true;
 }
 
@@ -795,15 +800,15 @@ void Creature::Update(const uint32 diff)
 void Creature::RegenerateAll(uint32 diff)
 {
     m_regenTimer += diff;
-    if (m_regenTimer < REGEN_TIME_FULL)
+    if (m_regenTimer < REGEN_TIME_FULL_UNIT)
         return;
 
     if (!IsInCombat() || GetCombatManager().IsEvadeRegen())
         RegenerateHealth();
 
-    RegeneratePower(2.f);
+    RegeneratePower(REGEN_TIME_FULL_UNIT / 1000);
 
-    m_regenTimer -= REGEN_TIME_FULL;
+    m_regenTimer -= REGEN_TIME_FULL_UNIT;
 }
 
 void Creature::RegeneratePower(float timerMultiplier)
@@ -880,7 +885,8 @@ void Creature::RegenerateHealth()
     if (curValue >= maxValue)
         return;
 
-    uint32 addvalue = maxValue / 3;
+    // regenerate 33% for npc and ~13% for player controlled npc (enslave etc) ToDo: Find Regenvalue based on Spirit, might differ due to mob types
+    uint32 addvalue = IsPlayerControlled() ? maxValue * 0.13 : maxValue / 3;
 
     ModifyHealth(addvalue);
 }
