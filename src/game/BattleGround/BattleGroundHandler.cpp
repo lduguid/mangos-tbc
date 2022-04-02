@@ -66,7 +66,7 @@ void WorldSession::HandleBattlemasterHelloOpcode(WorldPacket& recv_data)
         return;
     }
 
-    SendBattlegGroundList(guid, bgTypeId);
+    SendBattleGroundList(guid, bgTypeId);
 }
 
 /**
@@ -75,7 +75,7 @@ Send battleground list
 @param   guid
 @param   bgTypeId
 */
-void WorldSession::SendBattlegGroundList(ObjectGuid guid, BattleGroundTypeId bgTypeId) const
+void WorldSession::SendBattleGroundList(ObjectGuid guid, BattleGroundTypeId bgTypeId) const
 {
     WorldPacket data;
     sBattleGroundMgr.BuildBattleGroundListPacket(data, guid, _player, bgTypeId);
@@ -236,16 +236,22 @@ void WorldSession::HandleBattleGroundPlayerPositionsOpcode(WorldPacket& /*recv_d
         {
             uint32 flagCarrierCount = 0;
 
-            Player* flagCarrierAlliance = sObjectMgr.GetPlayer(((BattleGroundWS*)bg)->GetFlagCarrierGuid(TEAM_INDEX_ALLIANCE));
+            Player* flagCarrierAlliance = sObjectMgr.GetPlayer(static_cast<BattleGroundWS*>(bg)->GetFlagCarrierGuid(TEAM_INDEX_ALLIANCE));
             if (flagCarrierAlliance)
-                ++flagCarrierCount;
+            {
+                if (flagCarrierAlliance->GetTeam() == _player->GetTeam() || static_cast<BattleGroundWS*>(bg)->IsFlagHeldFor45Seconds(flagCarrierAlliance->GetTeam()))
+                    ++flagCarrierCount;
+            }
 
-            Player* flagCarrierHorde = sObjectMgr.GetPlayer(((BattleGroundWS*)bg)->GetFlagCarrierGuid(TEAM_INDEX_HORDE));
+            Player* flagCarrierHorde = sObjectMgr.GetPlayer(static_cast<BattleGroundWS*>(bg)->GetFlagCarrierGuid(TEAM_INDEX_HORDE));
             if (flagCarrierHorde)
-                ++flagCarrierCount;
+            {
+                if (flagCarrierHorde->GetTeam() == _player->GetTeam() || static_cast<BattleGroundWS*>(bg)->IsFlagHeldFor45Seconds(flagCarrierAlliance->GetTeam()))
+                    ++flagCarrierCount;
+            }
 
             WorldPacket data(MSG_BATTLEGROUND_PLAYER_POSITIONS, 4 + 4 + 16 * flagCarrierCount);
-            data << uint32(0);
+            data << uint32(0); // own team position XYZ
             data << uint32(flagCarrierCount);
 
             if (flagCarrierAlliance)
