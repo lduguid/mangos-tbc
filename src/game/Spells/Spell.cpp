@@ -3856,7 +3856,7 @@ void Spell::SendCastResult(Player const* caster, SpellEntry const* spellInfo, ui
             break;
         case SPELL_FAILED_NOT_READY:
             if (spellInfo->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE))
-                data << uint32(spellInfo->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE));
+                data << uint32(caster->IsSpellOnPermanentCooldown(*spellInfo));
             break;
         case SPELL_FAILED_REQUIRES_AREA:
             // hardcode areas limitation case
@@ -5794,8 +5794,8 @@ SpellCastResult Spell::CheckCast(bool strict)
                     if (int32(expectedTarget->GetLevel()) > CalculateSpellEffectValue(SpellEffectIndex(i), expectedTarget))
                         return SPELL_FAILED_HIGHLEVEL;
 
-                    if (expectedTarget->GetOwner() && expectedTarget->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
-                        return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
+                    if (expectedTarget->GetOwner())
+                        return expectedTarget->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) ? SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED : SPELL_FAILED_CANT_BE_CHARMED;
                 }
                 break;
             }
@@ -5818,8 +5818,8 @@ SpellCastResult Spell::CheckCast(bool strict)
                     if (int32(expectedTarget->GetLevel()) > CalculateSpellEffectValue(SpellEffectIndex(i), expectedTarget))
                         return SPELL_FAILED_HIGHLEVEL;
 
-                    if (expectedTarget->GetOwner() && expectedTarget->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
-                        return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
+                    if (expectedTarget->GetOwner())
+                        return expectedTarget->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) ? SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED : SPELL_FAILED_CANT_BE_CHARMED;
                 }
                 break;
             }
@@ -5848,6 +5848,28 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (m_caster->HasCharmer())
                     return SPELL_FAILED_CHARMED;
 
+                break;
+            }
+            case SPELL_AURA_MOD_CONFUSE:
+            case SPELL_AURA_MOD_FEAR:
+            case SPELL_AURA_MOD_STUN:
+            {
+                if (expectedTarget)
+                {
+                    // flying players on mounts are immune to cc
+                    if (expectedTarget->IsMounted() && expectedTarget->IsFlying() && expectedTarget->IsPlayerControlled() && expectedTarget->IsAboveGround())
+                    {
+                        if (m_spellInfo->Mechanic)
+                            return SPELL_FAILED_IMMUNE;
+
+                        if (m_spellInfo->EffectMechanic[i])
+                        {
+                            SpellCastResult result = partialApplication(i);
+                            if (result != SPELL_CAST_OK)
+                                return SPELL_FAILED_IMMUNE;
+                        }
+                    }
+                }
                 break;
             }
             case SPELL_AURA_MOUNTED:

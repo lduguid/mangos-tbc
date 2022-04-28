@@ -78,7 +78,7 @@ enum ConditionType
     CONDITION_SPAWN_COUNT           = 39,                   // value1: creatureId; value2: count;
     CONDITION_WORLD_SCRIPT          = 40,
     CONDITION_UNUSED_7              = 41,
-    CONDITION_WORLDSTATE_EXPRESSION = 42,                   // value1: worldstateId; value2: sign; value3: otherOperand - example, 10000; =; 0 - true when 10000 is zero
+    CONDITION_WORLDSTATE            = 42,                   // value1: worldstateId; value2: sign; value3: otherOperand - example, 10000; =; 0 - true when 10000 is zero
 };
 
 enum ConditionFlags
@@ -102,6 +102,7 @@ enum ConditionSource                                        // From where was th
     CONDITION_FROM_TRAINER              = 10,                   // Used to check a condition from npc_trainer and npc_trainer_template
     CONDITION_FROM_AREATRIGGER_TELEPORT = 11,                   // Used to check a condition from areatrigger_teleport
     CONDITION_FROM_QUEST                = 12,                   // Used to check a condition from quest_template
+    CONDITION_FROM_WORLDSTATE           = 13,                   // Used to check a condition from spawn_group
 };
 
 enum ConditionRequirement

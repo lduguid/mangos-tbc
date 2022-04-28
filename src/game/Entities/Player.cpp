@@ -15611,6 +15611,9 @@ void Player::_LoadAuras(QueryResult* result, uint32 timediff)
             {
                 holder->SetState(SPELLAURAHOLDER_STATE_READY);
                 DETAIL_LOG("Added player auras from spellid %u", spellproto->Id);
+
+                if (holder->GetSpellProto()->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE))
+                    AddCooldown(*holder->GetSpellProto(), nullptr, true);
             }
             else
                 delete holder;
@@ -17928,6 +17931,10 @@ void Player::SendAllSpellMods(SpellModType modType)
                 if (modifier->type == modType && (modifier->mask.IsFitToFamilyMask(_mask)))
                     val += modifier->value;
             }
+
+            if (val == 0) // do not send zero payload
+                continue;
+
             WorldPacket data(opcode, (1 + 1 + 4));
             data << uint8(eff);
             data << uint8(op);
