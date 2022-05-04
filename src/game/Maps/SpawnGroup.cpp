@@ -27,6 +27,7 @@
 #include "Globals/ObjectMgr.h"
 #include "MotionGenerators/TargetedMovementGenerator.h"
 #include "World/World.h"
+#include "Maps/InstanceData.h"
 
 SpawnGroup::SpawnGroup(SpawnGroupEntry const& entry, Map& map, uint32 typeId) : m_entry(entry), m_map(map), m_objectTypeId(typeId), m_enabled(m_entry.EnabledByDefault)
 {
@@ -354,6 +355,8 @@ void CreatureGroup::RemoveObject(WorldObject* wo)
     SpawnGroup::RemoveObject(wo);
     CreatureData const* data = sObjectMgr.GetCreatureData(wo->GetDbGuid());
     m_map.GetPersistentState()->RemoveCreatureFromGrid(wo->GetDbGuid(), data);
+    if (m_objects.empty() && wo->GetInstanceData()) // on last being removed
+        wo->GetInstanceData()->OnCreatureGroupDespawn(this);
 }
 
 void CreatureGroup::TriggerLinkingEvent(uint32 event, Unit* target)
