@@ -12857,7 +12857,7 @@ bool Player::CanSeeStartQuest(Quest const* pQuest) const
         int32 highLevelDiff = sWorld.getConfig(CONFIG_INT32_QUEST_HIGH_LEVEL_HIDE_DIFF);
         if (highLevelDiff < 0)
             return true;
-        return GetLevel() + uint32(highLevelDiff) >= pQuest->GetMinLevel();
+        return (GetLevel() + uint32(highLevelDiff) >= pQuest->GetMinLevel()) && GetLevel() <= pQuest->GetMaxLevel();
     }
 
     return false;
@@ -13493,7 +13493,8 @@ bool Player::SatisfyQuestCondition(Quest const* qInfo, bool msg) const
 
 bool Player::SatisfyQuestLevel(Quest const* qInfo, bool msg) const
 {
-    if (GetLevel() < qInfo->GetMinLevel())
+    uint32 level = GetLevel();
+    if (level < qInfo->GetMinLevel() || level > qInfo->GetMaxLevel())
     {
         if (msg)
             SendCanTakeQuestResponse(INVALIDREASON_DONT_HAVE_REQ);

@@ -4410,8 +4410,8 @@ void ObjectMgr::LoadQuests()
                           "IncompleteEmote, IncompleteEmoteDelay, CompleteEmote, CompleteEmoteDelay, OfferRewardEmote1, OfferRewardEmote2, OfferRewardEmote3, OfferRewardEmote4,"
                           // 124                   125                     126                     127
                           "OfferRewardEmoteDelay1, OfferRewardEmoteDelay2, OfferRewardEmoteDelay3, OfferRewardEmoteDelay4,"
-                          // 128        129             130              131              132              133              134              135
-                          "StartScript, CompleteScript, RewMaxRepValue1, RewMaxRepValue2, RewMaxRepValue3, RewMaxRepValue4, RewMaxRepValue5, RequiredCondition"
+                          // 128        129             130              131              132              133              134              135                136
+                          "StartScript, CompleteScript, RewMaxRepValue1, RewMaxRepValue2, RewMaxRepValue3, RewMaxRepValue4, RewMaxRepValue5, RequiredCondition, MaxLevel"
 
                           " FROM quest_template");
     if (!result)
@@ -9869,13 +9869,13 @@ bool ObjectMgr::IsVendorItemValid(bool isTemplate, char const* tableName, uint32
     uint32 countItems = vItems ? vItems->GetItemCount() : 0;
     countItems += tItems ? tItems->GetItemCount() : 0;
 
-    if (countItems >= MAX_VENDOR_ITEMS)
+    if (countItems > std::numeric_limits<uint8>::max())
     {
         if (pl)
             ChatHandler(pl).SendSysMessage(LANG_COMMAND_ADDVENDORITEMITEMS);
         else
-            sLog.outErrorDb("Table `%s` has too many items (%u >= %i) for %s %u, ignoring",
-                            tableName, countItems, MAX_VENDOR_ITEMS, idStr, vendor_entry);
+            sLog.outErrorDb("Table `%s` has too many items (%u > %i) for %s %u, ignoring",
+                            tableName, countItems, std::numeric_limits<uint8>::max(), idStr, vendor_entry);
         return false;
     }
 
