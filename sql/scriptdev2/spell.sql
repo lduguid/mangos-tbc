@@ -508,6 +508,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (45426,'spell_brazier_of_dancing_flames'),
 (45644,'spell_juggle_torch_catch'),
 (45819,'spell_throw_torch'),
+(46878,'spell_summon_ice_spear_knockback_delayer'),
 (40526,'spell_imp_in_a_bottle_say'),
 (49357,'spell_brewfest_mount_transformation'),
 (52845,'spell_brewfest_mount_transformation_faction_swap'),
@@ -739,6 +740,8 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (1857,'spell_vanish'),
 (26889,'spell_vanish'),
 (14185,'spell_preparation'),
+(14082,'spell_dirty_deeds'),
+(14083,'spell_dirty_deeds'),
 (13983,'spell_setup_rogue'),
 (14070,'spell_setup_rogue'),
 (14071,'spell_setup_rogue');

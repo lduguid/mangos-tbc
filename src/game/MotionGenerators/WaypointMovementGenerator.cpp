@@ -328,7 +328,7 @@ void WaypointMovementGenerator<Creature>::SendNextWayPointPath(Creature& creatur
     bool inform = false;
     if (m_PathOrigin == PATH_FROM_EXTERNAL)
         inform = true;
-    else if (m_PathOrigin == PATH_FROM_WAYPOINT_PATH) // temporary transitional code for transitioning from script_texts to waypoint_path
+    else if (m_PathOrigin == PATH_FROM_WAYPOINT_PATH && creature.AI()) // temporary transitional code for transitioning from script_texts to waypoint_path
     {
         if (m_pathId == creature.AI()->GetCurrentWaypointPath())
             inform = true;
