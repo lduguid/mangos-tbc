@@ -3158,7 +3158,7 @@ void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
     if (spellInfo->EquippedItemClass >= 0 && m_caster->GetTypeId() == TYPEID_PLAYER)
     {
         // main hand weapon required
-        if (spellInfo->AttributesEx3 & SPELL_ATTR_EX3_MAIN_HAND)
+        if (spellInfo->AttributesEx3 & SPELL_ATTR_EX3_REQUIRES_MAIN_HAND_WEAPON)
         {
             Item* item = ((Player*)m_caster)->GetWeaponForAttack(BASE_ATTACK, true, false);
 
@@ -3172,7 +3172,7 @@ void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
         }
 
         // offhand hand weapon required
-        if (spellInfo->AttributesEx3 & SPELL_ATTR_EX3_REQ_OFFHAND)
+        if (spellInfo->AttributesEx3 & SPELL_ATTR_EX3_REQUIRES_OFFHAND_WEAPON)
         {
             Item* item = ((Player*)m_caster)->GetWeaponForAttack(OFF_ATTACK, true, false);
 
@@ -3822,7 +3822,7 @@ bool Spell::DoCreateItem(SpellEffectIndex /*eff_idx*/, uint32 itemtype, bool rep
 
 void Spell::EffectCreateItem(SpellEffectIndex eff_idx)
 {
-    if (DoCreateItem(eff_idx, m_spellInfo->EffectItemType[eff_idx], !m_spellInfo->HasAttribute(SPELL_ATTR_HIDE_IN_COMBAT_LOG)))
+    if (DoCreateItem(eff_idx, m_spellInfo->EffectItemType[eff_idx], !m_spellInfo->HasAttribute(SPELL_ATTR_DO_NOT_LOG)))
         m_spellLog.AddLog(uint32(SPELL_EFFECT_CREATE_ITEM), m_spellInfo->EffectItemType[eff_idx]);
 }
 
@@ -8295,7 +8295,7 @@ void Spell::EffectCharge(SpellEffectIndex /*eff_idx*/)
     // Players: charge against hostiles initiates auto-attack
     // TODO: This is executed after spell effects. Verify if this should be executed before spell effects
     if (m_caster->IsClientControlled() && m_caster->CanAttackNow(unitTarget) && m_caster->CanAttackSpell(unitTarget, m_spellInfo))
-        m_caster->Attack(unitTarget, !m_spellInfo->HasAttribute(SPELL_ATTR_RANGED));
+        m_caster->Attack(unitTarget, !m_spellInfo->HasAttribute(SPELL_ATTR_USES_RANGED_SLOT));
 }
 
 void Spell::EffectChargeDest(SpellEffectIndex /*eff_idx*/)
@@ -8841,7 +8841,7 @@ void Spell::EffectStealBeneficialBuff(SpellEffectIndex eff_idx)
         if (holder && (1 << holder->GetSpellProto()->Dispel) & dispelMask)
         {
             // Need check for passive? this
-            if (holder->IsPositive() && !holder->IsPassive() && !holder->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_NOT_STEALABLE))
+            if (holder->IsPositive() && !holder->IsPassive() && !holder->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_CANNOT_BE_STOLEN))
                 dispelList.emplace_back(holder, holder->GetStackAmount());
         }
     }

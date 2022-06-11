@@ -540,7 +540,7 @@ class Spell
         void ReSetTimer() { m_timer = m_casttime > 0 ? m_casttime : 0; }
         bool IsRangedSpell() const
         {
-            return  m_spellInfo->HasAttribute(SPELL_ATTR_RANGED);
+            return  m_spellInfo->HasAttribute(SPELL_ATTR_USES_RANGED_SLOT);
         }
         bool IsSpellRequiringAmmo() const
         {
@@ -603,6 +603,8 @@ class Spell
 
         void CleanupTargetList();
         void ClearCastItem();
+
+        void SetForwardedCastItem(ObjectGuid guid) { m_forwardedCastItemGuid = guid; }
 
         // spell mods
         std::set<SpellModifierPair> m_usedAuraCharges;
@@ -758,6 +760,7 @@ class Spell
         Unit* m_caster;
         Item* m_CastItem;
         bool m_itemCastSpell;
+        ObjectGuid m_forwardedCastItemGuid;
 
         ObjectGuid m_originalCasterGUID;                    // real source of cast (aura caster/etc), used for spell targets selection
         // e.g. damage around area spell trigered by victim aura and da,age emeies of aura caster
@@ -863,7 +866,7 @@ class Spell
         bool IsValidDeadOrAliveTarget(Unit const* unit) const;
         SpellCastResult CanOpenLock(SpellEffectIndex effIndex, uint32 lockid, SkillType& skillId, int32& reqSkillValue, int32& skillValue);
         void ProcSpellAuraTriggers();
-        bool CanExecuteTriggersOnHit(uint8 effMask, SpellEntry const* triggeredByAura) const;
+        bool CanExecuteTriggersOnHit(uint8 effMask, SpellEntry const* triggeredByAura, bool auraTarget) const;
         // -------------------------------------------
 
         // Diminishing returns
@@ -1050,20 +1053,17 @@ namespace MaNGOS
                 if (itr->getSource()->IsTaxiFlying())
                     continue;
 
+                if (itr->getSource()->IsAOEImmune())
+                    continue;
+
                 switch (i_TargetType)
                 {
                     case SPELL_TARGETS_ASSISTABLE:
-                        if (itr->getSource()->GetTypeId() == TYPEID_UNIT && ((Creature*)itr->getSource())->IsTotem())
-                            continue;
-
                         if (!i_originalCaster->CanAssistSpell(itr->getSource(), i_spell.m_spellInfo))
                             continue;
                         break;
                     case SPELL_TARGETS_AOE_ATTACKABLE:
                     {
-                        if (itr->getSource()->GetTypeId() == TYPEID_UNIT && ((Creature*)itr->getSource())->IsTotem())
-                            continue;
-
                         if (!i_originalCaster->CanAttackSpell(itr->getSource(), i_spell.m_spellInfo, true))
                             continue;
                     }

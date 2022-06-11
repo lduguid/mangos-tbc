@@ -147,7 +147,7 @@ uint32 GetSpellCastTime(SpellEntry const* spellInfo, WorldObject* caster, Spell*
     castTime = std::max(castTime, spellCastTimeEntry->MinCastTime);
 
     // Hunter Ranged spells need cast time + 0.5s to reflect tooltips, excluding Auto Shot
-    if (spellInfo->HasAttribute(SPELL_ATTR_RANGED) && (!spell || !spell->IsAutoRepeat()))
+    if (spellInfo->HasAttribute(SPELL_ATTR_USES_RANGED_SLOT) && (!spell || !spell->IsAutoRepeat()))
         castTime += 500;
 
     if (spell)
@@ -158,7 +158,7 @@ uint32 GetSpellCastTime(SpellEntry const* spellInfo, WorldObject* caster, Spell*
         if (caster->IsUnit())
         {
             Unit* unitCaster = static_cast<Unit*>(caster);
-            if (!spellInfo->HasAttribute(SPELL_ATTR_ABILITY) && !spellInfo->HasAttribute(SPELL_ATTR_TRADESPELL) && !spellInfo->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
+            if (!spellInfo->HasAttribute(SPELL_ATTR_IS_ABILITY) && !spellInfo->HasAttribute(SPELL_ATTR_IS_TRADESKILL) && !spellInfo->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_MODIFIERS))
                 castTime = int32(castTime * unitCaster->GetFloatValue(UNIT_MOD_CAST_SPEED));
             else if (spell->IsRangedSpell() && !spell->IsAutoRepeat())
                 castTime = int32(castTime * unitCaster->m_modAttackSpeedPct[RANGED_ATTACK]);
@@ -335,7 +335,7 @@ WeaponAttackType GetWeaponAttackType(SpellEntry const* spellInfo)
     switch (spellInfo->DmgClass)
     {
         case SPELL_DAMAGE_CLASS_MELEE:
-            if (spellInfo->HasAttribute(SPELL_ATTR_EX3_REQ_OFFHAND))
+            if (spellInfo->HasAttribute(SPELL_ATTR_EX3_REQUIRES_OFFHAND_WEAPON))
                 return OFF_ATTACK;
             return BASE_ATTACK;
         case SPELL_DAMAGE_CLASS_RANGED:
@@ -343,9 +343,9 @@ WeaponAttackType GetWeaponAttackType(SpellEntry const* spellInfo)
         default:
         {
             // Wands
-            if (spellInfo->HasAttribute(SPELL_ATTR_EX2_AUTOREPEAT_FLAG))
+            if (spellInfo->HasAttribute(SPELL_ATTR_EX2_AUTO_REPEAT))
                 return RANGED_ATTACK;
-            if (spellInfo->HasAttribute(SPELL_ATTR_EX3_REQ_OFFHAND))
+            if (spellInfo->HasAttribute(SPELL_ATTR_EX3_REQUIRES_OFFHAND_WEAPON))
                 return OFF_ATTACK;
             return BASE_ATTACK;
         }
@@ -439,7 +439,7 @@ SpellSpecific GetSpellSpecific(uint32 spellId)
             if (spellInfo->IsFitToFamilyMask(uint64(0x0000000010000180)))
                 return SPELL_BLESSING;
 
-            if (spellInfo->IsFitToFamilyMask(uint64(0x00000820180400)) && spellInfo->HasAttribute(SPELL_ATTR_EX3_TRIGGERED_CAN_TRIGGER_SPECIAL)) // TODO: Remove this WTF condition
+            if (spellInfo->IsFitToFamilyMask(uint64(0x00000820180400)) && spellInfo->HasAttribute(SPELL_ATTR_EX3_NOT_A_PROC)) // TODO: Remove this WTF condition
                 return SPELL_JUDGEMENT;
 
             if (IsSpellHaveEffect(spellInfo, SPELL_EFFECT_APPLY_AREA_AURA_PARTY))
@@ -463,7 +463,7 @@ SpellSpecific GetSpellSpecific(uint32 spellId)
     // Tracking spells (exclude Well Fed, some other always allowed cases)
     if (IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_CREATURES) ||
             IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_STEALTHED) ||
-            (IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_RESOURCES) && !spellInfo->HasAttribute(SPELL_ATTR_PASSIVE) && !spellInfo->HasAttribute(SPELL_ATTR_CANT_CANCEL)))
+            (IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_RESOURCES) && !spellInfo->HasAttribute(SPELL_ATTR_PASSIVE) && !spellInfo->HasAttribute(SPELL_ATTR_NO_AURA_CANCEL)))
         return SPELL_TRACKER;
 
     // Elixirs can have different families, but potions mostly
@@ -542,7 +542,7 @@ SpellCastResult GetErrorAtShapeshiftedCast(SpellEntry const* spellInfo, uint32 f
     else
     {
         // needs shapeshift
-        if (!spellInfo->HasAttribute(SPELL_ATTR_EX2_NOT_NEED_SHAPESHIFT) && spellInfo->Stances != 0)
+        if (!spellInfo->HasAttribute(SPELL_ATTR_EX2_ALLOW_WHILE_NOT_SHAPESHIFTED) && spellInfo->Stances != 0)
             return SPELL_FAILED_ONLY_SHAPESHIFT;
     }
 
@@ -2603,7 +2603,7 @@ SpellCastResult SpellMgr::GetSpellAllowedInLocationError(SpellEntry const* spell
             return SPELL_FAILED_NOT_IN_ARENA;
 
     // Spell casted only on battleground
-    if (spellInfo->HasAttribute(SPELL_ATTR_EX3_BATTLEGROUND))
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX3_ONLY_BATTLEGROUNDS))
         if (!player || !player->InBattleGround())
             return SPELL_FAILED_ONLY_BATTLEGROUNDS;
 
