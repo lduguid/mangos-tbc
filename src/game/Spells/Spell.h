@@ -616,7 +616,7 @@ class Spell
         void RegisterAuraProc(Aura* aura);
         bool IsAuraProcced(Aura* aura);
         // setting 0 disables the trigger
-        void SetTriggerChance(int32 triggerChance, SpellEffectIndex effIdx) { m_triggerSpellChance[effIdx] = triggerChance; }
+        void SetEffectChance(int32 triggerChance, SpellEffectIndex effIdx) { m_effectTriggerChance[effIdx] = triggerChance; }
 
         // Spell Target Subsystem - public part
         // Targets store structures and data
@@ -881,7 +881,7 @@ class Spell
         uint64 m_scriptValue; // persistent value for spell script state
         SpellScript* m_spellScript;
         AuraScript* m_auraScript; // needed for some checks for value calculation
-        int32 m_triggerSpellChance[MAX_EFFECT_INDEX]; // used by trigger spell effects to roll
+        int32 m_effectTriggerChance[MAX_EFFECT_INDEX]; // used by effects to roll if they should go off
 
         uint32 m_spellState;
         uint32 m_timer;
@@ -1064,7 +1064,7 @@ namespace MaNGOS
                         break;
                     case SPELL_TARGETS_AOE_ATTACKABLE:
                     {
-                        if (!i_originalCaster->CanAttackSpell(itr->getSource(), i_spell.m_spellInfo, true))
+                        if (!i_originalCaster->CanAttackSpell(itr->getSource(), i_spell.m_spellInfo, !i_spell.m_spellInfo->HasAttribute(SPELL_ATTR_EX5_IGNORE_AREA_EFFECT_PVP_CHECK)))
                             continue;
                     }
                     break;

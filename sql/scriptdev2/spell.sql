@@ -25,6 +25,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (4130,'spell_banish_exile'),
 (4131,'spell_banish_exile'),
 (4132,'spell_banish_exile'),
+(5166,'spell_harvest_silithid_egg'),
 (6467,'spell_unarmed_woodcutter'),
 (7054,'spell_forsaken_skill'),
 (8555,'spell_left_for_dead'),
@@ -739,6 +740,9 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (1856,'spell_vanish'),
 (1857,'spell_vanish'),
 (26889,'spell_vanish'),
+(6770,'spell_sap'),
+(2070,'spell_sap'), -- check ranks before changing
+(11297,'spell_sap'),
 (14185,'spell_preparation'),
 (14082,'spell_dirty_deeds'),
 (14083,'spell_dirty_deeds'),
