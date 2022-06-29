@@ -4761,24 +4761,6 @@ void Aura::HandleAuraModEffectImmunity(bool apply, bool /*Real*/)
 {
     Unit* target = GetTarget();
 
-    // when removing flag aura, handle flag drop
-    if (target->GetTypeId() == TYPEID_PLAYER && (GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_FLAG_INVULNERABILITY_BUFF_CANCELS))
-    {
-        Player* player = static_cast<Player*>(target);
-
-        if (apply)
-            player->pvpInfo.isPvPFlagCarrier = true;
-        else
-        {
-            player->pvpInfo.isPvPFlagCarrier = false;
-
-            if (BattleGround* bg = player->GetBattleGround())
-                bg->HandlePlayerDroppedFlag(player);
-            else if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(player->GetCachedZoneId()))
-                outdoorPvP->HandleDropFlag(player, GetSpellProto()->Id);
-        }
-    }
-
     target->ApplySpellImmune(this, IMMUNITY_EFFECT, m_modifier.m_miscvalue, apply);
 
     if (apply && IsPositive())
@@ -8179,6 +8161,7 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount, Unit* newCaster)
     if (!target)
         return;
 
+    bool refresh = false;
     if (stackAmount >= m_stackAmount)
     {
         // Change caster
@@ -8190,8 +8173,8 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount, Unit* newCaster)
             m_casterGuid = newCaster->GetObjectGuid();
             // New caster duration sent for owner in RefreshHolder
         }
-        // Stack increased refresh duration
-        RefreshHolder();
+
+        refresh = true;
     }
 
     int32 oldStackAmount = m_stackAmount;
@@ -8227,6 +8210,9 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount, Unit* newCaster)
             }
         }
     }
+
+    if (refresh) // Stack increased refresh duration
+        RefreshHolder();
 }
 
 Unit* SpellAuraHolder::GetCaster() const

@@ -707,7 +707,14 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (12574,'spell_arcane_concentration'),
 (12575,'spell_arcane_concentration'),
 (12576,'spell_arcane_concentration'),
-(12577,'spell_arcane_concentration');
+(12577,'spell_arcane_concentration'),
+(42208,'spell_blizzard'),
+(42209,'spell_blizzard'),
+(42210,'spell_blizzard'),
+(42211,'spell_blizzard'),
+(42212,'spell_blizzard'),
+(42213,'spell_blizzard'),
+(42198,'spell_blizzard');
 
 -- Druid
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
@@ -867,6 +874,10 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 
 -- Battleground and Outdoor PvP
 INSERT INTO spell_scripts(Id, ScriptName) VALUES
+(23333,'spell_flag_aura_bg'),
+(23335,'spell_flag_aura_bg'),
+(29519,'spell_flag_aura_bg'),
+(34976,'spell_flag_aura_bg'),
 -- Arathi basin
 (23936,'spell_battleground_banner_trigger'),
 (23932,'spell_battleground_banner_trigger'),

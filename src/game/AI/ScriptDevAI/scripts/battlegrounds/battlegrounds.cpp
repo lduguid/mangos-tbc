@@ -130,6 +130,38 @@ struct InactiveBattleground : public SpellScript
     }
 };
 
+struct FlagAuraBg : public AuraScript
+{
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
+    {
+        // procs on taken spell - if acquired immune flag, remove it - maybe other conditions too
+        if (procData.victim && procData.victim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE))
+            aura->GetTarget()->RemoveSpellAuraHolder(aura->GetHolder());
+        return SPELL_AURA_PROC_OK;
+    }
+
+    void OnApply(Aura* aura, bool apply) const
+    {
+        Unit* unitTarget = aura->GetTarget();
+        if (!unitTarget || !unitTarget->IsPlayer())
+            return;
+
+        Player *player = static_cast<Player*>(unitTarget);
+
+        if (apply)
+            player->pvpInfo.isPvPFlagCarrier = true;
+        else
+        {
+            player->pvpInfo.isPvPFlagCarrier = false;
+
+            if (BattleGround* bg = player->GetBattleGround())
+                bg->HandlePlayerDroppedFlag(player);
+            else if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(player->GetCachedZoneId()))
+                outdoorPvP->HandleDropFlag(player, aura->GetSpellProto()->Id);
+        }
+    }
+};
+
 struct ArenaPreparation : public AuraScript
 {
     void OnApply(Aura* aura, bool apply) const override
@@ -220,6 +252,7 @@ void AddSC_battleground()
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<OpeningCapping>("spell_opening_capping");
+    RegisterSpellScript<FlagAuraBg>("spell_flag_aura_bg");
     RegisterSpellScript<InactiveBattleground>("spell_inactive");
     RegisterSpellScript<ArenaPreparation>("spell_arena_preparation");
     RegisterSpellScript<spell_battleground_banner_trigger>("spell_battleground_banner_trigger");
