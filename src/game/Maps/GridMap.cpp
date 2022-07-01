@@ -753,6 +753,7 @@ void TerrainInfo::Unload(const uint32 x, const uint32 y)
         // decrease grid reference count...
         if (UnrefGrid(x, y) == 0)
         {
+            m_GridMapsLoadAttempted[x][y] = false;
             // TODO: add your additional logic here
         }
     }
@@ -776,6 +777,7 @@ void TerrainInfo::CleanUpGrids(const uint32 diff)
             if (pMap && iRef == 0)
             {
                 m_GridMaps[x][y] = nullptr;
+                m_GridMapsLoadAttempted[x][y] = false;
                 // delete grid data if reference count == 0
                 pMap->unloadData();
                 delete pMap;
