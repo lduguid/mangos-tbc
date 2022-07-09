@@ -681,8 +681,8 @@ Player::~Player()
         m_transport->RemovePassenger(this);
     }
 
-    for (auto& x : ItemSetEff)
-        delete x;
+    for (auto& x : m_itemSetEffects)
+        delete x.second;
 
     // clean up player-instance binds, may unload some instance saves
     for (auto& m_boundInstance : m_boundInstances)
@@ -6358,7 +6358,19 @@ void Player::CheckAreaExploreAndOutdoor()
                 continue;
             if ((spellInfo->Stances || spellInfo->StancesNot) && !IsNeedCastSpellAtFormApply(spellInfo, GetShapeshiftForm()))
                 continue;
-            CastSpell(this, spellInfo, TRIGGERED_OLD_TRIGGERED, nullptr);
+            CastSpell(this, spellInfo, TRIGGERED_OLD_TRIGGERED);
+        }
+        for (auto& setData : m_itemSetEffects)
+        {
+            ItemSetEffect* itemSet = setData.second;
+            for (auto spellInfo : itemSet->spells)
+            {
+                if (!spellInfo || !IsNeedCastSpellAtOutdoor(spellInfo) || HasAura(spellInfo->Id))
+                    continue;
+                if ((spellInfo->Stances || spellInfo->StancesNot) && !IsNeedCastSpellAtFormApply(spellInfo, GetShapeshiftForm()))
+                    continue;
+                CastSpell(this, spellInfo, TRIGGERED_OLD_TRIGGERED);
+            }
         }
     }
     else if (sWorld.getConfig(CONFIG_BOOL_VMAP_INDOOR_CHECK) && !IsGameMaster())
@@ -7578,8 +7590,9 @@ void Player::UpdateEquipSpellsAtFormChange()
     }
 
     // item set bonuses not dependent from item broken state
-    for (auto eff : ItemSetEff)
+    for (auto& setData : m_itemSetEffects)
     {
+        ItemSetEffect* eff = setData.second;
         if (!eff)
             continue;
 
@@ -19808,6 +19821,25 @@ void Player::SendAuraDurationsOnLogin(bool visible)
         holder->SendAuraDurationForTarget(!visible ? counter : MAX_AURAS);
         ++counter;
     }
+}
+
+ItemSetEffect* Player::GetItemSetEffect(uint32 setId) const
+{
+    auto itr = m_itemSetEffects.find(setId);
+    if (itr == m_itemSetEffects.end())
+        return nullptr;
+
+    return itr->second;
+}
+
+void Player::SetItemSetEffect(uint32 setId, ItemSetEffect* itemSetEffect)
+{
+    if (itemSetEffect == nullptr)
+    {
+        m_itemSetEffects.erase(setId);
+    }
+
+    m_itemSetEffects[setId] = itemSetEffect;
 }
 
 void Player::SetDailyQuestStatus(uint32 quest_id)
