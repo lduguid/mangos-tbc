@@ -477,6 +477,9 @@ class BattleGround
         void SendYellToAll(int32 /*entry*/, uint32 /*language*/, Creature const* /*source*/);
         void SendYell2ToAll(int32 /*entry*/, uint32 /*language*/, Creature const* /*source*/, int32 /*arg1*/, int32 /*arg2*/);
 
+        void SendBcdToAll(int32 bcdEntry, Creature const* source);
+        void SendBcdToTeam(int32 bcdEntry, Creature const* source, Team team);
+
         // Handle raid groups
         Group* GetBgRaid(Team team) const { return m_bgRaids[GetTeamIndexByTeamId(team)]; }
         void SetBgRaid(Team /*team*/, Group* /*bgRaid*/);
@@ -593,9 +596,6 @@ class BattleGround
 
         // Handle script condition fulfillment
         virtual bool IsConditionFulfilled(Player const* /*source*/, uint32 /*conditionId*/, WorldObject const* /*conditionSource*/, uint32 /*conditionSourceType*/) { return false; }
-
-        /* virtual score-array - get's used in bg-subclasses */
-        int32 m_teamScores[PVP_TEAM_COUNT];
 
         struct EventObjects
         {
