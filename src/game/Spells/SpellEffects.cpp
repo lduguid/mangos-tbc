@@ -4488,11 +4488,9 @@ bool Spell::DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry con
             list[0].creature = spawnCreature;
             return true;
         }
-
-        spawnCreature->setPetType(SUMMON_PET);
     }
-    else
-        spawnCreature->setPetType(GUARDIAN_PET);
+
+    spawnCreature->setPetType(SUMMON_PET);
 
     CreatureInfo const* cInfo = ObjectMgr::GetCreatureTemplate(pet_entry);
     if (!cInfo)
@@ -4555,10 +4553,7 @@ bool Spell::DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry con
     else
         spawnCreature->SetByteValue(UNIT_FIELD_BYTES_2, UNIT_BYTES_2_OFFSET_DEBUFF_LIMIT, UNIT_BYTE2_CREATURE_DEBUFF_LIMIT);
 
-    if (spawnCreature->getPetType() == GUARDIAN_PET)
-        m_caster->AddGuardian(spawnCreature);
-    else
-        m_caster->SetPet(spawnCreature);
+    m_caster->SetPet(spawnCreature);
 
     if (m_caster->IsImmuneToNPC())
         spawnCreature->SetImmuneToNPC(true);
@@ -7324,7 +7319,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
         return;
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell ScriptStart spellid %u in EffectScriptEffect", m_spellInfo->Id);
-    m_caster->GetMap()->ScriptsStart(sSpellScripts, m_spellInfo->Id, m_caster, unitTarget);
+    m_trueCaster->GetMap()->ScriptsStart(sSpellScripts, m_spellInfo->Id, m_trueCaster, unitTarget);
 }
 
 void Spell::EffectSanctuary(SpellEffectIndex /*eff_idx*/)

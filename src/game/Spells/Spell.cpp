@@ -4298,8 +4298,7 @@ void Spell::SendChannelStart(uint32 duration)
     {
         for (TargetList::const_iterator itr = m_UniqueTargetInfo.begin(); itr != m_UniqueTargetInfo.end(); ++itr)
         {
-            if (((itr->effectHitMask & (1 << EFFECT_INDEX_0)) && itr->reflectResult == SPELL_MISS_NONE &&
-                    m_itemCastSpell) || itr->targetGUID != m_caster->GetObjectGuid())
+            if (((itr->effectHitMask & (1 << EFFECT_INDEX_0)) && itr->reflectResult == SPELL_MISS_NONE) || itr->targetGUID != m_caster->GetObjectGuid())
             {
                 // when immune, duration is already 0, still need to fetch data for caster
                 if (itr->diminishGroup > DIMINISHING_NONE && (itr->diminishDuration != duration || diminishLevel == DIMINISHING_LEVEL_IMMUNE))
@@ -6733,7 +6732,7 @@ SpellCastResult Spell::CheckItems()
             return m_IsTriggeredSpell  && !(m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM)
                    ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
 
-        if (m_spellInfo->HasAttribute(SPELL_ATTR_HELD_ITEM_ONLY) && m_targets.getItemTarget()->GetSlot() != EQUIPMENT_SLOT_MAINHAND)
+        if (m_spellInfo->HasAttribute(SPELL_ATTR_HELD_ITEM_ONLY) && (m_targets.getItemTarget()->GetSlot() < EQUIPMENT_SLOT_MAINHAND || m_targets.getItemTarget()->GetSlot() > EQUIPMENT_SLOT_RANGED))
             return m_IsTriggeredSpell && !(m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM)
                    ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_MAINHAND_EMPTY;
     }
@@ -7254,7 +7253,7 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff, bool targetB, CheckE
                                 return false;
                             break;
                         case TARGET_LOS_CASTER:
-                            if (target != m_trueCaster)
+                            if (target != m_trueCaster && info.enumerator != TARGET_ENUMERATOR_CHAIN) // chain is checked on FilterTargetMap
                             {
                                 if (m_spellInfo->EffectImplicitTargetA[eff] == TARGET_LOCATION_CHANNEL_TARGET_DEST)
                                 {
