@@ -405,6 +405,14 @@ void CreatureGroup::TriggerLinkingEvent(uint32 event, Unit* target)
 
             ClearRespawnTimes();
             break;
+        case CREATURE_GROUP_EVENT_MEMBER_DIED:
+            for (auto const& data : m_objects)
+            {
+                uint32 dbGuid = data.first;
+                if (Creature* creature = m_map.GetCreature(dbGuid))
+                    creature->AI()->CreatureGroupMemberDied(target);
+            }
+            break;
     }
 }
 
@@ -442,11 +450,27 @@ void CreatureGroup::MoveHome()
     }
 }
 
-void CreatureGroup::Despawn()
+void CreatureGroup::Despawn(uint32 timeMSToDespawn, bool onlyAlive)
+{
+    for (SpawnGroupDbGuids const& sgEntry : m_entry.DbGuids)
+        if (Creature* creature = m_map.GetCreature(sgEntry.DbGuid))
+            creature->ForcedDespawn(timeMSToDespawn, onlyAlive);
+}
+
+bool CreatureGroup::IsOutOfCombat()
 {
     for (auto objItr : m_objects)
+    {
         if (Creature* creature = m_map.GetCreature(objItr.first))
-            creature->ForcedDespawn();
+        {
+            if (!creature->IsAlive())
+                continue;
+
+            if (creature->IsInCombat())
+                return false;
+        }
+    }
+    return true;
 }
 
 void CreatureGroup::ClearRespawnTimes()
@@ -467,11 +491,11 @@ void GameObjectGroup::RemoveObject(WorldObject* wo)
     m_map.GetPersistentState()->RemoveGameobjectFromGrid(wo->GetDbGuid(), data);
 }
 
-void GameObjectGroup::Despawn()
+void GameObjectGroup::Despawn(uint32 timeMSToDespawn /*= 0*/)
 {
     for (auto objItr : m_objects)
         if (GameObject* go = m_map.GetGameObject(objItr.first))
-            go->ForcedDespawn();
+            go->ForcedDespawn(timeMSToDespawn);
 }
 
 ////////////////////

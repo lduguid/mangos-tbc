@@ -239,6 +239,12 @@ bool GameObject::Create(uint32 dbGuid, uint32 guidlow, uint32 name_id, Map* map,
 
     switch (GetGoType())
     {
+        case GAMEOBJECT_TYPE_DOOR:
+        case GAMEOBJECT_TYPE_BUTTON:
+            // safe to use door cos both have startOpen on same spot
+            SetGoState(goinfo->door.startOpen ? GO_STATE_ACTIVE : GO_STATE_READY);
+            m_lootState = GO_NOT_READY;
+            break;
         case GAMEOBJECT_TYPE_TRAP:
             // values from rogue detect traps aura
             if (goinfo->trap.stealthed)
@@ -1291,13 +1297,13 @@ bool GameObject::IsCollisionEnabled() const
     }
 }
 
-void GameObject::ResetDoorOrButton()
+void GameObject::ResetDoorOrButton(Unit* user/*= nullptr*/)
 {
     if (m_lootState == GO_READY || m_lootState == GO_JUST_DEACTIVATED)
         return;
 
     SwitchDoorOrButton(false);
-    SetLootState(GO_JUST_DEACTIVATED);
+    SetLootState(GO_JUST_DEACTIVATED, user);
     m_cooldownTime = 0;
 }
 
@@ -2010,14 +2016,14 @@ void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3
     SetFloatValue(GAMEOBJECT_ROTATION + 3, rotation3);
 }
 
-void GameObject::SetLootState(LootState state)
+void GameObject::SetLootState(LootState state, Unit* user/*= nullptr*/)
 {
     m_lootState = state;
     UpdateCollisionState();
 
     // Call for GameObjectAI script
     if (m_AI)
-        m_AI->OnLootStateChange();
+        m_AI->OnLootStateChange(user);
 }
 
 void GameObject::SetGoState(GOState state)
