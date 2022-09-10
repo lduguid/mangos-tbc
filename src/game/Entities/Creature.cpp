@@ -1619,7 +1619,16 @@ bool Creature::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, uint32 forced
             entry = group->GetGuidEntry(dbGuid);
     }
 
-    if (((cinfo->ExtraFlags & CREATURE_EXTRA_FLAG_DYNGUID) != 0 || groupEntry) && dbGuid == newGuid)
+    bool dynguid = false;
+    if (map->IsDynguidForced())
+        dynguid = true;
+    if (!dynguid)
+    {
+        if (((cinfo->ExtraFlags & CREATURE_EXTRA_FLAG_DYNGUID) != 0 || groupEntry) && dbGuid == newGuid)
+            dynguid = true;
+    }
+
+    if (dynguid)
         newGuid = map->GenerateLocalLowGuid(cinfo->GetHighGuid());
 
     GameEventCreatureData const* eventData = sGameEventMgr.GetCreatureUpdateDataForActiveEvent(dbGuid);
@@ -2964,7 +2973,7 @@ void Creature::AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* /*
         bool success = GetSpellCooldown(spellEntry.Id, cooldown);
         if (!success)
             success = sObjectMgr.GetCreatureCooldown(GetCreatureInfo()->Entry, spellEntry.Id, cooldown);
-        if (success)
+        if (success && cooldown) // lets see if this will one day become a problem, if it does, add -1 -1 defaults to creature spell lists
             recTime = cooldown;
     }
     uint32 categoryRecTime = spellEntry.CategoryRecoveryTime;

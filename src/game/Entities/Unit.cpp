@@ -878,6 +878,12 @@ void Unit::Suicide()
     DealDamage(this, this, this->GetHealth(), nullptr, INSTAKILL, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
 }
 
+void Unit::FallSuicide()
+{
+    SendEnvironmentalDamageLog(DAMAGE_FALL, this->GetHealth(), 0, 0);
+    DealDamage(this, this, this->GetHealth(), nullptr, SELF_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
+}
+
 uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage const* cleanDamage, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const* spellProto, bool durabilityLoss, Spell* spell)
 {
     // remove affects from attacker at any non-DoT damage (including 0 damage)
@@ -6062,16 +6068,22 @@ void Unit::AddWildGameObject(GameObject* gameObj)
     }
 }
 
-void Unit::RemoveGameObject(GameObject* gameObj, bool del)
+void Unit::RemoveGameObject(GameObject* gameObj, bool del, bool removeAura)
 {
     MANGOS_ASSERT(gameObj && gameObj->GetOwnerGuid() == GetObjectGuid());
+
+    // already removed - case for totem slots
+    auto itr = std::find(m_gameObj.begin(), m_gameObj.end(), gameObj);
+    if (itr == m_gameObj.end())
+        return;
 
     gameObj->SetOwnerGuid(ObjectGuid());
 
     // GO created by some spell
     if (uint32 spellid = gameObj->GetSpellId())
     {
-        RemoveAurasDueToSpell(spellid);
+        if (removeAura)
+            RemoveAurasDueToSpell(spellid);
 
         if (GetTypeId() == TYPEID_PLAYER)
         {
@@ -7927,9 +7939,6 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo, bool /*castOnSelf*/, uin
 bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index, bool /*castOnSelf*/) const
 {
     if (spellInfo->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
-        return false;
-    
-    if (spellInfo->HasAttribute(SPELL_ATTR_EX4_NO_PARTIAL_IMMUNITY))
         return false;
 
     // If m_immuneToEffect type contain this effect type, IMMUNE effect.
