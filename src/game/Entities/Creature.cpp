@@ -144,7 +144,7 @@ Creature::Creature(CreatureSubtype subtype) : Unit(),
     m_temporaryFactionFlags(TEMPFACTION_NONE),
     m_originalEntry(0), m_gameEventVendorId(0), m_ai(nullptr),
     m_isInvisible(false), m_ignoreMMAP(false), m_forceAttackingCapability(false),
-    m_noXP(false), m_noLoot(false), m_noReputation(false), m_ignoringFeignDeath(false), m_noWeaponSkillGain(false),
+    m_noXP(false), m_noLoot(false), m_noReputation(false), m_noWoundedSlowdown(false), m_ignoringFeignDeath(false), m_noWeaponSkillGain(false),
     m_countSpawns(false),
     m_creatureInfo(nullptr),
     m_immunitySet(UINT32_MAX),
@@ -464,6 +464,7 @@ bool Creature::InitEntry(uint32 Entry, CreatureData const* data /*=nullptr*/, Ga
     SetCanCallForAssistance((cinfo->ExtraFlags & CREATURE_EXTRA_FLAG_NO_CALL_ASSIST) == 0);
     SetNoLoot(false);
     SetNoReputation(false);
+    SetNoWoundedSlowdown((cinfo->ExtraFlags & CREATURE_EXTRA_FLAG_NO_WOUNDED_SLOWDOWN) != 0);
     SetIgnoreFeignDeath((cinfo->ExtraFlags & CREATURE_EXTRA_FLAG_IGNORE_FEIGN_DEATH) != 0);
     SetNoWeaponSkillGain((cinfo->ExtraFlags & CREATURE_EXTRA_FLAG_NO_SKILL_GAINS) != 0);
 
@@ -1600,6 +1601,15 @@ bool Creature::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, uint32 forced
     if (entry == 0)
         entry = GetCreatureConditionalSpawnEntry(dbGuid, map);
 
+    SpawnGroupEntry* groupEntry = map->GetMapDataContainer().GetSpawnGroupByGuid(dbGuid, TYPEID_UNIT); // use dynguid by default \o/
+    CreatureGroup* group = nullptr;
+    if (groupEntry)
+    {
+        group = static_cast<CreatureGroup*>(map->GetSpawnManager().GetSpawnGroup(groupEntry->Id));
+        if (!entry)
+            entry = group->GetGuidEntry(dbGuid);
+    }
+
     if (!entry)
         return false;
 
@@ -1608,15 +1618,6 @@ bool Creature::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, uint32 forced
     {
         sLog.outErrorDb("Creature (Entry: %u) not found in table `creature_template`, can't load. ", entry);
         return false;
-    }
-
-    SpawnGroupEntry* groupEntry = map->GetMapDataContainer().GetSpawnGroupByGuid(dbGuid, TYPEID_UNIT); // use dynguid by default \o/
-    CreatureGroup* group = nullptr;
-    if (groupEntry)
-    {
-        group = static_cast<CreatureGroup*>(map->GetSpawnManager().GetSpawnGroup(groupEntry->Id));
-        if (!entry)
-            entry = group->GetGuidEntry(dbGuid);
     }
 
     bool dynguid = false;
@@ -2962,6 +2963,11 @@ void Creature::UnregisterHitBySpell(uint32 spellId)
 void Creature::ResetSpellHitCounter()
 {
     m_hitBySpells.clear();
+}
+
+bool Creature::IsSlowedInCombat() const
+{
+    return !IsNoWoundedSlowdown() && HasAuraState(AURA_STATE_HEALTHLESS_20_PERCENT);
 }
 
 void Creature::AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* /*itemProto*/, bool permanent, uint32 forcedDuration)
