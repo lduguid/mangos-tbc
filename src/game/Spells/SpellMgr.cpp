@@ -73,7 +73,7 @@ int32 GetSpellMaxDuration(SpellEntry const* spellInfo)
     return (du->Duration[2] == -1) ? -1 : abs(du->Duration[2]);
 }
 
-int32 CalculateSpellDuration(SpellEntry const* spellInfo, Unit const* caster)
+int32 CalculateSpellDuration(SpellEntry const* spellInfo, Unit const* caster, Unit const* target, AuraScript* auraScript)
 {
     int32 duration = GetSpellDuration(spellInfo);
 
@@ -81,8 +81,11 @@ int32 CalculateSpellDuration(SpellEntry const* spellInfo, Unit const* caster)
     {
         int32 maxduration = GetSpellMaxDuration(spellInfo);
 
-        if (duration != maxduration && caster->GetTypeId() == TYPEID_PLAYER)
+        if (duration != maxduration && caster->IsPlayer())
             duration += int32((maxduration - duration) * caster->GetComboPoints() / 5);
+
+        if (auraScript)
+            duration = auraScript->OnDurationCalculate(caster, target, duration);
 
         if (Player* modOwner = caster->GetSpellModOwner())
         {
@@ -95,6 +98,8 @@ int32 CalculateSpellDuration(SpellEntry const* spellInfo, Unit const* caster)
                 duration = 0;
         }
     }
+    else if (auraScript)
+        duration = auraScript->OnDurationCalculate(caster, target, duration);
 
     return duration;
 }
@@ -3002,9 +3007,6 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
             // ToDo: Fix  diminishing returns aspect of this spell, currently limited to 10secs in pvp only as setting DIMINISHING_FEAR to DRTYPE_ALL messes with PvE
             if (spellproto->IsFitToFamilyMask(uint64(0x00040000000)) && spellproto->Id != 7870) // Exclude Lesser Invisibility
                 return DIMINISHING_FEAR;
-            // Curses/etc
-            if (spellproto->IsFitToFamilyMask(uint64(0x00080000000)))
-                return DIMINISHING_LIMITONLY;
             /* Unstable Affliction Dispel Silence
             // ToDo: Fix diminishing returns aspect for this spell 5 2.5 1.25 0
             else if (spellproto->Id == 31117)
