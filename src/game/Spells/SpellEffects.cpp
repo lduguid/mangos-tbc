@@ -6727,29 +6727,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(nullptr, 37013, TRIGGERED_NONE);
                     return;
                 }
-                case 37641:                                 // Whirlwind
-                {
-                    UnitAI* ai = m_caster->AI();
-                    if (!ai || m_caster->GetTypeId() != TYPEID_UNIT)
-                        return;
-
-                    if (urand(0, 2) == 0 && m_caster->HasAura(37640))
-                    {
-                        ai->DoResetThreat();
-                        if (Unit* target = static_cast<Creature*>(m_caster)->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0, nullptr, SELECT_FLAG_PLAYER))
-                            m_caster->AddThreat(target, 100000.f);
-                    }
-                    return;
-                }
-                case 37751:                                 // Submerged
-                case 37752:                                 // Stand
-                {
-                    if (!unitTarget)
-                        return;
-
-                    unitTarget->SetStandState(m_spellInfo->Id == 37751 ? UNIT_STAND_STATE_CUSTOM : UNIT_STAND_STATE_STAND);
-                    return;
-                }
                 case 37775:                                 // Karazhan - Chess NPC Action - Poison Cloud
                 {
                     if (!unitTarget)
