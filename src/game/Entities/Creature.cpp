@@ -903,6 +903,9 @@ bool Creature::AIM_Initialize()
     if (InstanceData* mapInstance = GetInstanceData())
         mapInstance->OnCreatureRespawn(this);
 
+    if (GetSettings().HasFlag(CreatureStaticFlags::CREATOR_LOOT))
+        SetLootRecipient(GetCreator());
+
     return true;
 }
 
@@ -1573,8 +1576,11 @@ bool Creature::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, uint32 forced
     }
 
     // Creature can be loaded already in map if grid has been unloaded while creature walk to another grid
-    if (map->GetCreature(dbGuid))
-        return false;
+    {
+        Creature* existing = map->GetCreature(dbGuid);
+        if (existing && existing->IsAlive())
+            return false;
+    }
 
     uint32 entry = forcedEntry ? forcedEntry : data->id;
 
@@ -1864,7 +1870,10 @@ void Creature::SetDeathState(DeathState s)
 
         ResetSpellHitCounter();
 
-        SetLootRecipient(nullptr);
+        if (GetSettings().HasFlag(CreatureStaticFlags::CREATOR_LOOT))
+            SetLootRecipient(GetCreator());
+        else
+            SetLootRecipient(nullptr);
         if (GetTemporaryFactionFlags() & TEMPFACTION_RESTORE_RESPAWN)
             ClearTemporaryFaction();
 
