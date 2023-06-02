@@ -21,7 +21,7 @@
 
 #include "Common.h"
 #include "Entities/ObjectGuid.h"
-#include "ByteBuffer.h"
+#include "Util/ByteBuffer.h"
 
 class Map;
 class Unit;
@@ -147,7 +147,7 @@ class InstanceData
         virtual void OnCreatureDespawn(Creature* /*creature*/) {}
 
         // called on creature group last member despawn or death - whichever occurs first and supplies last one to die
-        virtual void OnCreatureGroupDespawn(CreatureGroup* /*creatureGroup*/, Creature* creature) {}
+        virtual void OnCreatureGroupDespawn(CreatureGroup* /*creatureGroup*/, Creature* /*creature*/) {}
 
         // called on game event
         virtual void OnEventHappened(uint16 /*event_id*/, bool /*activate*/, bool /*resume*/) {}

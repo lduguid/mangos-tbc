@@ -31,11 +31,11 @@
 #include "Maps/MapManager.h"
 #include "Maps/Map.h"
 #include "Globals/ObjectMgr.h"
-#include "ProgressBar.h"
+#include "Util/ProgressBar.h"
 #include "Chat/Chat.h"
 #include "Arena/ArenaTeam.h"
 #include "World/World.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "GameEvents/GameEventMgr.h"
 #include "Mails/Mail.h"
 
@@ -1162,14 +1162,14 @@ void BattleGroundQueue::Update(BattleGroundTypeId bgTypeId, BattleGroundBracketI
 */
 bool BgQueueInviteEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
 {
-    sWorld.GetMessager().AddMessage([=](World* world)
+    sWorld.GetMessager().AddMessage([event = *this](World* /*world*/)
     {
-        Player* plr = sObjectMgr.GetPlayer(m_playerGuid);
+        Player* plr = sObjectMgr.GetPlayer(event.m_playerGuid);
         // player logged off (we should do nothing, he is correctly removed from queue in another procedure)
         if (!plr)
             return;
 
-        BattleGround* bg = sBattleGroundMgr.GetBattleGround(m_bgInstanceGuid, m_bgTypeId);
+        BattleGround* bg = sBattleGroundMgr.GetBattleGround(event.m_bgInstanceGuid, event.m_bgTypeId);
         // if battleground ended and its instance deleted - do nothing
         if (!bg)
             return;
@@ -1180,11 +1180,11 @@ bool BgQueueInviteEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
         {
             // check if player is invited to this bg
             BattleGroundQueue& bgQueue = sBattleGroundMgr.m_battleGroundQueues[bgQueueTypeId];
-            if (bgQueue.IsPlayerInvited(m_playerGuid, m_bgInstanceGuid, m_removeTime))
+            if (bgQueue.IsPlayerInvited(event.m_playerGuid, event.m_bgInstanceGuid, event.m_removeTime))
             {
                 WorldPacket data;
                 // we must send remaining time in queue
-                sBattleGroundMgr.BuildBattleGroundStatusPacket(data, bg, queueSlot, STATUS_WAIT_JOIN, INVITE_ACCEPT_WAIT_TIME - INVITATION_REMIND_TIME, 0, m_arenaType, TEAM_NONE);
+                sBattleGroundMgr.BuildBattleGroundStatusPacket(data, bg, queueSlot, STATUS_WAIT_JOIN, INVITE_ACCEPT_WAIT_TIME - INVITATION_REMIND_TIME, 0, event.m_arenaType, TEAM_NONE);
                 plr->GetSession()->SendPacket(data);
             }
         }
@@ -1209,32 +1209,32 @@ void BgQueueInviteEvent::Abort(uint64 /*e_time*/)
 */
 bool BgQueueRemoveEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
 {
-    sWorld.GetMessager().AddMessage([=](World* world)
+    sWorld.GetMessager().AddMessage([event = *this](World* /*world*/)
     {
-        Player* plr = sObjectMgr.GetPlayer(m_playerGuid);
+        Player* plr = sObjectMgr.GetPlayer(event.m_playerGuid);
         if (!plr)
             // player logged off (we should do nothing, he is correctly removed from queue in another procedure)
             return;
 
-        BattleGround* bg = sBattleGroundMgr.GetBattleGround(m_bgInstanceGuid, m_bgTypeId);
+        BattleGround* bg = sBattleGroundMgr.GetBattleGround(event.m_bgInstanceGuid, event.m_bgTypeId);
         // battleground can be deleted already when we are removing queue info
         // bg pointer can be nullptr! so use it carefully!
 
-        uint32 queueSlot = plr->GetBattleGroundQueueIndex(m_bgQueueTypeId);
+        uint32 queueSlot = plr->GetBattleGroundQueueIndex(event.m_bgQueueTypeId);
         if (queueSlot < PLAYER_MAX_BATTLEGROUND_QUEUES)         // player is in queue, or in Battleground
         {
             // check if player is in queue for this BG and if we are removing his invite event
-            BattleGroundQueue& bgQueue = sBattleGroundMgr.m_battleGroundQueues[m_bgQueueTypeId];
-            if (bgQueue.IsPlayerInvited(m_playerGuid, m_bgInstanceGuid, m_removeTime))
+            BattleGroundQueue& bgQueue = sBattleGroundMgr.m_battleGroundQueues[event.m_bgQueueTypeId];
+            if (bgQueue.IsPlayerInvited(event.m_playerGuid, event.m_bgInstanceGuid, event.m_removeTime))
             {
-                DEBUG_LOG("Battleground: removing player %u from bg queue for instance %u because of not pressing enter battle in time.", plr->GetGUIDLow(), m_bgInstanceGuid);
+                DEBUG_LOG("Battleground: removing player %u from bg queue for instance %u because of not pressing enter battle in time.", plr->GetGUIDLow(), event.m_bgInstanceGuid);
 
-                plr->RemoveBattleGroundQueueId(m_bgQueueTypeId);
-                bgQueue.RemovePlayer(m_playerGuid, true);
+                plr->RemoveBattleGroundQueueId(event.m_bgQueueTypeId);
+                bgQueue.RemovePlayer(event.m_playerGuid, true);
 
                 // update queues if battleground isn't ended
                 if (bg && bg->IsBattleGround() && bg->GetStatus() != STATUS_WAIT_LEAVE)
-                    sBattleGroundMgr.ScheduleQueueUpdate(0, ARENA_TYPE_NONE, m_bgQueueTypeId, m_bgTypeId, bg->GetBracketId());
+                    sBattleGroundMgr.ScheduleQueueUpdate(0, ARENA_TYPE_NONE, event.m_bgQueueTypeId, event.m_bgTypeId, bg->GetBracketId());
 
                 WorldPacket data;
                 sBattleGroundMgr.BuildBattleGroundStatusPacket(data, bg, queueSlot, STATUS_NONE, 0, 0, ARENA_TYPE_NONE, TEAM_NONE);
@@ -1780,7 +1780,7 @@ BattleGround* BattleGroundMgr::CreateNewBattleGround(BattleGroundTypeId bgTypeId
   @param    team 2 start location O
   @param    start max distance
 */
-uint32 BattleGroundMgr::CreateBattleGround(BattleGroundTypeId bgTypeId, bool IsArena, uint32 minPlayersPerTeam, uint32 maxPlayersPerTeam, uint32 levelMin, uint32 levelMax, char const* battleGroundName, uint32 mapId, float team1StartLocX, float team1StartLocY, float team1StartLocZ, float team1StartLocO, float team2StartLocX, float team2StartLocY, float team2StartLocZ, float team2StartLocO, float startMaxDist)
+uint32 BattleGroundMgr::CreateBattleGround(BattleGroundTypeId bgTypeId, bool IsArena, uint32 minPlayersPerTeam, uint32 maxPlayersPerTeam, uint32 levelMin, uint32 levelMax, char const* battleGroundName, uint32 mapId, float team1StartLocX, float team1StartLocY, float team1StartLocZ, float team1StartLocO, float team2StartLocX, float team2StartLocY, float team2StartLocZ, float team2StartLocO, float startMaxDist, uint32 playerSkinReflootId)
 {
     // Create the BG
     BattleGround* bg;
@@ -1809,6 +1809,7 @@ uint32 BattleGroundMgr::CreateBattleGround(BattleGroundTypeId bgTypeId, bool IsA
     bg->SetTeamStartLoc(HORDE,    team2StartLocX, team2StartLocY, team2StartLocZ, team2StartLocO);
     bg->SetStartMaxDist(startMaxDist);
     bg->SetLevelRange(levelMin, levelMax);
+    bg->SetPlayerSkinRefLootId(playerSkinReflootId);
 
     // add bg to update list
     AddBattleGround(bg->GetInstanceId(), bg->GetTypeId(), bg);
@@ -1823,8 +1824,8 @@ uint32 BattleGroundMgr::CreateBattleGround(BattleGroundTypeId bgTypeId, bool IsA
 void BattleGroundMgr::CreateInitialBattleGrounds()
 {
     uint32 count = 0;
-    //                                                0   1                 2                 3      4      5                6             7 
-    QueryResult* result = WorldDatabase.Query("SELECT id, MinPlayersPerTeam,MaxPlayersPerTeam,MinLvl,MaxLvl,AllianceStartLoc,HordeStartLoc,StartMaxDist FROM battleground_template");
+    //                                                0   1                 2                 3      4      5                6             7            8
+    QueryResult* result = WorldDatabase.Query("SELECT id, MinPlayersPerTeam,MaxPlayersPerTeam,MinLvl,MaxLvl,AllianceStartLoc,HordeStartLoc,StartMaxDist,PlayerSkinReflootId FROM battleground_template");
 
     if (!result)
     {
@@ -1922,9 +1923,18 @@ void BattleGroundMgr::CreateInitialBattleGrounds()
         }
 
         float startMaxDist = fields[7].GetFloat();
+        uint32 playerSkinReflootId = fields[8].GetUInt32();
+        if (playerSkinReflootId && !sLootMgr.ExistsRefLootTemplate(playerSkinReflootId))
+        {
+            playerSkinReflootId = 0;
+            sLog.outErrorDb("Table `battleground_template` for id %u associated with nonexistent refloot id %u. Setting to 0.", bgTypeId, playerSkinReflootId);
+        }
+
+        if (playerSkinReflootId)
+            m_usedRefloot.insert(playerSkinReflootId);
 
         // sLog.outDetail("Creating battleground %s, %u-%u", bl->name[sWorld.GetDBClang()], MinLvl, MaxLvl);
-        if (!CreateBattleGround(bgTypeId, IsArena, MinPlayersPerTeam, MaxPlayersPerTeam, MinLvl, MaxLvl, bl->name[sWorld.GetDefaultDbcLocale()], bl->mapid[0], allianceStartLoc[0], allianceStartLoc[1], allianceStartLoc[2], allianceStartLoc[3], hordeStartLoc[0], hordeStartLoc[1], hordeStartLoc[2], hordeStartLoc[3], startMaxDist))
+        if (!CreateBattleGround(bgTypeId, IsArena, MinPlayersPerTeam, MaxPlayersPerTeam, MinLvl, MaxLvl, bl->name[sWorld.GetDefaultDbcLocale()], bl->mapid[0], allianceStartLoc[0], allianceStartLoc[1], allianceStartLoc[2], allianceStartLoc[3], hordeStartLoc[0], hordeStartLoc[1], hordeStartLoc[2], hordeStartLoc[3], startMaxDist, playerSkinReflootId))
             continue;
 
         ++count;

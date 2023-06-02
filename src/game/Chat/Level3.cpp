@@ -46,7 +46,7 @@
 #include "SystemConfig.h"
 #include "Config/Config.h"
 #include "Mails/Mail.h"
-#include "Util.h"
+#include "Util/Util.h"
 #include "Entities/ItemEnchantmentMgr.h"
 #include "BattleGround/BattleGroundMgr.h"
 #include "Maps/MapPersistentStateMgr.h"
@@ -61,6 +61,10 @@
 #include "Metric/Metric.h"
 #endif
 #include "Server/PacketLog.h"
+
+#include "Globals/UnitCondition.h"
+#include "Globals/CombatCondition.h"
+#include "World/WorldStateExpression.h"
 
 #ifdef BUILD_AHBOT
 #include "AuctionHouseBot/AuctionHouseBot.h"
@@ -214,7 +218,8 @@ bool ChatHandler::HandleReloadAllAreaCommand(char* /*args*/)
 bool ChatHandler::HandleReloadAllLootCommand(char* /*args*/)
 {
     sLog.outString("Re-Loading Loot Tables...");
-    LoadLootTables();
+    LootIdSet ids_set;
+    LoadLootTables(ids_set);
     SendGlobalSysMessage("DB tables `*_loot_template` reloaded.");
     return true;
 }
@@ -242,13 +247,6 @@ bool ChatHandler::HandleReloadAllQuestCommand(char* /*args*/)
 
 bool ChatHandler::HandleReloadAllScriptsCommand(char* /*args*/)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        PSendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     sLog.outString("Re-Loading Scripts...");
     HandleReloadDBScriptsOnCreatureDeathCommand((char*)"a");
     HandleReloadDBScriptsOnGoUseCommand((char*)"a");
@@ -544,7 +542,9 @@ bool ChatHandler::HandleReloadLootTemplatesMailCommand(char* /*args*/)
 bool ChatHandler::HandleReloadLootTemplatesReferenceCommand(char* /*args*/)
 {
     sLog.outString("Re-Loading Loot Tables... (`reference_loot_template`)");
-    LoadLootTemplates_Reference();
+    LootIdSet ids_set;
+    LoadLootTemplates_Reference(ids_set);
+    CheckLootTemplates_Reference(ids_set);
     SendGlobalSysMessage("DB table `reference_loot_template` reloaded.");
     return true;
 }
@@ -751,6 +751,14 @@ bool ChatHandler::HandleReloadSpellThreatsCommand(char* /*args*/)
     return true;
 }
 
+bool ChatHandler::HandleReloadStringIds(char* /*args*/)
+{
+    sLog.outString("Re-Loading String Id Definitions...");
+    sScriptMgr.LoadStringIds();
+    SendGlobalSysMessage("DB table `string_id` (string id definitions) reloaded.");
+    return true;
+}
+
 bool ChatHandler::HandleReloadTaxiShortcuts(char* /*args*/)
 {
     sLog.outString("Re-Loading taxi flight shortcuts...");
@@ -812,22 +820,25 @@ bool ChatHandler::HandleReloadEventAIScriptsCommand(char* /*args*/)
     sLog.outString("Re-Loading Scripts from `creature_ai_scripts`...");
     sEventAIMgr.LoadCreatureEventAI_Scripts();
     SendGlobalSysMessage("DB table `creature_ai_scripts` reloaded.");
+    auto containerEntry = sEventAIMgr.GetCreatureEventEntryAIMap();
+    auto containerGuid = sEventAIMgr.GetCreatureEventGuidAIMap();
+    auto containerComputed = sEventAIMgr.GetEAIComputedDataMap();
+    sMapMgr.DoForAllMaps([containerEntry, containerGuid, containerComputed](Map* map)
+    {
+        map->GetMessager().AddMessage([containerEntry, containerGuid, containerComputed](Map* map)
+        {
+            map->GetMapDataContainer().SetEventAIContainers(containerEntry, containerGuid, containerComputed);
+        });
+    });
     return true;
 }
 
 bool ChatHandler::HandleReloadDBScriptsOnGossipCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_gossip`...");
 
-    sScriptMgr.LoadGossipScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GOSSIP, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_gossip` reloaded.");
@@ -837,17 +848,10 @@ bool ChatHandler::HandleReloadDBScriptsOnGossipCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnSpellCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_spell`...");
 
-    sScriptMgr.LoadSpellScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_SPELL, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_spell` reloaded.");
@@ -857,17 +861,10 @@ bool ChatHandler::HandleReloadDBScriptsOnSpellCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnQuestStartCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_quest_start`...");
 
-    sScriptMgr.LoadQuestStartScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_QUEST_START, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_quest_start` reloaded.");
@@ -877,17 +874,10 @@ bool ChatHandler::HandleReloadDBScriptsOnQuestStartCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnQuestEndCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_quest_end`...");
 
-    sScriptMgr.LoadQuestEndScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_QUEST_END, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_quest_end` reloaded.");
@@ -897,17 +887,10 @@ bool ChatHandler::HandleReloadDBScriptsOnQuestEndCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnEventCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_event`...");
 
-    sScriptMgr.LoadEventScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_EVENT, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_event` reloaded.");
@@ -917,18 +900,11 @@ bool ChatHandler::HandleReloadDBScriptsOnEventCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnGoUseCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_go[_template]_use`...");
 
-    sScriptMgr.LoadGameObjectScripts();
-    sScriptMgr.LoadGameObjectTemplateScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GAMEOBJECT, true);
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GAMEOBJECT_TEMPLATE, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_go[_template]_use` reloaded.");
@@ -938,17 +914,10 @@ bool ChatHandler::HandleReloadDBScriptsOnGoUseCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnCreatureDeathCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_creature_death`...");
 
-    sScriptMgr.LoadCreatureDeathScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_CREATURE_DEATH, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_creature_death` reloaded.");
@@ -958,17 +927,10 @@ bool ChatHandler::HandleReloadDBScriptsOnCreatureDeathCommand(char* args)
 
 bool ChatHandler::HandleReloadDBScriptsOnRelayCommand(char* args)
 {
-    if (sScriptMgr.IsScriptScheduled())
-    {
-        SendSysMessage("DB scripts used currently, please attempt reload later.");
-        SetSentErrorMessage(true);
-        return false;
-    }
-
     if (*args != 'a')
         sLog.outString("Re-Loading Scripts from `dbscripts_on_relay`...");
 
-    sScriptMgr.LoadRelayScripts();
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_RELAY, true);
 
     if (*args != 'a')
         SendGlobalSysMessage("DB table `dbscripts_on_relay` reloaded.");
@@ -1089,7 +1051,9 @@ bool ChatHandler::HandleReloadCreatureCooldownsCommand(char* /*args*/)
 bool ChatHandler::HandleReloadCreatureSpellLists(char* /*args*/)
 {
     sLog.outString("Reloading creature spell lists...");
+    auto conditionsAndExpressions = sObjectMgr.LoadConditionsAndExpressions();
     auto result = sObjectMgr.LoadCreatureSpellLists();
+    auto [unitConditions, worldstateExpressions, combatConditions] = conditionsAndExpressions;
     SendGlobalSysMessage("Reloaded creature spell lists.");
     if (result)
     {
@@ -3746,7 +3710,6 @@ bool ChatHandler::HandleNpcInfoCommand(char* /*args*/)
     else
         PSendSysMessage(LANG_NPCINFO_CHAR, target->GetGuidStr().c_str(), faction, npcflags, Entry, displayid, nativeid);
 
-    PSendSysMessage("DbGuid: %u", target->GetDbGuid());
     PSendSysMessage(LANG_NPCINFO_LEVEL, target->GetLevel());
     PSendSysMessage(LANG_NPCINFO_HEALTH, target->GetCreateHealth(), target->GetMaxHealth(), target->GetHealth());
     PSendSysMessage(LANG_NPCINFO_FLAGS, target->GetUInt32Value(UNIT_FIELD_FLAGS), target->GetUInt32Value(UNIT_DYNAMIC_FLAGS), target->GetCreatureInfo()->ExtraFlags);
@@ -4394,7 +4357,7 @@ bool ChatHandler::HandleTeleDelCommand(char* args)
     return true;
 }
 
-bool ChatHandler::HandleListAreaTriggerCommand(char* args)
+bool ChatHandler::HandleListAreaTriggerCommand(char* /*args*/)
 {
     Player* player = m_session->GetPlayer();
     if (!player)
@@ -4590,7 +4553,7 @@ bool ChatHandler::HandleResetHonorCommand(char* args)
 
     target->SetHonorPoints(0);
     target->SetUInt32Value(PLAYER_FIELD_KILLS, 0);
-    target->SetUInt32Value(PLAYER_FIELD_LIFETIME_HONORBALE_KILLS, 0);
+    target->SetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS, 0);
     target->SetUInt32Value(PLAYER_FIELD_TODAY_CONTRIBUTION, 0);
     target->SetUInt32Value(PLAYER_FIELD_YESTERDAY_CONTRIBUTION, 0);
     return true;
@@ -5910,7 +5873,7 @@ bool ChatHandler::HandleDebugMovement(char* args)
     return true;
 }
 
-bool ChatHandler::HandlePrintMovement(char* args)
+bool ChatHandler::HandlePrintMovement(char* /*args*/)
 {
     Creature* unit = getSelectedCreature();
     if (!unit)
@@ -7206,7 +7169,7 @@ bool ChatHandler::HandleLinkCheckCommand(char* args)
     return true;
 }
 
-bool ChatHandler::HandleVariablePrint(char* args)
+bool ChatHandler::HandleVariablePrint(char* /*args*/)
 {
     Player* player = GetSession()->GetPlayer();
 
@@ -7214,7 +7177,7 @@ bool ChatHandler::HandleVariablePrint(char* args)
     return true;
 }
 
-bool ChatHandler::HandleWarEffortCommand(char* args)
+bool ChatHandler::HandleWarEffortCommand(char* /*args*/)
 {
     PSendSysMessage("%s", sWorldState.GetAQPrintout().data());
     return true;
@@ -7252,7 +7215,7 @@ bool ChatHandler::HandleWarEffortCounterCommand(char* args)
     return true;
 }
 
-bool ChatHandler::HandleScourgeInvasionCommand(char* args)
+bool ChatHandler::HandleScourgeInvasionCommand(char* /*args*/)
 {
     return true;
 }

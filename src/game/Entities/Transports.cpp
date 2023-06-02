@@ -24,9 +24,9 @@
 #include "Entities/ObjectGuid.h"
 #include "MotionGenerators/Path.h"
 
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Server/DBCStores.h"
-#include "ProgressBar.h"
+#include "Util/ProgressBar.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
 
 #include "Movement/MoveSpline.h"
@@ -119,7 +119,7 @@ void MapManager::LoadTransports()
     sLog.outString();
 }
 
-Transport::Transport(TransportTemplate const& transportTemplate) : GenericTransport(), m_transportTemplate(transportTemplate), m_isMoving(true), m_pendingStop(false)
+Transport::Transport(TransportTemplate const& transportTemplate) : GenericTransport(), m_isMoving(true), m_pendingStop(false), m_transportTemplate(transportTemplate)
 {
     // 2.3.2 - 0x5A
     m_updateFlag = (UPDATEFLAG_TRANSPORT | UPDATEFLAG_LOWGUID | UPDATEFLAG_HIGHGUID | UPDATEFLAG_HAS_POSITION);
@@ -209,7 +209,7 @@ void Transport::MoveToNextWayPoint()
         m_nextFrame = GetKeyFrames().begin();
 }
 
-void Transport::TeleportTransport(uint32 newMapid, float x, float y, float z, float o)
+void Transport::TeleportTransport(uint32 newMapid, float x, float y, float z, float /*o*/)
 {
     Map* oldMap = GetMap();
     Relocate(x, y, z);

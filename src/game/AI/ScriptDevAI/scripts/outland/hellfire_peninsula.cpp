@@ -196,6 +196,7 @@ enum
 
     SPELL_SUMMONED_DEMON            = 7741,                 // visual spawn-in for demon
     SPELL_DEMONIAC_VISITATION       = 38708,                // create item
+    SAY_DEMONIAC_VISITATION_END     = 20154,
 
     SPELL_BUTTRESS_APPERANCE        = 38719,                // visual on 4x bunnies + the flying ones
     SPELL_SUCKER_CHANNEL            = 38721,                // channel to the 4x nodes
@@ -348,6 +349,14 @@ bool GossipSelect_npc_demoniac_scryer(Player* pPlayer, Creature* pCreature, uint
     return true;
 }
 
+struct DemoniacVisitation : public AuraScript
+{
+    void OnApply(Aura* aura, bool /*apply*/) const override
+    {
+        DoBroadcastText(SAY_DEMONIAC_VISITATION_END, aura->GetCaster(), aura->GetTarget());
+    }
+};
+
 /*######
 ## npc_wounded_blood_elf
 ######*/
@@ -414,7 +423,7 @@ struct npc_wounded_blood_elfAI : public npc_escortAI
                 break;
             case 41:
                 pPlayer->RewardPlayerAndGroupAtEventExplored(QUEST_ROAD_TO_FALCON_WATCH, m_creature);
-                pPlayer->GetMap()->ScriptsStart(sRelayScripts, DBSCRIPT_END_TALERIS_INT, m_creature, m_creature);
+                pPlayer->GetMap()->ScriptsStart(SCRIPT_TYPE_RELAY, DBSCRIPT_END_TALERIS_INT, m_creature, m_creature);
                 break;
         }
     }
@@ -2209,7 +2218,7 @@ enum
 
 struct ExposeRazorthornRoot : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         Unit* target = spell->GetUnitTarget();
         if (!target || !target->AI())
@@ -2462,4 +2471,5 @@ void AddSC_hellfire_peninsula()
     RegisterSpellScript<LivingFlareDetonator>("spell_living_flare_detonator");
     RegisterSpellScript<LivingFlareMaster>("spell_living_flare_master");
     RegisterSpellScript<LivingFlareUnstable>("spell_living_flare_unstable");
+    RegisterSpellScript<DemoniacVisitation>("spell_demoniac_visitation");
 }

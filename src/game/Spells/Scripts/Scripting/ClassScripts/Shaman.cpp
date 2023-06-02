@@ -24,7 +24,7 @@
 
 struct SentryTotem : public SpellScript, public AuraScript
 {
-    void OnRadiusCalculate(Spell* spell, SpellEffectIndex effIdx, bool targetB, float& radius) const override
+    void OnRadiusCalculate(Spell* /*spell*/, SpellEffectIndex effIdx, bool targetB, float& radius) const override
     {
         if (!targetB && effIdx == EFFECT_INDEX_0)
             radius = 2.f;
@@ -99,6 +99,14 @@ struct EarthShield : public AuraScript
             value = target->SpellHealingBonusTaken(caster, data.spellProto, value, SPELL_DIRECT_DAMAGE);
         }
         return value;
+    }
+
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
+    {
+        procData.basepoints[0] = aura->GetAmount();
+        procData.triggerTarget = aura->GetTarget();
+        procData.triggeredSpellId = 379;
+        return SPELL_AURA_PROC_OK;
     }
 };
 

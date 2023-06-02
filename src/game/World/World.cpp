@@ -28,7 +28,7 @@
 #include "Log.h"
 #include "Server/Opcodes.h"
 #include "Server/WorldSession.h"
-#include "WorldPacket.h"
+#include "Server/WorldPacket.h"
 #include "Entities/Player.h"
 #include "Skills/SkillExtraItems.h"
 #include "Skills/SkillDiscovery.h"
@@ -59,7 +59,7 @@
 #include "Maps/MapPersistentStateMgr.h"
 #include "MotionGenerators/WaypointManager.h"
 #include "GMTickets/GMTicketMgr.h"
-#include "Util.h"
+#include "Util/Util.h"
 #include "Tools/CharacterDatabaseCleaner.h"
 #include "Entities/CreatureLinkingMgr.h"
 #include "Weather/Weather.h"
@@ -830,8 +830,6 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_BOOL_PATH_FIND_OPTIMIZE, "PathFinder.OptimizePath", true);
     setConfig(CONFIG_BOOL_PATH_FIND_NORMALIZE_Z, "PathFinder.NormalizeZ", false);
 
-    setConfig(CONFIG_BOOL_ACCOUNT_DATA, "AccountData", false);
-
     setConfig(CONFIG_UINT32_MAX_RECRUIT_A_FRIEND_BONUS_PLAYER_LEVEL, "Raf.BonusLevel", 60);
     setConfig(CONFIG_UINT32_MAX_RECRUIT_A_FRIEND_BONUS_PLAYER_LEVEL_DIFFERENCE, "Raf.LevelDifference", 4);
     setConfig(CONFIG_FLOAT_MAX_RECRUIT_A_FRIEND_DISTANCE, "Raf.Distance", 100.f);
@@ -1007,11 +1005,17 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Creature Stats...");
     sObjectMgr.LoadCreatureClassLvlStats();
 
+    sLog.outString("Loading String Ids...");
+    sScriptMgr.LoadStringIds(); // must be before LoadCreatureSpawnDataTemplates
+
     sLog.outString("Loading Creature templates...");
     sObjectMgr.LoadCreatureTemplates();
 
     sLog.outString("Loading Creature immunities...");
     sObjectMgr.LoadCreatureImmunities();
+
+    sLog.outString("Loading Combat Conditions, Unit Conditions and Worldstate Expressions...");
+    sObjectMgr.LoadConditionsAndExpressions();
 
     sLog.outString("Loading Creature spell lists...");
     sObjectMgr.LoadCreatureSpellLists();
@@ -1180,7 +1184,8 @@ void World::SetInitialWorldSettings()
     sObjectMgr.LoadMailLevelRewards();
 
     sLog.outString("Loading Loot Tables...");
-    LoadLootTables();
+    LootIdSet ids_set;
+    LoadLootTables(ids_set);
     sLog.outString(">>> Loot Tables loaded");
     sLog.outString();
 
@@ -1203,16 +1208,16 @@ void World::SetInitialWorldSettings()
     sScriptMgr.LoadDbScriptRandomTemplates();
     ///- Load and initialize DBScripts Engine
     sLog.outString("Loading DB-Scripts Engine...");
-    sScriptMgr.LoadRelayScripts();                          // must be first in dbscripts loading
-    sScriptMgr.LoadGossipScripts();                         // must be before gossip menu options
-    sScriptMgr.LoadQuestStartScripts();                     // must be after load Creature/Gameobject(Template/Data) and QuestTemplate
-    sScriptMgr.LoadQuestEndScripts();                       // must be after load Creature/Gameobject(Template/Data) and QuestTemplate
-    sScriptMgr.LoadSpellScripts();                          // must be after load Creature/Gameobject(Template/Data)
-    sScriptMgr.LoadGameObjectScripts();                     // must be after load Creature/Gameobject(Template/Data)
-    sScriptMgr.LoadGameObjectTemplateScripts();             // must be after load Creature/Gameobject(Template/Data)
-    sScriptMgr.LoadEventScripts();                          // must be after load Creature/Gameobject(Template/Data)
-    sScriptMgr.LoadCreatureDeathScripts();                  // must be after load Creature/Gameobject(Template/Data)
-    sScriptMgr.LoadCreatureMovementScripts();               // before loading from creature_movement
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_RELAY);                // must be first in dbscripts loading
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GOSSIP);               // must be before gossip menu options
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_QUEST_START);          // must be after load Creature/Gameobject(Template/Data) and QuestTemplate
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_QUEST_END);            // must be after load Creature/Gameobject(Template/Data) and QuestTemplate
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_SPELL);                // must be after load Creature/Gameobject(Template/Data)
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GAMEOBJECT);           // must be after load Creature/Gameobject(Template/Data)
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_GAMEOBJECT_TEMPLATE);  // must be after load Creature/Gameobject(Template/Data)
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_EVENT);                // must be after load Creature/Gameobject(Template/Data)
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_CREATURE_DEATH);       // must be after load Creature/Gameobject(Template/Data)
+    sScriptMgr.LoadScriptMap(SCRIPT_TYPE_CREATURE_MOVEMENT);    // before loading from creature_movement
     sObjectMgr.LoadAreatriggerLocales();
     sLog.outString(">>> Scripts loaded");
     sLog.outString();
@@ -1367,6 +1372,7 @@ void World::SetInitialWorldSettings()
     sLog.outString("Starting BattleGround System");
     sBattleGroundMgr.CreateInitialBattleGrounds();
     sBattleGroundMgr.InitAutomaticArenaPointDistribution();
+    CheckLootTemplates_Reference(ids_set);
 
     sLog.outString("Deleting expired bans...");
     LoginDatabase.Execute("DELETE FROM ip_banned WHERE expires_at<=UNIX_TIMESTAMP() AND expires_at<>banned_at");

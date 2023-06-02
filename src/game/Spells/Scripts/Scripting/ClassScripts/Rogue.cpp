@@ -22,7 +22,7 @@
 // 14185 - Preparation
 struct Preparation : public SpellScript
 {
-    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
     {
         if (spell->GetCaster()->IsPlayer())
         {
@@ -88,6 +88,9 @@ struct VanishRogue : public SpellScript
     void OnCast(Spell* spell) const override
     {
         CastHighestStealthRank(spell->GetCaster());
+        // meant to be hooked like override scripts but we dont have that functionality yet
+        if (spell->GetCaster()->HasAura(23582, EFFECT_INDEX_0)) // amount has trigger chance 100
+            spell->GetCaster()->CastSpell(nullptr, 23583, TRIGGERED_OLD_TRIGGERED);
     }
 };
 

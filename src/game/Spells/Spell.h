@@ -136,6 +136,7 @@ class SpellCastTargets
         Unit* getUnitTarget() const { return m_unitTarget; }
 
         void setDestination(float x, float y, float z);
+        void setDestination(Position position);
         void setSource(float x, float y, float z);
         void getDestination(float& x, float& y, float& z) const { x = m_destPos.x; y = m_destPos.y; z = m_destPos.z; }
         Position getDestination() const { return m_destPos; }
@@ -221,6 +222,7 @@ enum SpellTargets
 {
     SPELL_TARGETS_ASSISTABLE,
     SPELL_TARGETS_AOE_ATTACKABLE,
+    SPELL_TARGETS_CHAIN_ATTACKABLE,
     SPELL_TARGETS_ALL
 };
 
@@ -288,6 +290,55 @@ class SpellModRAII
         Player* m_modOwner;
         bool m_success;
         bool m_onlySave; // casting time
+};
+
+class SpellCastArgs
+{
+    public:
+        SpellCastArgs() : m_target(nullptr), m_scriptValue(0), m_scriptValueSet(false), m_destinationSet(false)
+        {
+            memset(m_basePoints, 0, sizeof(m_basePoints));
+        }
+
+        SpellCastArgs& SetTarget(Unit* target) { m_target = target; return *this; }
+        Unit* GetTarget() const { return m_target; }
+
+        SpellCastArgs& SetScriptValue(uint64 scriptValue) { m_scriptValue = scriptValue; m_scriptValueSet = true; return *this; }
+        bool IsScriptValueSet() const { return m_scriptValueSet; }
+        uint64 GetScriptValue() const { return m_scriptValue; }
+
+        SpellCastArgs& SetBasePoints(int32* basePoints1, int32* basePoints2, int32* basePoints3)
+        {
+            m_basePoints[0] = basePoints1;
+            m_basePoints[1] = basePoints2;
+            m_basePoints[2] = basePoints3;
+            return *this;
+        }
+        int32* GetBasePoints(uint32 index) { return m_basePoints[index]; }
+
+        SpellCastArgs& SetDestination(float x, float y, float z)
+        {
+            m_destinationSet = true;
+            m_destination.x = x;
+            m_destination.y = y;
+            m_destination.z = z;
+            return *this;
+        }
+        SpellCastArgs& SetDestination(Position& position)
+        {
+            m_destinationSet = true;
+            m_destination = position;
+            return *this;
+        }
+        bool IsDestinationSet() const { return m_destinationSet; }
+        Position GetDestination() const { return m_destination; }
+    private:
+        Unit* m_target;
+        uint64 m_scriptValue;
+        bool m_scriptValueSet;
+        int32* m_basePoints[3];
+        bool m_destinationSet;
+        Position m_destination;
 };
 
 class Spell
@@ -524,6 +575,7 @@ class Spell
         bool m_ignoreCosts;
         bool m_ignoreCooldowns;
         bool m_ignoreConcurrentCasts;
+        bool m_ignoreCasterAuraState;
         bool m_hideInCombatLog;
         bool m_resetLeash;
         bool m_channelOnly;
@@ -611,6 +663,7 @@ class Spell
 
         static void SelectMountByAreaAndSkill(Unit* target, SpellEntry const* parentSpell, uint32 spellId75, uint32 spellId150, uint32 spellId225, uint32 spellId300, uint32 spellIdSpecial);
 
+        bool IsInterruptible() const;
         bool CanBeInterrupted() const { return m_spellState <= SPELL_STATE_DELAYED || m_spellState == SPELL_STATE_CHANNELING; }
 
         void RegisterAuraProc(Aura* aura);
@@ -639,6 +692,7 @@ class Spell
             bool   isCrit : 1;
             bool   executionless : 1;
             uint32 heartbeatResistChance;
+            uint32 effectDuration;
             uint32 diminishDuration; // Store duration after diminishing returns are applied
             DiminishingLevels diminishLevel;
             DiminishingGroup diminishGroup;
@@ -724,6 +778,7 @@ class Spell
         SpellSchoolMask GetSchoolMask() { return m_spellSchoolMask; }
         // OnHit use only
         uint32 GetTotalTargetDamage() { return m_damage; }
+        uint32 GetTotalTargetAbsorb() { return m_absorb; }
         void SetTotalTargetValueModifier(float modifier);
         // script initialization hook only setters - use only if dynamic - else use appropriate helper
         void SetMaxAffectedTargets(uint32 newValue) { m_affectedTargetCount = newValue; }
@@ -806,6 +861,7 @@ class Spell
 
         // Damage and healing in effects need just calculate
         int32 m_damage;                                     // Damage in effects count here
+        int32 m_absorb;                                     // Absorbed amount for scripts to hook into
         int32 damagePerEffect[MAX_EFFECT_INDEX];            // Workaround for multiple weapon damage effects
         int32 m_damagePerEffect[MAX_EFFECT_INDEX];
         int32 m_healing;                                    // Healing in effects count here
@@ -1055,8 +1111,17 @@ namespace MaNGOS
                 if (itr->getSource()->IsTaxiFlying())
                     continue;
 
-                if (itr->getSource()->IsAOEImmune())
-                    continue;
+                switch (i_TargetType)
+                {
+                    case SPELL_TARGETS_CHAIN_ATTACKABLE:
+                        if (itr->getSource()->IsChainImmune())
+                            continue;
+                        break;
+                    case SPELL_TARGETS_AOE_ATTACKABLE:
+                        if (itr->getSource()->IsAOEImmune())
+                            continue;
+                        break;
+                }
 
                 switch (i_TargetType)
                 {
@@ -1064,6 +1129,7 @@ namespace MaNGOS
                         if (!i_originalCaster->CanAssistSpell(itr->getSource(), i_spell.m_spellInfo))
                             continue;
                         break;
+                    case SPELL_TARGETS_CHAIN_ATTACKABLE:
                     case SPELL_TARGETS_AOE_ATTACKABLE:
                     {
                         if (!i_originalCaster->CanAttackSpell(itr->getSource(), i_spell.m_spellInfo, !i_spell.m_spellInfo->HasAttribute(SPELL_ATTR_EX5_IGNORE_AREA_EFFECT_PVP_CHECK)))

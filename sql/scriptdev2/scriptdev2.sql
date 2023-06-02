@@ -114,6 +114,7 @@ UPDATE gameobject_template SET ScriptName='go_unadorned_spike' WHERE entry IN(17
 UPDATE gameobject_template SET ScriptName='go_containment_coffer' WHERE entry=122088;
 UPDATE gameobject_template SET ScriptName='go_large_jack_o_lantern' WHERE entry=186887;
 UPDATE gameobject_template SET ScriptName='go_imp_in_a_ball' WHERE entry=185898;
+UPDATE gameobject_template SET ScriptName='go_aura_generator' WHERE entry IN(182524,183333,183791,185324,193579,193982,194029);
 
 /* Outdoor PVP*/
 -- si
@@ -162,7 +163,6 @@ UPDATE creature_template SET ScriptName='npc_garments_of_quests' WHERE entry IN 
 UPDATE creature_template SET ScriptName='npc_guardian' WHERE entry=5764;
 UPDATE creature_template SET ScriptName='npc_doctor' WHERE entry IN (12939,12920);
 UPDATE creature_template SET ScriptName='npc_injured_patient' WHERE entry IN (12936,12937,12938,12923,12924,12925);
-UPDATE creature_template SET ScriptName='npc_prof_blacksmith' WHERE entry IN (5164,11145,11146,11176,11177,11178,11191,11192,11193);
 UPDATE creature_template SET ScriptName='npc_prof_leather' WHERE entry IN (7866,7867,7868,7869,7870,7871);
 -- disabled, but can be used for custom
 -- UPDATE creature_template SET ScriptName='' WHERE npcflag!=npcflag|65536 AND ScriptName='npc_innkeeper';
@@ -194,7 +194,7 @@ UPDATE creature_template SET ScriptName='spell_dummy_npc' WHERE entry IN (
 -- eastern kingdoms
 8888,13016,
 -- kalimdor
-9299,12296,12298,
+9299,
 -- outland
 16880,16518,16847,17157,17326,17654,18879,21729,24918,24922,25084,25085);
 
@@ -230,6 +230,7 @@ INSERT INTO scripted_event_id VALUES
 UPDATE creature_template SET ScriptName='npc_war_effort' WHERE
 entry IN(15383,15431,15432,15434,15437,15445,15446,15448,15450,15451,15452,15453,15455,15456,15457,15459,15460,15469,15477,15508,15512,15515,15522,15525,15528,15529,15532,15533,15534,15535);
 UPDATE gameobject_template SET ScriptName='go_scarab_gong' WHERE entry=180717; -- The Scarab Gong
+UPDATE creature_template SET ScriptName='npc_silithus_boss' WHERE entry IN(15742,15741,15740);
 
 /*Midsummer*/
 UPDATE gameobject_template SET ScriptName='go_midsummer_bonfire' WHERE entry IN(187946,187945,187944,187943,187942,187941,187940,187939,187938,187937,187936,187935,187934,187933,187932,187931,187930,187929,187928,187927,187926,187925,187924,187923,187922,187921,187920,187919,187917,187916,187914,187564,187971,187973,187952,187963,187950,187961,187959,187957,187968,187948,187953,187970,187966,187975,187969,187951,187956,187954,187947,187972,187964,187559,187965,187949,187955,187967,187958,187974,187960,187962,181332,181333,181334,181335,181336,181337,188128,188129);
@@ -730,12 +731,8 @@ UPDATE creature_template SET ScriptName='npc_apprentice_mirveda' WHERE entry=154
 UPDATE creature_template SET ScriptName='npc_infused_crystal' WHERE entry=16364;
 
 /* FELWOOD */
-INSERT INTO scripted_event_id VALUES
-(8328,'npc_kroshius');
 UPDATE creature_template SET ScriptName='npc_kitten' WHERE entry=9937;
 UPDATE creature_template SET ScriptName='npc_corrupt_saber' WHERE entry=10042;
-UPDATE creature_template SET ScriptName='npc_niby_the_almighty' WHERE entry=14469;
-UPDATE creature_template SET ScriptName='npc_kroshius' WHERE entry=14467;
 UPDATE creature_template SET ScriptName='npc_captured_arkonarin' WHERE entry=11016;
 UPDATE creature_template SET ScriptName='npc_arei' WHERE entry=9598;
 
@@ -890,7 +887,6 @@ UPDATE creature_template SET ScriptName='npc_orc_necrolyte' WHERE entry=21747;
 INSERT INTO scripted_event_id VALUES
 (10591,'event_spell_summon_nightbane'),
 (10951,'event_spell_medivh_journal');
-UPDATE gameobject_template SET ScriptName='go_chessboard' WHERE entry IN(185324);
 
 /* LOCH MODAN */
 UPDATE creature_template SET ScriptName='npc_miran' WHERE entry=1379;
@@ -1526,14 +1522,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 
 ('-1000138','Prepare to enter oblivion, meddlers. You have unleashed a god!','0','1','0','15','18443','Salhadaar SAY'),
 ('-1000139','Avruu''s magic is broken!  I''m free once again!','0','0','0','0','13447','aeranas SAY_FREE'),
-
-('-1000140','Let''s go.','0','0','1','0','15894','lilatha SAY_START'),
-('-1000141','$n, let''s use the antechamber to the right.','0','0','1','0','12187','lilatha SAY_PROGRESS1'),
-('-1000142','I can see the light at the end of the tunnel!','0','0','1','0','12188','lilatha SAY_PROGRESS2'),
-('-1000143','There''s Farstrider Enclave now, $c. Not far to go... look out!  Troll ambush!!','0','0','1','0','12189','lilatha SAY_PROGRESS3'),
-('-1000144','Thank you for saving my life and bringing me back to safety, $n!','0','0','1','0','12191','lilatha SAY_END1'),
-('-1000145','Captain Helios, I''ve been rescued from the Amani Catacombs. Reporting for duty, sir!','0','0','1','0','12190','lilatha SAY_END2'),
-('-1000146','Lilatha, get someone to look at those injuries. Thank you for bringing her back safely.','0','0','1','0','12193','lilatha CAPTAIN_ANSWER'),
 
 ('-1000147','I remember well the sting of defeat at the conclusion of the Third War. I have waited far too long for my revenge. Now the shadow of the Legion falls over this world. It is only a matter of time until all of your failed creation... is undone. ','11332','1','0','0','20076','kazzak SAY_INTRO'),
 ('-1000148','The Legion will conquer all!','11333','1','0','0','20077','kazzak SAY_AGGRO1'),
@@ -2487,18 +2475,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1001146','I''m glad you''re here!  Because I need your help!!','0','0','0','0','1631','stinky ignatz SAY_AGGRO_3'),
 ('-1001147','Look out!  The $n attacks!','0','0','0','0','1628','stinky ignatz SAY_AGGRO_4'),
 
-('-1001148','I''m ready, $N. Let''s find my equipment and get out of here. I think I know where it is.','0','0','0','1','6433','captured arko''narin SAY_ESCORT_START'),
-('-1001149','Oh my! Look at this... all these candles. I''m sure they''re used for some terrible ritual or dark summoning. We best make haste!','0','0','0','18','6456','captured arko''narin SAY_FIRST_STOP'),
-('-1001150','There! Over there!','0','0','0','25','6457','captured arko''narin SAY_SECOND_STOP'),
-('-1001151','You will not stop me from escaping here, $r!','0','0','0','0','6801','captured arko''narin SAY_AGGRO'),
-('-1001152','All I need now is a golden lasso.','0','0','0','0','6458','captured arko''narin SAY_EQUIPMENT'),
-('-1001153','DIE, DEMON DOGS!','0','0','0','0','6460','captured arko''narin SAY_ESCAPE'),
-('-1001154','Ah! Fresh air at last! I never thought I''d see the day...','0','0','0','4','6461','captured arko''narin SAY_FRESH_AIR'),
-('-1001155','BETRAYER!','0','1','0','0','6466','spirit of trey lightforge SAY_BETRAYER'),
-('-1001156','What was that?! Trey? TREY!?','0','0','0','22','6463','captured arko''narin SAY_TREY'),
-('-1001157','You kept me in that cell for too long, monster!','0','0','0','0','6802','captured arko''narin SAY_ATTACK_TREY'),
-('-1001158','No! My friend... what''s happened? This is all my fault...','0','0','0','18','6468','captured arko''narin SAY_ESCORT_COMPLETE'),
-
 ('-1001159','Please, help me to get through this cursed forest, $r.','0','0','0','0','5004','arei SAY_ESCORT_START'),
 ('-1001160','This creature suffers from the effects of the fel... We must end its misery.','0','0','0','0','5474','arei SAY_ATTACK_IRONTREE'),
 ('-1001161','The corruption of the fel has not left any of the creatures of Felwood untouched, $N. Please, be on your guard.','0','0','0','0','5005','arei SAY_ATTACK_TOXIC_HORROR'),
@@ -2926,27 +2902,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1036003','D''ah! Now you''re making me angry! ','5779','0','0','15','1345','smite SAY_PHASE_3');
 
 -- -1 043 000 WAILING CAVERNS
-INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
-('-1043000','At last! Naralex can be awakened! Come aid me, brave adventurers!','0','6','0','0','2101','Disciple of Naralex - SAY_INTRO'),
-('-1043001','I must make the necessary preparations before the awakening ritual can begin. You must protect me!','0','0','0','0','1255','SAY_PREPARE'),
-('-1043002','These caverns were once a temple of promise for regrowth in the Barrens. Now, they are the halls of nightmares.','0','0','0','0','1256','Disciple of Naralex - SAY_FIRST_CORNER'),
-('-1043003','Come. We must continue. There is much to be done before we can pull Naralex from his nightmare.','0','0','0','0','1257','Disciple of Naralex - SAY_CONTINUE'),
-('-1043004','Within this circle of fire I must cast the spell to banish the spirits of the slain Fanglords.','0','0','0','0','1258','Disciple of Naralex - SAY_CIRCLE_BANISH'),
-('-1043005','The caverns have been purified. To Naralex''s chamber we go!','0','0','0','0','1259','Disciple of Naralex - SAY_PURIFIED'),
-('-1043006','Beyond this corridor, Naralex lies in fitful sleep. Let us go awaken him before it is too late.','0','0','0','0','1263','Disciple of Naralex - SAY_NARALEX_CHAMBER'),
-('-1043007','Protect me brave souls as I delve into the Emerald Dream to rescue Naralex and put an end to this corruption!','0','1','0','0','1264','Disciple of Naralex - SAY_BEGIN_RITUAL'),
-('-1043008','%s begins to perform the awakening ritual on Naralex.','0','2','0','0','1265','Disciple of Naralex - EMOTE_RITUAL_BEGIN'),
-('-1043009','%s tosses fitfully in troubled sleep.','0','2','0','0','1268','Naralex - EMOTE_NARALEX_AWAKE'),
-('-1043010','%s writhes in agony. The Disciple seems to be breaking through.','0','2','0','0','1269','Naralex - EMOTE_BREAK_THROUGH'),
-('-1043011','%s dreams up a horrendous vision. Something stirs beneath the murky waters.','0','2','0','0','1270','Naralex - EMOTE_VISION'),
-('-1043012','This $n is a minion from Naralex''s nightmare no doubt!','0','0','0','0','1276','Disciple of Naralex - SAY_MUTANUS'),
-('-1043013','I AM AWAKE, AT LAST!','5789','1','0','0','1271','Naralex - SAY_NARALEX_AWAKE'),
-('-1043014','At last! Naralex awakes from the nightmare.','0','0','0','0','1267','Disciple of Naralex - SAY_AWAKE'),
-('-1043015','Ah, to be pulled from the dreaded nightmare! I thank you, my loyal Disciple, along with your brave companions.','0','0','0','0','1272','Naralex - SAY_NARALEX_THANKYOU'),
-('-1043016','We must go and gather with the other Disciples. There is much work to be done before I can make another attempt to restore the Barrens. Farewell, brave souls!','0','0','0','0','2103','Naralex - SAY_FAREWELL'),
-('-1043017','Attacked! Help get this $n off of me!','0','0','0','0','1273','Disciple of Naralex - SAY_AGGRO_1'),
-('-1043018','Help!','0','0','0','0','485','Disciple of Naralex - SAY_AGGRO_2'),
-('-1043019','Deal with this $n! I need to prepare to awake Naralex!','0','0','0','0','1274','Disciple of Naralex - SAY_AGGRO_3');
 
 -- -1 047 000 RAZORFEN KRAUL
 INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
@@ -5807,48 +5762,6 @@ INSERT INTO script_waypoint (Entry, PathId, Point, PositionX, PositionY, Positio
 (3584,0,19,4566.09,303.127,55.0396,0,0,0,''),
 (3584,0,20,4561.65,295.456,57.0984,0,4000,0,'SAY_THERYLUNE_FINISH'),
 (3584,0,21,4551.03,293.333,57.1534,0,2000,0,''),
-(3678,0,1,-134.925,125.468,-78.16,0,0,0,''),
-(3678,0,2,-125.684,132.937,-78.42,0,0,0,''),
-(3678,0,3,-113.812,139.295,-80.98,0,0,0,''),
-(3678,0,4,-109.854,157.538,-80.2,0,0,0,''),
-(3678,0,5,-108.64,175.207,-79.74,0,0,0,''),
-(3678,0,6,-108.668,195.457,-80.64,0,0,0,''),
-(3678,0,7,-111.007,219.007,-86.58,0,0,0,''),
-(3678,0,8,-102.408,232.821,-91.52,0,0,0,'first corner SAY_FIRST_CORNER'),
-(3678,0,9,-92.434,227.742,-90.75,0,0,0,''),
-(3678,0,10,-82.456,224.853,-93.57,0,0,0,''),
-(3678,0,11,-67.789,208.073,-93.34,0,0,0,''),
-(3678,0,12,-43.343,205.295,-96.37,0,0,0,''),
-(3678,0,13,-34.676,221.394,-95.82,0,0,0,''),
-(3678,0,14,-32.582,238.573,-93.51,0,0,0,''),
-(3678,0,15,-42.149,258.672,-92.88,0,0,0,''),
-(3678,0,16,-55.257,274.696,-92.83,0,0,0,'circle of flames SAY_CIRCLE_BANISH'),
-(3678,0,17,-48.604,287.584,-92.46,0,0,0,''),
-(3678,0,18,-47.236,296.093,-90.88,0,0,0,''),
-(3678,0,19,-35.618,309.067,-89.73,0,0,0,''),
-(3678,0,20,-23.573,311.376,-88.6,0,0,0,''),
-(3678,0,21,-8.692,302.389,-87.43,0,0,0,''),
-(3678,0,22,-1.237,293.268,-85.55,0,0,0,''),
-(3678,0,23,10.398,279.294,-85.86,0,0,0,''),
-(3678,0,24,23.108,264.693,-86.69,0,0,0,''),
-(3678,0,25,31.996,251.436,-87.62,0,0,0,''),
-(3678,0,26,43.374,233.073,-87.61,0,0,0,''),
-(3678,0,27,54.438,212.048,-89.5,0,3000,0,'chamber entrance SAY_NARALEX_CHAMBER'),
-(3678,0,28,78.794,208.895,-92.84,0,0,0,''),
-(3678,0,29,88.392,225.231,-94.46,0,0,0,''),
-(3678,0,30,98.758,233.938,-95.84,0,0,0,''),
-(3678,0,31,107.248,233.054,-95.98,0,0,0,''),
-(3678,0,32,112.825,233.907,-96.39,0,0,0,''),
-(3678,0,33,114.634,236.969,-96.04,0,1000,0,'naralex SAY_BEGIN_RITUAL'),
-(3678,0,34,127.385,252.279,-90.07,0,0,0,''),
-(3678,0,35,121.595,264.488,-91.55,0,0,0,''),
-(3678,0,36,115.472,264.253,-91.5,0,0,0,''),
-(3678,0,37,99.988,252.79,-91.51,0,0,0,''),
-(3678,0,38,96.347,245.038,-90.34,0,0,0,''),
-(3678,0,39,82.201,216.273,-86.1,0,0,0,''),
-(3678,0,40,75.112,206.494,-84.8,0,0,0,''),
-(3678,0,41,27.174,201.064,-72.31,0,0,0,''),
-(3678,0,42,-41.114,204.149,-78.94,0,0,0,''),
 (3692,0,1,4608.43,-6.32,69.74,0,1000,0,'stand up'),
 (3692,0,2,4608.43,-6.32,69.74,0,4000,0,'SAY_START'),
 (3692,0,3,4604.54,-5.17,69.51,0,0,0,''),
@@ -6779,118 +6692,6 @@ INSERT INTO script_waypoint (Entry, PathId, Point, PositionX, PositionY, Positio
 (10646,0,44,-5053.19,-1791.68,-57.186,0,0,0,''),
 (10646,0,45,-5062.09,-1794.4,-56.515,0,0,0,''),
 (10646,0,46,-5052.66,-1797.04,-54.734,0,5000,0,'SAY_LAKO_END'),
-(11016,0,1,5004.98,-440.237,319.059,0,4000,0,'SAY_ESCORT_START'),
-(11016,0,2,4992.22,-449.964,317.057,0,0,0,''),
-(11016,0,3,4988.55,-457.438,316.289,0,0,0,''),
-(11016,0,4,4989.98,-464.297,316.846,0,0,0,''),
-(11016,0,5,4994.04,-467.754,318.055,0,0,0,''),
-(11016,0,6,5002.31,-466.318,319.965,0,0,0,''),
-(11016,0,7,5011.8,-462.889,321.501,0,0,0,''),
-(11016,0,8,5020.53,-460.797,321.97,0,0,0,''),
-(11016,0,9,5026.84,-463.171,321.345,0,0,0,''),
-(11016,0,10,5028.66,-476.805,318.726,0,0,0,''),
-(11016,0,11,5029.5,-487.131,318.179,0,0,0,''),
-(11016,0,12,5031.18,-497.678,316.533,0,0,0,''),
-(11016,0,13,5032.72,-504.748,314.744,0,0,0,''),
-(11016,0,14,5035,-513.138,314.372,0,0,0,''),
-(11016,0,15,5037.49,-521.733,313.221,0,6000,0,'SAY_FIRST_STOP'),
-(11016,0,16,5049.06,-519.546,313.221,0,0,0,''),
-(11016,0,17,5059.17,-522.93,313.221,0,0,0,''),
-(11016,0,18,5062.75,-529.933,313.221,0,0,0,''),
-(11016,0,19,5063.9,-538.827,313.221,0,0,0,''),
-(11016,0,20,5062.22,-545.635,313.221,0,0,0,''),
-(11016,0,21,5061.69,-552.333,313.101,0,0,0,''),
-(11016,0,22,5060.33,-560.349,310.873,0,0,0,''),
-(11016,0,23,5055.62,-565.541,308.737,0,0,0,''),
-(11016,0,24,5049.8,-567.604,306.537,0,0,0,''),
-(11016,0,25,5043.01,-564.946,303.682,0,0,0,''),
-(11016,0,26,5038.22,-559.823,301.463,0,0,0,''),
-(11016,0,27,5039.46,-548.675,297.824,0,0,0,''),
-(11016,0,28,5043.44,-538.807,297.801,0,0,0,''),
-(11016,0,29,5056.4,-528.954,297.801,0,0,0,''),
-(11016,0,30,5064.4,-521.904,297.801,0,0,0,''),
-(11016,0,31,5067.62,-512.999,297.196,0,0,0,''),
-(11016,0,32,5065.99,-505.329,297.214,0,0,0,''),
-(11016,0,33,5062.24,-499.086,297.448,0,0,0,''),
-(11016,0,34,5065.09,-492.069,298.054,0,0,0,''),
-(11016,0,35,5071.19,-491.173,297.666,0,5000,0,'SAY_SECOND_STOP'),
-(11016,0,36,5087.47,-496.478,296.677,0,0,0,''),
-(11016,0,37,5095.55,-508.639,296.677,0,0,0,''),
-(11016,0,38,5104.3,-521.014,296.677,0,0,0,''),
-(11016,0,39,5110.13,-532.123,296.677,0,4000,0,'open equipment chest'),
-(11016,0,40,5110.13,-532.123,296.677,0,4000,0,'cast SPELL_STRENGHT_ARKONARIN'),
-(11016,0,41,5110.13,-532.123,296.677,0,4000,0,'SAY_EQUIPMENT'),
-(11016,0,42,5110.13,-532.123,296.677,0,0,0,'SAY_ESCAPE'),
-(11016,0,43,5099.75,-510.823,296.677,0,0,0,''),
-(11016,0,44,5091.94,-497.516,296.677,0,0,0,''),
-(11016,0,45,5079.38,-486.811,297.638,0,0,0,''),
-(11016,0,46,5069.21,-488.77,298.082,0,0,0,''),
-(11016,0,47,5064.24,-496.051,297.275,0,0,0,''),
-(11016,0,48,5065.08,-505.239,297.361,0,0,0,''),
-(11016,0,49,5067.82,-515.245,297.125,0,0,0,''),
-(11016,0,50,5064.62,-521.17,297.801,0,0,0,''),
-(11016,0,51,5053.22,-530.739,297.801,0,0,0,''),
-(11016,0,52,5045.73,-538.311,297.801,0,0,0,''),
-(11016,0,53,5039.69,-548.112,297.801,0,0,0,''),
-(11016,0,54,5038.78,-557.588,300.787,0,0,0,''),
-(11016,0,55,5042.01,-566.749,303.838,0,0,0,''),
-(11016,0,56,5050.56,-568.149,306.782,0,0,0,''),
-(11016,0,57,5056.98,-564.674,309.342,0,0,0,''),
-(11016,0,58,5060.79,-556.801,311.936,0,0,0,''),
-(11016,0,59,5059.58,-551.626,313.221,0,0,0,''),
-(11016,0,60,5062.83,-541.994,313.221,0,0,0,''),
-(11016,0,61,5063.55,-531.288,313.221,0,0,0,''),
-(11016,0,62,5057.93,-523.088,313.221,0,0,0,''),
-(11016,0,63,5049.47,-519.36,313.221,0,0,0,''),
-(11016,0,64,5040.79,-519.809,313.221,0,0,0,''),
-(11016,0,65,5034.3,-515.361,313.948,0,0,0,''),
-(11016,0,66,5032,-505.532,314.663,0,0,0,''),
-(11016,0,67,5029.92,-495.645,316.821,0,0,0,''),
-(11016,0,68,5028.87,-487,318.179,0,0,0,''),
-(11016,0,69,5028.11,-475.531,318.839,0,0,0,''),
-(11016,0,70,5027.76,-465.442,320.643,0,0,0,''),
-(11016,0,71,5019.96,-460.892,321.969,0,0,0,''),
-(11016,0,72,5009.43,-464.793,321.248,0,0,0,''),
-(11016,0,73,4999.57,-468.062,319.426,0,0,0,''),
-(11016,0,74,4992.03,-468.128,317.894,0,0,0,''),
-(11016,0,75,4988.17,-461.293,316.369,0,0,0,''),
-(11016,0,76,4990.62,-447.459,317.104,0,0,0,''),
-(11016,0,77,4993.48,-438.643,318.272,0,0,0,''),
-(11016,0,78,4995.45,-430.178,318.462,0,0,0,''),
-(11016,0,79,4993.56,-422.876,318.864,0,0,0,''),
-(11016,0,80,4985.4,-420.864,320.205,0,0,0,''),
-(11016,0,81,4976.52,-426.168,323.112,0,0,0,''),
-(11016,0,82,4969.83,-429.755,325.029,0,0,0,''),
-(11016,0,83,4960.7,-425.44,325.834,0,0,0,''),
-(11016,0,84,4955.45,-418.765,327.433,0,0,0,''),
-(11016,0,85,4949.7,-408.796,328.004,0,0,0,''),
-(11016,0,86,4940.02,-403.222,329.956,0,0,0,''),
-(11016,0,87,4934.98,-401.475,330.898,0,0,0,''),
-(11016,0,88,4928.69,-399.302,331.744,0,0,0,''),
-(11016,0,89,4926.94,-398.436,333.079,0,0,0,''),
-(11016,0,90,4916.16,-393.822,333.729,0,0,0,''),
-(11016,0,91,4908.39,-396.217,333.217,0,0,0,''),
-(11016,0,92,4905.61,-396.535,335.05,0,0,0,''),
-(11016,0,93,4897.88,-395.245,337.346,0,0,0,''),
-(11016,0,94,4895.21,-388.203,339.295,0,0,0,''),
-(11016,0,95,4896.94,-382.429,341.04,0,0,0,''),
-(11016,0,96,4901.88,-378.799,342.771,0,0,0,''),
-(11016,0,97,4908.09,-380.635,344.597,0,0,0,''),
-(11016,0,98,4911.91,-385.818,346.491,0,0,0,''),
-(11016,0,99,4910.1,-393.444,348.798,0,0,0,''),
-(11016,0,100,4903.5,-396.947,350.812,0,0,0,''),
-(11016,0,101,4898.08,-394.226,351.821,0,0,0,''),
-(11016,0,102,4891.33,-393.436,351.801,0,0,0,''),
-(11016,0,103,4881.2,-395.211,351.59,0,0,0,''),
-(11016,0,104,4877.84,-395.536,349.713,0,0,0,''),
-(11016,0,105,4873.97,-394.919,349.844,0,5000,0,'SAY_FRESH_AIR'),
-(11016,0,106,4873.97,-394.919,349.844,0,3000,0,'SAY_BETRAYER'),
-(11016,0,107,4873.97,-394.919,349.844,0,2000,0,'SAY_TREY'),
-(11016,0,108,4873.97,-394.919,349.844,0,0,0,'SAY_ATTACK_TREY'),
-(11016,0,109,4873.97,-394.919,349.844,0,5000,0,'SAY_ESCORT_COMPLETE'),
-(11016,0,110,4873.97,-394.919,349.844,0,1000,0,''),
-(11016,0,111,4863.02,-394.521,350.65,0,0,0,''),
-(11016,0,112,4848.7,-397.612,351.215,0,0,0,''),
 (11832,0,1,7848.39,-2216.36,470.888,3.9095,15000,0,'SAY_REMULOS_INTRO_1'),
 (11832,0,2,7848.39,-2216.36,470.888,3.9095,5000,0,'SAY_REMULOS_INTRO_2'),
 (11832,0,3,7829.79,-2244.84,463.853,0,0,0,''),
@@ -7094,41 +6895,6 @@ INSERT INTO script_waypoint (Entry, PathId, Point, PositionX, PositionY, Positio
 (15420, 0, 9, 9290.5205, -6654.362, 31.830189, 100, 0, 0, 'Prospector Anvilward'),
 (15420, 0, 10, 9289.944, -6657.774, 31.828085, 100, 0, 0, 'Prospector Anvilward'),
 (15420, 0, 11, 9290.866, -6658.0156, 31.823935, 0.104719758033752441, 60000, 0, 'Prospector Anvilward'),
-(16295,0,1,7545.07,-7359.87,162.354,0,4000,0,'SAY_START'),
-(16295,0,2,7550.05,-7362.24,162.236,0,0,0,''),
-(16295,0,3,7566.98,-7364.32,161.739,0,0,0,''),
-(16295,0,4,7578.83,-7361.68,161.739,0,0,0,''),
-(16295,0,5,7590.97,-7359.05,162.258,0,0,0,''),
-(16295,0,6,7598.35,-7362.82,162.257,0,4000,0,'SAY_PROGRESS_1'),
-(16295,0,7,7605.86,-7380.42,161.937,0,0,0,''),
-(16295,0,8,7605.3,-7387.38,157.254,0,0,0,''),
-(16295,0,9,7606.13,-7393.89,156.942,0,0,0,''),
-(16295,0,10,7615.21,-7400.19,157.143,0,0,0,''),
-(16295,0,11,7618.96,-7402.65,158.202,0,0,0,''),
-(16295,0,12,7636.85,-7401.76,162.145,0,0,0,'SAY_PROGRESS_2'),
-(16295,0,13,7637.06,-7404.94,162.207,0,4000,0,''),
-(16295,0,14,7636.91,-7412.59,162.366,0,0,0,''),
-(16295,0,15,7637.61,-7425.59,162.631,0,0,0,''),
-(16295,0,16,7637.82,-7459.06,163.303,0,0,0,''),
-(16295,0,17,7638.86,-7470.9,162.517,0,0,0,''),
-(16295,0,18,7641.4,-7488.22,157.381,0,0,0,''),
-(16295,0,19,7634.46,-7505.45,154.682,0,0,0,'SAY_PROGRESS_3'),
-(16295,0,20,7631.91,-7516.95,153.597,0,0,0,''),
-(16295,0,21,7622.23,-7537.04,151.587,0,0,0,''),
-(16295,0,22,7610.92,-7550.67,149.639,0,0,0,''),
-(16295,0,23,7598.23,-7562.55,145.954,0,0,0,''),
-(16295,0,24,7588.51,-7577.76,148.294,0,0,0,''),
-(16295,0,25,7567.34,-7608.46,146.006,0,0,0,''),
-(16295,0,26,7562.55,-7617.42,148.098,0,0,0,''),
-(16295,0,27,7561.51,-7645.06,151.245,0,0,0,''),
-(16295,0,28,7563.34,-7654.65,151.227,0,0,0,''),
-(16295,0,29,7565.53,-7658.3,151.249,0,0,0,''),
-(16295,0,31,7579.12,-7662.21,151.652,0,0,0,'quest complete'),
-(16295,0,32,7603.77,-7667,153.998,0,0,0,''),
-(16295,0,33,7603.77,-7667,153.998,0,4000,0,'SAY_END_1'),
-(16295,0,34,7603.77,-7667,153.998,0,8000,0,'SAY_END_2'),
-(16295,0,35,7603.77,-7667,153.998,0,0,0,''),
-(16295,0,40,7571.16,-7659.12,151.245,0,0,0,''),
 (16812,0,1,-10868.3,-1779.84,90.476,0,2500,0,'Open door, begin walking'),
 (16812,0,2,-10875.6,-1779.58,90.478,0,0,0,''),
 (16812,0,3,-10887.4,-1779.26,90.476,0,0,0,''),
