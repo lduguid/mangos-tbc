@@ -3184,25 +3184,10 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 -- -1 269 000 OPENING OF THE DARK PORTAL (BLACK MORASS)
 INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
 ('-1269000','Why do you persist? Surely you can see the futility of it all. It is not too late! You may still leave with your lives...','10442','1','0','0','16821','temporus SAY_ENTER'),
-('-1269001','So be it... you have been warned.','10444','1','0','0','16822','temporus SAY_AGGRO'),
-('-1269002','Keeper! The sands of time have run out for you.','10443','1','0','0','16824','temporus SAY_BANISH'),
-('-1269003','You should have left when you had the chance.','10445','1','0','0','16825','temporus SAY_SLAY1'),
-('-1269004','Your days are done.','10446','1','0','0','16826','temporus SAY_SLAY2'),
-('-1269005','My death means... little.','10447','1','0','0','16823','temporus SAY_DEATH'),
 
 ('-1269006','Why do you aid the Magus? Just think of how many lives could be saved if the portal is never opened, if the resulting wars could be erased....','10412','1','0','0','16814','chrono_lord_deja SAY_ENTER'),
-('-1269007','If you will not cease this foolish quest, then you will die!','10414','1','0','0','16815','chrono_lord_deja SAY_AGGRO'),
-('-1269008','You have outstayed your welcome, Keeper. Be gone!','10413','1','0','0','16817','chrono_lord_deja SAY_BANISH'),
-('-1269009','I told you it was a fool''s quest!','10415','1','0','0','16818','chrono_lord_deja SAY_SLAY1'),
-('-1269010','Leaving so soon?','10416','1','0','0','16819','chrono_lord_deja SAY_SLAY2'),
-('-1269011','Time... is on our side.','10417','1','0','0','16816','chrono_lord_deja SAY_DEATH'),
 
 ('-1269012','The time has come to shatter this clockwork universe forever! Let us no longer be slaves of the hourglass! I warn you: those who do not embrace this greater path shall become victims of its passing!','10400','1','0','0','16827','aeonus SAY_ENTER'),
-('-1269013','Let us see what fate has in store....','10402','1','0','0','16828','aeonus SAY_AGGRO'),
-('-1269014','Your time is up, slave of the past.','10401','1','0','0','16829','aeonus SAY_BANISH'),
-('-1269015','One less obstacle in our way!','10403','1','0','0','16831','aeonus SAY_SLAY1'),
-('-1269016','No one will stop us!','10404','1','0','0','16832','aeonus SAY_SLAY2'),
-('-1269017','We will triumph. It is only a matter... of time.','10405','1','0','0','16830','aeonus SAY_DEATH'),
 ('-1269018','REUSE ME','0','0','0','0','0','REUSE ME'),
 
 ('-1269019','Stop! Do not go any further, mortal. You are ill-prepared to face the forces of the Infinite Dragonflight. Come, let me help you.','0','0','0','0','17814','saat SAY_SAAT_WELCOME'),
@@ -4518,19 +4503,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1557037','Know this, $r. Within Shaffar''s chambers at the end of these tombs rests a creature of unimaginable power. It is held in check by the power of the stasis chamber. You must return to Ameer before you venture further if you wish to destroy it!','0','0','0','1','20634','Ambassador SAY_RELEASED_2');
 
 -- -1 558 000 AUCHENAI CRYPTS
-INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
-('-1558000','You have defiled the resting place of our ancestors. For this offense, there can be but one punishment. It is fitting that you have come to a place of the dead... for you will soon be joining them.','10509','1','0','0','0','maladaar SAY_INTRO'),
-('-1558001','Rise, my fallen brothers! Take form and fight!','10512','1','0','0','15466','maladaar SAY_SUMMON'),
-('-1558002','You will pay with your life!','10513','1','0','0','17647','maladaar SAY_AGGRO_1'),
-('-1558003','There is no turning back now!','10514','1','0','0','17648','maladaar SAY_AGGRO_2'),
-('-1558004','Serve your penitence!','10515','1','0','0','17649','maladaar SAY_AGGRO_3'),
-('-1558005','Let your mind be clouded.','10510','1','0','0','17644','maladaar SAY_ROAR'),
-('-1558006','Stare into the darkness of your soul.','10511','1','0','0','17645','maladaar SAY_SOUL_CLEAVE'),
-('-1558007','These walls will be your tomb!','10516','1','0','0','17650','maladaar SAY_SLAY_1'),
-('-1558008','Now you''ll stay... for eternity.','10517','1','0','0','17651','maladaar SAY_SLAY_2'),
-('-1558009','This is... where I belong.','10518','1','0','0','17646','maladaar SAY_DEATH'),
-
-('-1558010','%s focuses on $N','0','3','0','0','0','shirrak EMOTE_FOCUS');
 
 -- -1 560 000 ESCAPE FROM DURNHOLDE (OLD HILLSBRAD)
 INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
