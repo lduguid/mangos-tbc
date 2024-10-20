@@ -85,6 +85,13 @@ struct boss_harbinger_skyrissAI : public CombatAI
 
     void JustSummoned(Creature* summoned) override
     {
+        switch (summoned->GetCreatedBySpellId())
+        {
+            case SPELL_66_ILLUSION:
+            case SPELL_33_ILLUSION:
+                summoned->SetAOEImmune(true);
+                break;
+        }
         if (m_creature->GetVictim())
             summoned->AI()->AttackStart(m_creature->GetVictim());
     }
@@ -114,7 +121,7 @@ struct boss_harbinger_skyrissAI : public CombatAI
         }
     }
 
-    void OnSpellCast(SpellEntry const* spellInfo, Unit* target) override
+    void OnSpellCast(SpellEntry const* spellInfo, Unit* /*target*/) override
     {
         if (spellInfo->Id == SPELL_FEAR)
             DoBroadcastText(urand(0, 1) ? SAY_FEAR_1 : SAY_FEAR_2, m_creature);

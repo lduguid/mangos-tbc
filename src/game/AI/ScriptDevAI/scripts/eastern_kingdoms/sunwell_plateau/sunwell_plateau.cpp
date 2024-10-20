@@ -377,8 +377,12 @@ void instance_sunwell_plateau::SetData(uint32 type, uint32 data)
                 for (uint32 i = 0; i < entries.size(); ++i)
                 {
                     if (Creature* bossNpc = GetSingleCreatureFromStorage(entries[i]))
+                    {
+                        bossNpc->SetRespawnDelay(30, true);
                         bossNpc->ForcedDespawn();
-                    instance->GetSpawnManager().AddCreature(30, guids[i]);
+                    }
+                    else
+                        instance->GetSpawnManager().RespawnCreature(guids[i], 30);
                 }
                 DespawnGuids(m_twinsSpawns);
             }
@@ -604,7 +608,13 @@ void instance_sunwell_plateau::SpawnGauntlet(bool respawn)
     m_impsStarted = false;
     for (uint32 i = 300; i <= uint32(respawn ? 322 : 345); ++i)
     {
+        instance->GetPersistentState()->SaveCreatureRespawnTime(GUID_PREFIX + i, 0); // reset all respawn times just to be sure
         Creature* creature = WorldObject::SpawnCreature(GUID_PREFIX + i, instance);
+        if (!creature) // if some other condition fails to avoid crash
+        {
+            m_spawnedGauntlet = false;
+            return;
+        }
         if (i <= 322) // gauntlet mobs do not drop loot
         {
             creature->SetNoLoot(true);

@@ -231,13 +231,13 @@ void Database::Ping()
 
     {
         SqlConnection::Lock guard(m_pAsyncConn);
-        delete guard->Query(sql);
+        guard->Query(sql);
     }
 
     for (int i = 0; i < m_nQueryConnPoolSize; ++i)
     {
         SqlConnection::Lock guard(m_pQueryConnections[i]);
-        delete guard->Query(sql);
+        guard->Query(sql);
     }
 }
 
@@ -283,9 +283,10 @@ bool Database::PExecuteLog(const char* format, ...)
     return Execute(szQuery);
 }
 
-QueryResult* Database::PQuery(const char* format, ...)
+std::unique_ptr<QueryResult> Database::PQuery(const char* format, ...)
 {
-    if (!format) return nullptr;
+    if (!format)
+        return {};
 
     va_list ap;
     char szQuery [MAX_QUERY_LEN];
@@ -296,7 +297,7 @@ QueryResult* Database::PQuery(const char* format, ...)
     if (res == -1)
     {
         sLog.outError("SQL Query truncated (and not execute) for format: %s", format);
-        return nullptr;
+        return {};
     }
 
     return Query(szQuery);
@@ -446,10 +447,9 @@ bool Database::RollbackTransaction()
 bool Database::CheckRequiredField(char const* table_name, char const* required_name)
 {
     // check required field
-    QueryResult* result = PQuery("SELECT %s FROM %s LIMIT 1", required_name, table_name);
-    if (result)
+    auto queryResult = PQuery("SELECT %s FROM %s LIMIT 1", required_name, table_name);
+    if (queryResult)
     {
-        delete result;
         return true;
     }
 
@@ -495,7 +495,7 @@ bool Database::CheckRequiredField(char const* table_name, char const* required_n
             sLog.outErrorDb("  [B] You need: --> `%s.sql`", req_sql_update_name);
             sLog.outErrorDb();
             sLog.outErrorDb("You must apply all updates after [A] to [B] to use mangos with this database.");
-#ifdef BUILD_PLAYERBOT
+#ifdef BUILD_DEPRECATED_PLAYERBOT
             if (reqName.find("playerbot") != std::string::npos)
             {
                 sLog.outErrorDb("These updates are included in the [sql/PlayerBot] folder.");

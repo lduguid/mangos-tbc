@@ -95,7 +95,7 @@ GameObject::GameObject() : WorldObject(),
     m_isInUse = false;
     m_reStockTimer = 0;
     m_rearmTimer = 0;
-    m_despawnTimer = 0;
+    m_despawnTimer = TimePoint::max();
 
     m_delayedActionTimer = 0;
 
@@ -532,9 +532,7 @@ void GameObject::Update(const uint32 diff)
                 case GAMEOBJECT_TYPE_CHEST:
                     if (m_loot)
                     {
-                        if (m_loot->IsChanged())
-                            m_despawnTimer = time(nullptr) + 5 * MINUTE; // TODO:: need to add a define?
-                        else if (m_despawnTimer != 0 && m_despawnTimer <= time(nullptr))
+                        if (m_despawnTimer <= GetMap()->GetCurrentClockTime())
                             m_lootState = GO_JUST_DEACTIVATED;
 
                         m_loot->Update();
@@ -631,7 +629,7 @@ void GameObject::Update(const uint32 diff)
                     SetLootState(GO_READY);
                     return; // SetLootState and return because go is treated as "burning flag" due to GetGoAnimProgress() being 100 and would be removed on the client
                 case GAMEOBJECT_TYPE_CHEST:
-                    m_despawnTimer = 0;
+                    m_despawnTimer = TimePoint::max();
                     // consumable confirmed to override chest restock
                     if (!m_goInfo->chest.consumable && m_goInfo->chest.chestRestockTime)
                     {
@@ -687,6 +685,9 @@ void GameObject::Update(const uint32 diff)
             if (AI())
                 AI()->JustDespawned();
 
+            if (InstanceData* iData = GetMap()->GetInstanceData())
+                iData->OnObjectDespawn(this);
+
             if (!m_respawnOverriden)
             {
                 // since pool system can fail to roll unspawned object, this one can remain spawned, so must set respawn nevertheless
@@ -707,7 +708,7 @@ void GameObject::Update(const uint32 diff)
             {
                 m_respawnTime = std::numeric_limits<time_t>::max();
                 if (m_respawnDelay && !GetGameObjectGroup())
-                    GetMap()->GetSpawnManager().AddGameObject(m_respawnDelay, GetDbGuid());
+                    GetMap()->GetSpawnManager().AddGameObject(GetDbGuid());
 
                 if (m_respawnDelay || !m_spawnedByDefault || m_forcedDespawn)
                     AddObjectToRemoveList();
@@ -752,6 +753,11 @@ void GameObject::Heartbeat()
         AI()->OnHeartbeat();
 }
 
+void GameObject::SetChestDespawn()
+{
+    m_despawnTimer = GetMap()->GetCurrentClockTime() + std::chrono::minutes(5);
+}
+
 void GameObject::Refresh()
 {
     // not refresh despawned not casted GO (despawned casted GO destroyed in all cases anyway)
@@ -784,6 +790,9 @@ void GameObject::Delete()
 
     if (AI())
         AI()->JustDespawned();
+
+    if (InstanceData* iData = GetMap()->GetInstanceData())
+        iData->OnObjectDespawn(this);
 
     if (uint16 poolid = sPoolMgr.IsPartOfAPool<GameObject>(GetDbGuid()))
         sPoolMgr.UpdatePool<GameObject>(*GetMap()->GetPersistentState(), poolid, GetDbGuid());
@@ -1530,10 +1539,10 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
             if (goInfo->trap.charges > 0)
                 AddUse();
 
-            if (IsBattleGroundTrap && user->GetTypeId() == TYPEID_PLAYER)
+            if (IsBattleGroundTrap && user->IsPlayer())
             {
                 // BattleGround gameobjects case
-                if (BattleGround* bg = ((Player*)user)->GetBattleGround())
+                if (BattleGround* bg = static_cast<Player*>(user)->GetBattleGround())
                     bg->HandleTriggerBuff(GetObjectGuid());
             }
 
@@ -1544,7 +1553,6 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
             if (goInfo->ExtraFlags & GAMEOBJECT_EXTRA_FLAG_CUSTOM_ANIM_ON_USE)
                 SendGameObjectCustomAnim(GetObjectGuid());
 
-            // TODO: Despawning of traps? (Also related to code in ::Update)
             return;
         }
         case GAMEOBJECT_TYPE_CHAIR:                         // 7 Sitting: Wooden bench, chairs
@@ -2149,56 +2157,6 @@ bool GameObject::IsInSkillupList(Player* player) const
 void GameObject::AddToSkillupList(Player* player)
 {
     m_SkillupSet.insert(player->GetObjectGuid());
-}
-
-struct AddGameObjectToRemoveListInMapsWorker
-{
-    AddGameObjectToRemoveListInMapsWorker(ObjectGuid guid) : i_guid(guid) {}
-
-    void operator()(Map* map)
-    {
-        if (GameObject* pGameobject = map->GetGameObject(i_guid))
-            pGameobject->Delete();
-    }
-
-    ObjectGuid i_guid;
-};
-
-void GameObject::AddToRemoveListInMaps(uint32 db_guid, GameObjectData const* data)
-{
-    AddGameObjectToRemoveListInMapsWorker worker(ObjectGuid(HIGHGUID_GAMEOBJECT, data->id, db_guid));
-    sMapMgr.DoForAllMapsWithMapId(data->mapid, worker);
-}
-
-struct SpawnGameObjectInMapsWorker
-{
-    SpawnGameObjectInMapsWorker(uint32 guid, GameObjectData const* data)
-        : i_guid(guid), i_data(data) {}
-
-    void operator()(Map* map)
-    {
-        // Spawn if necessary (loaded grids only)
-        if (map->IsLoaded(i_data->posX, i_data->posY))
-        {
-            GameObjectData const* data = sObjectMgr.GetGOData(i_guid);
-            MANGOS_ASSERT(data);
-            GameObject* pGameobject = GameObject::CreateGameObject(data->id);
-            // DEBUG_LOG("Spawning gameobject %u", *itr);
-            if (!pGameobject->LoadFromDB(i_guid, map, i_guid, 0))
-            {
-                delete pGameobject;
-            }
-        }
-    }
-
-    uint32 i_guid;
-    GameObjectData const* i_data;
-};
-
-void GameObject::SpawnInMaps(uint32 db_guid, GameObjectData const* data)
-{
-    SpawnGameObjectInMapsWorker worker(db_guid, data);
-    sMapMgr.DoForAllMapsWithMapId(data->mapid, worker);
 }
 
 bool GameObject::HasStaticDBSpawnData() const

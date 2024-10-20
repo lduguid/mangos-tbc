@@ -31,6 +31,7 @@ enum
     EMOTE_GENERIC_ENRAGED       = -1000003,
 
     // All phases spells
+    SPELL_DOUBLE_ATTACK         = 19818,
     SPELL_FROST_AURA            = 28529,            // Periodically triggers 28531
     SPELL_BESERK                = 26662,
 
@@ -93,9 +94,9 @@ struct boss_sapphironAI : public CombatAI
         AddCombatAction(SAPPHIRON_FROST_BREATH, true);
         AddCombatAction(SAPPHIRON_ICEBOLT, true);
         AddCombatAction(SAPPHIRON_BERSERK, 15u * MINUTE * IN_MILLISECONDS);
-        AddCustomAction(SAPPHIRON_AIR_PHASE, true, [&]() { HandleAirPhase(); });
-        AddCustomAction(SAPPHIRON_LANDING_PHASE, true, [&]() { HandleLandingPhase(); });
-        AddCustomAction(SAPPHIRON_GROUND_PHASE, true, [&]() { HandleGroundPhase(); });
+        AddCustomAction(SAPPHIRON_AIR_PHASE, true, [&]() { HandleAirPhase(); }, TIMER_COMBAT_COMBAT);
+        AddCustomAction(SAPPHIRON_LANDING_PHASE, true, [&]() { HandleLandingPhase(); }, TIMER_COMBAT_COMBAT);
+        AddCustomAction(SAPPHIRON_GROUND_PHASE, true, [&]() { HandleGroundPhase(); }, TIMER_COMBAT_COMBAT);
     }
 
     ScriptedInstance* m_instance;
@@ -114,6 +115,8 @@ struct boss_sapphironAI : public CombatAI
         SetDeathPrevention(false);
         SetMeleeEnabled(true);
         m_creature->SetHover(false);
+
+        DoCastSpellIfCan(nullptr, SPELL_DOUBLE_ATTACK, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
     }
 
     uint32 GetSubsequentActionTimer(uint32 action)

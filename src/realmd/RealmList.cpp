@@ -158,20 +158,26 @@ void RealmList::UpdateRealms(bool init)
 {
     DETAIL_LOG("Updating Realm List...");
 
-    ////                                               0   1     2        3     4     5           6         7                     8           9
-    QueryResult* result = LoginDatabase.Query("SELECT id, name, address, port, icon, realmflags, timezone, allowedSecurityLevel, population, realmbuilds FROM realmlist WHERE (realmflags & 1) = 0 ORDER BY name");
+    ////                                           0   1     2        3     4     5           6         7                     8           9
+    auto queryResult = LoginDatabase.Query("SELECT id, name, address, port, icon, realmflags, timezone, allowedSecurityLevel, population, realmbuilds FROM realmlist WHERE (realmflags & 1) = 0 ORDER BY name");
 
     ///- Circle through results and add them to the realm map
-    if (result)
+    if (queryResult)
     {
         do
         {
-            Field* fields = result->Fetch();
+            Field* fields = queryResult->Fetch();
 
             uint32 Id                  = fields[0].GetUInt32();
             std::string name           = fields[1].GetCppString();
             uint8 realmflags           = fields[5].GetUInt8();
             uint8 allowedSecurityLevel = fields[7].GetUInt8();
+
+            if (Id == 0)
+            {
+                sLog.outErrorDb("Realm ID must be > 0 for %s", name.c_str());
+                continue;
+            }
 
             if (realmflags & ~(REALM_FLAG_OFFLINE | REALM_FLAG_NEW_PLAYERS | REALM_FLAG_RECOMMENDED | REALM_FLAG_SPECIFYBUILD))
             {
@@ -188,7 +194,6 @@ void RealmList::UpdateRealms(bool init)
             if (init)
                 sLog.outString("Added realm id %u, name '%s'",  Id, name.c_str());
         }
-        while (result->NextRow());
-        delete result;
+        while (queryResult->NextRow());
     }
 }

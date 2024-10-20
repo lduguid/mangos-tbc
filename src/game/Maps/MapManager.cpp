@@ -20,13 +20,14 @@
 #include "Maps/MapPersistentStateMgr.h"
 #include "Policies/Singleton.h"
 #include "Database/DatabaseEnv.h"
-#include "Log.h"
+#include "Log/Log.h"
 #include "Entities/Transports.h"
 #include "Maps/GridDefines.h"
 #include "World/World.h"
 #include "Grids/CellImpl.h"
 #include "Globals/ObjectMgr.h"
 #include "Maps/MapWorkers.h"
+#include "BattleGround/BattleGroundMgr.h"
 #include <future>
 
 #define CLASS_LOCK MaNGOS::ClassLevelLockable<MapManager, std::recursive_mutex>
@@ -95,7 +96,7 @@ void MapManager::CreateContinents()
     uint32 continents[] = { 0, 1, 530 };
     for (auto id : continents)
     {
-        Map* m = new WorldMap(id, i_gridCleanUpDelay);
+        Map* m = new WorldMap(id, i_gridCleanUpDelay, 0);
         // add map into container
         i_maps[MapID(id)] = m;
 
@@ -126,14 +127,15 @@ Map* MapManager::CreateMap(uint32 id, const WorldObject* obj)
     }
     else
     {
+        uint32 instanceId = 0;
         // create regular non-instanceable map
         m = FindMap(id);
         if (m == nullptr)
         {
             std::lock_guard<std::mutex> lock(m_lock);
-            m = new WorldMap(id, i_gridCleanUpDelay);
+            m = new WorldMap(id, i_gridCleanUpDelay, instanceId);
             // add map into container
-            i_maps[MapID(id)] = m;
+            i_maps[MapID(id, instanceId)] = m;
 
             // non-instanceable maps always expected have saved state
             m->Initialize();
@@ -143,12 +145,12 @@ Map* MapManager::CreateMap(uint32 id, const WorldObject* obj)
     return m;
 }
 
-Map* MapManager::CreateBgMap(uint32 mapid, BattleGround* bg)
+Map* MapManager::CreateBgMap(uint32 mapid, uint32 instanceId, BattleGround* bg)
 {
     sTerrainMgr.LoadTerrain(mapid);
 
     Guard _guard(*this);
-    return CreateBattleGroundMap(mapid, sMapMgr.GenerateInstanceId(), bg);
+    return CreateBattleGroundMap(mapid, instanceId, bg);
 }
 
 Map* MapManager::FindMap(uint32 mapid, uint32 instanceId) const
@@ -268,11 +270,10 @@ void MapManager::InitMaxInstanceId()
 {
     i_MaxInstanceId = 0;
 
-    QueryResult* result = CharacterDatabase.Query("SELECT MAX(id) FROM instance");
-    if (result)
+    auto queryResult = CharacterDatabase.Query("SELECT MAX(id) FROM instance");
+    if (queryResult)
     {
-        i_MaxInstanceId = result->Fetch()[0].GetUInt32();
-        delete result;
+        i_MaxInstanceId = queryResult->Fetch()[0].GetUInt32();
     }
 }
 
@@ -384,7 +385,7 @@ BattleGroundMap* MapManager::CreateBattleGroundMap(uint32 id, uint32 InstanceId,
     DEBUG_LOG("MapInstanced::CreateBattleGroundMap: instance:%d for map:%d and bgType:%d created.", InstanceId, id, bg->GetTypeId());
 
     uint8 spawnMode = uint8(DUNGEON_DIFFICULTY_NORMAL);
-    if (bg->GetTypeId() == BATTLEGROUND_AV && Player::GetMinLevelForBattleGroundBracketId(bg->GetBracketId(), bg->GetTypeId()) >= 61)
+    if (bg->GetTypeId() == BATTLEGROUND_AV && sBattleGroundMgr.GetMinLevelForBattleGroundBracketId(bg->GetBracketId(), bg->GetTypeId()) >= 61)
         spawnMode = uint8(DUNGEON_DIFFICULTY_HEROIC);        
 
     BattleGroundMap* map = new BattleGroundMap(id, i_gridCleanUpDelay, InstanceId, spawnMode);

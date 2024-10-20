@@ -20,7 +20,7 @@
 #include "Globals/SharedDefines.h"
 #include "Server/WorldPacket.h"
 #include "Server/Opcodes.h"
-#include "Log.h"
+#include "Log/Log.h"
 #include "World/World.h"
 #include "Entities/Creature.h"
 #include "Entities/Player.h"
@@ -1217,7 +1217,7 @@ void WorldObject::RemoveStringId(std::string& stringId)
         SetStringId(stringIdId, false);
 }
 
-bool WorldObject::HasStringId(std::string& stringId) const
+bool WorldObject::HasStringId(const std::string& stringId) const
 {
     return HasStringId(GetMap()->GetMapDataContainer().GetStringId(stringId));
 }
@@ -2037,12 +2037,15 @@ void WorldObject::AddToWorld()
 
 void WorldObject::RemoveFromWorld()
 {
-    if (m_isOnEventNotified)
-        m_currMap->RemoveFromOnEventNotified(this);
+    if (IsInWorld())
+    {
+        if (m_isOnEventNotified)
+            m_currMap->RemoveFromOnEventNotified(this);
 
-    if (!m_stringIds.empty())
-        for (uint32 stringId : m_stringIds)
-            m_currMap->RemoveStringIdObject(stringId, this);
+        if (!m_stringIds.empty())
+            for (uint32 stringId : m_stringIds)
+                m_currMap->RemoveStringIdObject(stringId, this);
+    }
 
     Object::RemoveFromWorld();
 }
@@ -2552,8 +2555,14 @@ struct WorldObjectChangeAccumulator
     {
         // send self fields changes in another way, otherwise
         // with new camera system when player's camera too far from player, camera wouldn't receive packets and changes from player
-        if (i_object.isType(TYPEMASK_PLAYER))
-            i_object.BuildUpdateDataForPlayer((Player*)&i_object, i_updateDatas);
+        if (i_object.IsPlayer())
+        {
+            Player* plr = static_cast<Player*>(&i_object);
+#ifdef ENABLE_PLAYERBOTS
+            if (plr->isRealPlayer())
+#endif
+            i_object.BuildUpdateDataForPlayer(plr, i_updateDatas);
+        }
     }
 
     void Visit(CameraMapType& m)
@@ -2561,8 +2570,15 @@ struct WorldObjectChangeAccumulator
         for (auto& iter : m)
         {
             Player* owner = iter.getSource()->GetOwner();
+#ifdef ENABLE_PLAYERBOTS
+            if (owner->isRealPlayer())
+            {
+#endif
             if (owner != &i_object && owner->HasAtClient(&i_object))
                 i_object.BuildUpdateDataForPlayer(owner, i_updateDatas);
+#ifdef ENABLE_PLAYERBOTS
+            }
+#endif
         }
     }
 
@@ -3083,7 +3099,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
         }
     }
 
-    if (unitCaster && spellProto->HasAttribute(SPELL_ATTR_SCALES_WITH_CREATURE_LEVEL) && spellProto->spellLevel)
+    if (unitCaster && unitCaster->IsCreature() && spellProto->HasAttribute(SPELL_ATTR_SCALES_WITH_CREATURE_LEVEL) && spellProto->spellLevel)
     {
         // TODO: Drastically beter than before, but still needs some additional aura scaling research
         bool damage = false;
@@ -3123,10 +3139,15 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
 
         if (damage)
         {
-            GtNPCManaCostScalerEntry const* spellScaler = sGtNPCManaCostScalerStore.LookupEntry(spellProto->spellLevel - 1);
-            GtNPCManaCostScalerEntry const* casterScaler = sGtNPCManaCostScalerStore.LookupEntry(unitCaster->GetLevel() - 1);
-            if (spellScaler && casterScaler)
-                value *= casterScaler->ratio / spellScaler->ratio;
+            CreatureInfo const* cInfo = static_cast<Creature const*>(unitCaster)->GetCreatureInfo();
+            CreatureClassLvlStats const* casterCLS = sObjectMgr.GetCreatureClassLvlStats(unitCaster->GetLevel(), cInfo->UnitClass, cInfo->Expansion);
+            CreatureClassLvlStats const* spellCLS = sObjectMgr.GetCreatureClassLvlStats(spellProto->spellLevel, cInfo->UnitClass, cInfo->Expansion);
+            if (casterCLS && spellCLS)
+            {
+                float CLSPowerCreature = casterCLS->BaseDamage;
+                float CLSPowerSpell = spellCLS->BaseDamage;
+                value = value * (CLSPowerCreature / CLSPowerSpell);
+            }
         }
     }
 

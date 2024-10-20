@@ -41,6 +41,11 @@ void VisibleChangesNotifier::Visit(CameraMapType& m)
 void VisibleNotifier::Notify()
 {
     Player& player = *i_camera.GetOwner();
+#ifdef ENABLE_PLAYERBOTS
+    if (!player.isRealPlayer())
+        return;
+#endif
+
     // at this moment i_clientGUIDs have guids that not iterate at grid level checks
     // but exist one case when this possible and object not out of range: transports
     if (GenericTransport* transport = player.GetTransport())
@@ -235,10 +240,13 @@ void MaNGOS::RespawnDo::operator()(Creature* u) const
 
     if (u->IsUsingNewSpawningSystem())
     {
-        if (u->GetMap()->GetMapDataContainer().GetSpawnGroupByGuid(u->GetDbGuid(), TYPEID_UNIT))
-            u->GetMap()->GetPersistentState()->SaveCreatureRespawnTime(u->GetDbGuid(), time(nullptr));
-        else
-            u->GetMap()->GetSpawnManager().RespawnCreature(u->GetDbGuid(), 0);
+        if (u->IsDead() && !u->GetCreatureGroup())
+        {
+            if (u->GetMap()->GetMapDataContainer().GetSpawnGroupByGuid(u->GetDbGuid(), TYPEID_UNIT))
+                u->GetMap()->GetPersistentState()->SaveCreatureRespawnTime(u->GetDbGuid(), time(nullptr));
+            else
+                u->GetMap()->GetSpawnManager().RespawnCreature(u->GetDbGuid(), 0);
+        }
     }
     else
         u->Respawn();

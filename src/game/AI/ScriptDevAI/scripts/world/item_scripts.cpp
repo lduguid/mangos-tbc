@@ -325,12 +325,90 @@ struct OrbOfDeception : public AuraScript
 // 39228 - Argussian Compass
 struct ArgussianCompass : public AuraScript
 {
-    void OnAbsorb(Aura* aura, int32& currentAbsorb, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& /*preventedDeath*/, bool& /*dropCharge*/) const override
+    void OnAbsorb(Aura* aura, int32& currentAbsorb, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& /*preventedDeath*/, bool& /*dropCharge*/, DamageEffectType /*damageType*/) const override
     {
         // Max absorb stored in 1 dummy effect
         int32 max_absorb = aura->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_1);
         if (max_absorb < currentAbsorb)
             currentAbsorb = max_absorb;
+    }
+}; 
+
+enum
+{
+    SPELL_MALFUNCTION_EXPLOSION = 13261,
+    SPELL_SUMMON_GOBLIN_BOMB    = 13258,
+    SPELL_PET_BOMB_PASSIVE      = 13260, // triggers 13259 Explosion on successful melee hit
+};
+
+// 13258 - Summon Goblin Bomb
+struct SummonGoblinBomb : public SpellScript
+{
+    void OnSummon(Spell* spell, Creature* summon) const override
+    {
+        if (Player* player = dynamic_cast<Player*>(spell->GetCaster()))
+            summon->SelectLevel(uint16(player->GetSkillValue(SKILL_ENGINEERING) / 5));
+        summon->AI()->SetReactState(REACT_AGGRESSIVE);
+        summon->CastSpell(summon, SPELL_PET_BOMB_PASSIVE, TRIGGERED_OLD_TRIGGERED);
+    }
+};
+
+// 23134 - Goblin Bomb
+struct GoblinBomb : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* target = spell->GetUnitTarget();
+        Unit* caster = spell->GetCaster();
+        if (!target || !caster)
+            return;
+        uint32 roll = urand(0, 99);
+        if (roll < 10)
+            target->CastSpell(caster, SPELL_MALFUNCTION_EXPLOSION, TRIGGERED_OLD_TRIGGERED);
+        else
+            caster->CastSpell(caster, SPELL_SUMMON_GOBLIN_BOMB, TRIGGERED_OLD_TRIGGERED);
+    }
+};
+
+// 11403 - Dream Vision
+struct DreamVision : public SpellScript
+{
+    void OnSummon(Spell* /*spell*/, Creature* summon) const override
+    {
+        if (summon->GetEntry() != 7863)
+            return;
+
+        summon->SetHover(true);
+        summon->SetWaterWalk(true);
+        summon->SetFeatherFall(true);
+    }
+
+    void OnRadiusCalculate(Spell* /*spell*/, SpellEffectIndex effIdx, bool /*targetB*/, float& radius) const override
+    {
+        if (effIdx != EFFECT_INDEX_0)
+            return;
+        radius = 2.f;
+    }
+};
+
+// 26656 - Summon Black Qiraji Battle Tank
+struct SummonBlackQirajiBattleTank : public SpellScript
+{
+    void OnEffectExecute(Spell* spell, SpellEffectIndex /*effIdx*/) const override
+    {
+        Unit* unitTarget = spell->GetUnitTarget();
+        if (!unitTarget)
+            return;
+
+        // Prevent stacking of mounts
+        unitTarget->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
+
+        // Two separate mounts depending on area id (allows use both in and out of specific instance)
+        switch (unitTarget->GetAreaId())
+        {
+            [[unlikely]] case 3428: unitTarget->CastSpell(nullptr, 25863, TRIGGERED_NONE); break;
+            default: unitTarget->CastSpell(nullptr, 26655, TRIGGERED_NONE);
+        }
     }
 };
 
@@ -367,4 +445,8 @@ void AddSC_item_scripts()
     RegisterSpellScript<BanishExile>("spell_banish_exile");
     RegisterSpellScript<OrbOfDeception>("spell_orb_of_deception");
     RegisterSpellScript<ArgussianCompass>("spell_argussian_compass");
+    RegisterSpellScript<SummonGoblinBomb>("spell_summon_goblin_bomb");
+    RegisterSpellScript<GoblinBomb>("spell_goblin_bomb");
+    RegisterSpellScript<DreamVision>("spell_dream_vision");
+    RegisterSpellScript<SummonBlackQirajiBattleTank>("spell_summon_black_qiraji_battle_tank");
 }

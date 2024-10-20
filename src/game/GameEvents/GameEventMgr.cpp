@@ -23,7 +23,7 @@
 #include "Pools/PoolManager.h"
 #include "Util/ProgressBar.h"
 #include "Tools/Language.h"
-#include "Log.h"
+#include "Log/Log.h"
 #include "Maps/MapManager.h"
 #include "BattleGround/BattleGroundMgr.h"
 #include "Mails/MassMailMgr.h"
@@ -203,7 +203,7 @@ void GameEventMgr::LoadFromDB()
         sLog.outString(">> Loaded %u game events", count);
     }
 
-    result.reset(WorldDatabase.Query("SELECT entry, start_time, end_time FROM game_event_time"));
+    result = WorldDatabase.Query("SELECT entry, start_time, end_time FROM game_event_time");
     if (!result)
     {
         sLog.outString(">> Table game_event_time is empty!");
@@ -243,9 +243,9 @@ void GameEventMgr::LoadFromDB()
     m_gameEventSpawnPoolIds.resize(m_gameEvents.size());
 
     m_gameEventCreatureGuids.resize(m_gameEvents.size() * 2 - 1);
-    //                                       0              1                         2
-    result.reset(WorldDatabase.Query("SELECT creature.guid, game_event_creature.guid, game_event_creature.event "
-                                 "FROM game_event_creature LEFT OUTER JOIN creature ON creature.guid = game_event_creature.guid"));
+    //                                   0              1                         2
+    result = WorldDatabase.Query("SELECT creature.guid, game_event_creature.guid, game_event_creature.event "
+                                 "FROM game_event_creature LEFT OUTER JOIN creature ON creature.guid = game_event_creature.guid");
 
     count = 0;
     if (!result)
@@ -325,9 +325,9 @@ void GameEventMgr::LoadFromDB()
     }
 
     m_gameEventGameobjectGuids.resize(m_gameEvents.size() * 2 - 1);
-    //                                   0                    1                           2
-    result.reset(WorldDatabase.Query("SELECT gameobject.guid, game_event_gameobject.guid, game_event_gameobject.event "
-                                 "FROM game_event_gameobject LEFT OUTER JOIN gameobject ON gameobject.guid=game_event_gameobject.guid"));
+    //                                   0                1                           2
+    result = WorldDatabase.Query("SELECT gameobject.guid, game_event_gameobject.guid, game_event_gameobject.event "
+                                 "FROM game_event_gameobject LEFT OUTER JOIN gameobject ON gameobject.guid=game_event_gameobject.guid");
 
     count = 0;
     if (!result)
@@ -416,15 +416,15 @@ void GameEventMgr::LoadFromDB()
     }
 
     m_gameEventCreatureData.resize(m_gameEvents.size());
-    //                                       0              1                               2
-    result.reset(WorldDatabase.Query("SELECT creature.guid, game_event_creature_data.event, game_event_creature_data.modelid,"
+    //                                   0              1                             2
+    result = WorldDatabase.Query("SELECT creature.guid, game_event_creature_data.event, game_event_creature_data.modelid,"
                                  //   3                                      4
                                  "game_event_creature_data.equipment_id, game_event_creature_data.vendor_id, "
                                  //   5                                     6
                                  "game_event_creature_data.entry_id, game_event_creature_data.spell_start, "
                                  //   7                               8
                                  "game_event_creature_data.spell_end, game_event_creature_data.guid "
-                                 "FROM game_event_creature_data LEFT OUTER JOIN creature ON creature.guid=game_event_creature_data.guid"));
+                                 "FROM game_event_creature_data LEFT OUTER JOIN creature ON creature.guid=game_event_creature_data.guid");
 
     count = 0;
     if (!result)
@@ -482,9 +482,8 @@ void GameEventMgr::LoadFromDB()
 
             if (newData.vendor_id)
             {
-                if (QueryResult* testResult = WorldDatabase.PQuery("SELECT 1 FROM npc_vendor_template where entry = '%u'", newData.vendor_id))
-                    delete testResult;
-                else
+                auto testResult = WorldDatabase.PQuery("SELECT 1 FROM npc_vendor_template where entry = '%u'", newData.vendor_id);
+                if (!testResult)
                 {
                     sLog.outErrorDb("Table `game_event_creature_data` has a creature with (Guid: %u) and vendor_id %u which was not found in table `npc_vendor_template`, set to no vendor.", guid, newData.vendor_id);
                     newData.vendor_id = 0;
@@ -520,7 +519,7 @@ void GameEventMgr::LoadFromDB()
 
     m_gameEventQuests.resize(m_gameEvents.size());
 
-    result.reset(WorldDatabase.Query("SELECT quest, event FROM game_event_quest"));
+    result = WorldDatabase.Query("SELECT quest, event FROM game_event_quest");
 
     count = 0;
     if (!result)
@@ -578,7 +577,7 @@ void GameEventMgr::LoadFromDB()
 
     m_gameEventMails.resize(m_gameEvents.size() * 2 - 1);
 
-    result.reset(WorldDatabase.Query("SELECT event, raceMask, quest, mailTemplateId, senderEntry FROM game_event_mail"));
+    result = WorldDatabase.Query("SELECT event, raceMask, quest, mailTemplateId, senderEntry FROM game_event_mail");
 
     count = 0;
     if (!result)
@@ -661,18 +660,17 @@ uint32 GameEventMgr::Initialize()                           // return the next e
 
     ActiveEvents activeAtShutdown;
 
-    if (QueryResult* result = CharacterDatabase.Query("SELECT event FROM game_event_status"))
+    if (auto queryResult = CharacterDatabase.Query("SELECT event FROM game_event_status"))
     {
         do
         {
-            Field* fields = result->Fetch();
+            Field* fields = queryResult->Fetch();
             uint16 event_id = fields[0].GetUInt16();
             activeAtShutdown.insert(event_id);
         }
-        while (result->NextRow());
-        delete result;
+        while (queryResult->NextRow());
 
-        CharacterDatabase.Execute("TRUNCATE game_event_status");
+        CharacterDatabase.Execute(_TRUNCATE_ " game_event_status");
     }
 
     uint32 delay = Update(&activeAtShutdown);
@@ -799,6 +797,13 @@ void GameEventMgr::GameEventSpawn(int16 event_id)
         return;
     }
 
+    if (internal_event_id < 0 || (size_t)internal_event_id >= m_gameEventGameobjectGuids.size())
+    {
+        sLog.outError("GameEventMgr::GameEventSpawn attempt access to out of range mGameEventGameobjectGuids element %i (size: " SIZEFMTD ")", internal_event_id, m_gameEventGameobjectGuids.size());
+        return;
+    }
+
+    std::map<uint32, std::pair<std::vector<uint32>, std::vector<uint32>>> dbGuidsToForward;
     for (uint32& itr : m_gameEventCreatureGuids[internal_event_id])
     {
         // Add to correct cell
@@ -817,16 +822,8 @@ void GameEventMgr::GameEventSpawn(int16 event_id)
                 }
             }
 
-            sObjectMgr.AddCreatureToGrid(itr, data);
-
-            Creature::SpawnInMaps(itr, data);
+            dbGuidsToForward[data->mapid].first.push_back(itr);
         }
-    }
-
-    if (internal_event_id < 0 || (size_t)internal_event_id >= m_gameEventGameobjectGuids.size())
-    {
-        sLog.outError("GameEventMgr::GameEventSpawn attempt access to out of range mGameEventGameobjectGuids element %i (size: " SIZEFMTD ")", internal_event_id, m_gameEventGameobjectGuids.size());
-        return;
     }
 
     for (uint32& itr : m_gameEventGameobjectGuids[internal_event_id])
@@ -847,10 +844,46 @@ void GameEventMgr::GameEventSpawn(int16 event_id)
                 }
             }
 
-            sObjectMgr.AddGameobjectToGrid(itr, data);
-
-            GameObject::SpawnInMaps(itr, data);
+            dbGuidsToForward[data->mapid].second.push_back(itr);
         }
+    }
+
+    if (!dbGuidsToForward.empty())
+    {
+        // world thread will always have valid pointers to maps
+        sWorld.GetMessager().AddMessage([=](World* world)
+        {
+            for (auto& data : dbGuidsToForward)
+            {
+                sObjectMgr.AddDynGuidForMap(data.first, data.second);
+                sMapMgr.DoForAllMapsWithMapId(data.first, [&](Map* map) // reference pass because executed in place
+                {
+                    map->GetMessager().AddMessage([dbGuids = data.second](Map* map) // double indirection so it executes in map thread
+                    {
+                        for (uint32 creatureDbGuid : dbGuids.first)
+                        {
+                            // fetching here again for future reloading
+                            CreatureData const* data = sObjectMgr.GetCreatureData(creatureDbGuid);
+                            MANGOS_ASSERT(data);
+                            map->GetPersistentState()->AddCreatureToGrid(creatureDbGuid, data);
+                            map->GetSpawnManager().AddEventGuid(creatureDbGuid, HIGHGUID_UNIT);
+                            if (map->IsLoaded(data->posX, data->posY))
+                                Creature::SpawnCreature(creatureDbGuid, map); // dynguid
+                        }
+
+                        for (uint32 goDbGuid : dbGuids.second)
+                        {
+                            GameObjectData const* data = sObjectMgr.GetGOData(goDbGuid);
+                            MANGOS_ASSERT(data);
+                            map->GetPersistentState()->AddGameobjectToGrid(goDbGuid, data);
+                            map->GetSpawnManager().AddEventGuid(goDbGuid, HIGHGUID_UNIT);
+                            if (map->IsLoaded(data->posX, data->posY))
+                                GameObject::SpawnGameObject(goDbGuid, map); // dynguid
+                        }
+                    });
+                });
+            }
+        });
     }
 
     if (event_id > 0)
@@ -876,6 +909,13 @@ void GameEventMgr::GameEventUnspawn(int16 event_id)
         return;
     }
 
+    if (internal_event_id < 0 || (size_t)internal_event_id >= m_gameEventGameobjectGuids.size())
+    {
+        sLog.outError("GameEventMgr::GameEventUnspawn attempt access to out of range mGameEventGameobjectGuids element %i (size: " SIZEFMTD ")", internal_event_id, m_gameEventGameobjectGuids.size());
+        return;
+    }
+
+    std::map<uint32, std::pair<std::vector<uint32>, std::vector<uint32>>> dbGuidsToForward;
     for (uint32& itr : m_gameEventCreatureGuids[internal_event_id])
     {
         // Remove the creature from grid
@@ -892,18 +932,8 @@ void GameEventMgr::GameEventUnspawn(int16 event_id)
                 }
             }
 
-            // Remove spawn data
-            sObjectMgr.RemoveCreatureFromGrid(itr, data);
-
-            // Remove spawned cases
-            Creature::AddToRemoveListInMaps(itr, data);
+            dbGuidsToForward[data->mapid].first.push_back(itr);
         }
-    }
-
-    if (internal_event_id < 0 || (size_t)internal_event_id >= m_gameEventGameobjectGuids.size())
-    {
-        sLog.outError("GameEventMgr::GameEventUnspawn attempt access to out of range mGameEventGameobjectGuids element %i (size: " SIZEFMTD ")", internal_event_id, m_gameEventGameobjectGuids.size());
-        return;
     }
 
     for (uint32& itr : m_gameEventGameobjectGuids[internal_event_id])
@@ -922,12 +952,49 @@ void GameEventMgr::GameEventUnspawn(int16 event_id)
                 }
             }
 
-            // Remove spawn data
-            sObjectMgr.RemoveGameobjectFromGrid(itr, data);
-
-            // Remove spawned cases
-            GameObject::AddToRemoveListInMaps(itr, data);
+            dbGuidsToForward[data->mapid].second.push_back(itr);
         }
+    }
+
+    if (!dbGuidsToForward.empty())
+    {
+        // world thread will always have valid pointers to maps
+        sWorld.GetMessager().AddMessage([=](World* world)
+        {
+            for (auto& data : dbGuidsToForward)
+            {
+                sObjectMgr.RemoveDynGuidForMap(data.first, data.second);
+                sMapMgr.DoForAllMapsWithMapId(data.first, [&](Map* map) // reference pass because executed in place
+                {
+                    map->GetMessager().AddMessage([dbGuids = data.second](Map* map) // double indirection so it executes in map thread
+                    {
+                        for (uint32 creatureDbGuid : dbGuids.first)
+                        {
+                            // fetching here again for future reloading
+                            CreatureData const* data = sObjectMgr.GetCreatureData(creatureDbGuid);
+                            MANGOS_ASSERT(data);
+                            map->GetPersistentState()->RemoveCreatureFromGrid(creatureDbGuid, data);
+                            map->GetSpawnManager().RemoveEventGuid(creatureDbGuid, HIGHGUID_UNIT);
+                            if (Creature* creature = map->GetCreature(creatureDbGuid))
+                                if (creature->IsAlive()) // do not remove lootables
+                                    creature->AddObjectToRemoveList();
+                        }
+
+                        for (uint32 goDbGuid : dbGuids.second)
+                        {
+                            GameObjectData const* data = sObjectMgr.GetGOData(goDbGuid);
+                            MANGOS_ASSERT(data);
+                            map->GetPersistentState()->RemoveGameobjectFromGrid(goDbGuid, data);
+                            map->GetSpawnManager().RemoveEventGuid(goDbGuid, HIGHGUID_GAMEOBJECT);
+                            if (GameObject* go = map->GetGameObject(goDbGuid))
+                                go->Delete();
+                        }
+
+                        map->GetSpawnManager().RemoveSpawns(dbGuids.first, dbGuids.second);
+                    });
+                });
+            }
+        });
     }
 
     if (event_id > 0)
@@ -1280,6 +1347,9 @@ void GameEventMgr::ComputeEventStartAndEndTime(GameEventData& data, time_t today
             data.end = mktime(&todayT);
             break;
         }
+        case GAME_EVENT_SCHEDULE_SERVERSIDE:
+        case GAME_EVENT_SCHEDULE_DATE:
+            break;
     }
 }
 

@@ -114,21 +114,28 @@ template<> void addUnitState(Creature* obj, CellPair const& cell_pair)
 template <class T>
 void LoadHelper(CellGuidSet const& guid_set, CellPair& cell, GridRefManager<T>& /*m*/, uint32& count, Map* map, GridType& grid)
 {
-    BattleGround* bg = map->IsBattleGroundOrArena() ? ((BattleGroundMap*)map)->GetBG() : nullptr;
+    BattleGround* bg = map->GetBG();
 
     for (uint32 guid : guid_set)
     {
         T* obj;
+        uint32 newGuid = guid;
         if constexpr (std::is_same_v<T, GameObject>)
         {
             GameObjectData const* data = sObjectMgr.GetGOData(guid);
             MANGOS_ASSERT(data);
             obj = (T*)GameObject::CreateGameObject(data->id);
+            if (map->GetSpawnManager().IsEventGuid(guid, HIGHGUID_GAMEOBJECT))
+                newGuid = 0;
         }
         else
+        {
             obj = new T;
+            if (map->GetSpawnManager().IsEventGuid(guid, HIGHGUID_UNIT))
+                newGuid = 0;
+        }
         // sLog.outString("DEBUG: LoadHelper from table: %s for (guid: %u) Loading",table,guid);
-        if (!obj->LoadFromDB(guid, map, guid, 0))
+        if (!obj->LoadFromDB(guid, map, newGuid, 0))
         {
             delete obj;
             continue;

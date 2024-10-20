@@ -57,8 +57,8 @@ struct boss_murmurAI : public CombatAI
     boss_murmurAI(Creature* creature) : CombatAI(creature, MURMUR_ACTION_MAX),
         m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_bIsRegularMode(creature->GetMap()->IsRegularDifficulty())
     {
-        AddCustomAction(MURMUR_OOC_RP_ATTACK, true, [&]() { HandleOocAttack(); });
-        AddCustomAction(MURMUR_OOC_CASTER_ATTACK, true, [&]() { HandleOocCasterAttack(); });
+        AddCustomAction(MURMUR_OOC_RP_ATTACK, true, [&]() { HandleOocAttack(); }, TIMER_COMBAT_OOC);
+        AddCustomAction(MURMUR_OOC_CASTER_ATTACK, true, [&]() { HandleOocCasterAttack(); }, TIMER_COMBAT_OOC);
     }
 
     ScriptedInstance* m_instance;
@@ -160,7 +160,7 @@ struct boss_murmurAI : public CombatAI
         ResetTimer(MURMUR_OOC_CASTER_ATTACK, urand(3000, 8000));
     }
 
-    void OnSpellCast(SpellEntry const* spellInfo, Unit* target) override
+    void OnSpellCast(SpellEntry const* spellInfo, Unit* /*target*/) override
     {
         if (spellInfo->Id == SPELL_SONIC_BOOM || spellInfo->Id == SPELL_SONIC_BOOM_H)
             DoBroadcastText(EMOTE_SONIC_BOOM, m_creature);

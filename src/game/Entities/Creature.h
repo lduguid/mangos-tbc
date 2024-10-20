@@ -93,7 +93,8 @@ struct CreatureInfo
     uint32  MinLevel;
     uint32  MaxLevel;
     uint32  HeroicEntry;
-    uint32  ModelId[MAX_CREATURE_MODEL];
+    uint32  DisplayId[MAX_CREATURE_MODEL];
+    uint32  DisplayIdProbability[MAX_CREATURE_MODEL];
     uint32  Faction;
     float   Scale;
     uint32  Family;                                        // enum CreatureFamily values (optional)
@@ -126,6 +127,11 @@ struct CreatureInfo
     float   DamageVariance;
     float   ArmorMultiplier;
     float   ExperienceMultiplier;
+    float   StrengthMultiplier;
+    float   AgilityMultiplier;
+    float   StaminaMultiplier;
+    float   IntellectMultiplier;
+    float   SpiritMultiplier;
     uint32  MinLevelHealth;
     uint32  MaxLevelHealth;
     uint32  MinLevelMana;
@@ -167,6 +173,7 @@ struct CreatureInfo
     uint32  InteractionPauseTimer;
     uint32  CorpseDelay;
     uint32  SpellList;
+    uint32  CharmedSpellList;
     uint32  StringID1;
     uint32  StringID2;
     char const* AIName;
@@ -298,6 +305,11 @@ struct CreatureClassLvlStats
     float   BaseMeleeAttackPower;
     float   BaseRangedAttackPower;
     uint32  BaseArmor;
+    uint32  Strength;
+    uint32  Agility;
+    uint32  Stamina;
+    uint32  Intellect;
+    uint32  Spirit;
 };
 
 struct CreatureModelInfo
@@ -580,7 +592,7 @@ class Creature : public Unit
         bool IsTemporarySummon() const { return m_subtype == CREATURE_SUBTYPE_TEMPORARY_SUMMON; }
         bool IsCritter() const { return m_creatureInfo->CreatureType == CREATURE_TYPE_CRITTER; }
 
-#ifdef BUILD_PLAYERBOT
+#ifdef BUILD_DEPRECATED_PLAYERBOT
         // Adds functionality to load/unload bots from NPC, also need to apply SQL scripts
         void LoadBotMenu(Player* pPlayer);
 #endif
@@ -597,8 +609,8 @@ class Creature : public Unit
         bool IsNoAggroOnSight() const { return (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_NO_AGGRO_ON_SIGHT) != 0; }
         bool IsGuard() const { return (GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_GUARD) != 0; }
 
-        bool CanWalk() const { return (GetCreatureInfo()->InhabitType & INHABIT_GROUND) != 0; }
-        bool CanSwim() const { return (GetCreatureInfo()->InhabitType & INHABIT_WATER) != 0; }
+        bool CanWalk() const override { return (GetCreatureInfo()->InhabitType & INHABIT_GROUND) != 0; }
+        bool CanSwim() const override { return (GetCreatureInfo()->InhabitType & INHABIT_WATER) != 0; }
         bool IsSwimming() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_SWIMMING); }
         bool CanFly() const override { return (GetCreatureInfo()->InhabitType & INHABIT_AIR) || m_movementInfo.HasMovementFlag((MovementFlags)(MOVEFLAG_LEVITATING | MOVEFLAG_HOVER | MOVEFLAG_CAN_FLY)); }
         bool IsFlying() const override { return m_movementInfo.HasMovementFlag((MovementFlags)(MOVEFLAG_FLYING | MOVEFLAG_HOVER | MOVEFLAG_LEVITATING)); }
@@ -671,10 +683,11 @@ class Creature : public Unit
         bool UpdateAllStats() override;
         void UpdateResistances(uint32 school) override;
         void UpdateArmor() override;
-        void UpdateMaxHealth() override;
-        void UpdateMaxPower(Powers power) override;
         void UpdateAttackPowerAndDamage(bool ranged = false) override;
         void UpdateDamagePhysical(WeaponAttackType attType) override;
+        virtual float GetConditionalTotalPhysicalDamageModifier(WeaponAttackType type) const;
+        float GetHealthBonusFromStamina() const override;
+
         uint32 GetCurrentEquipmentId() const { return m_equipmentId; }
 
         static float _GetHealthMod(int32 Rank);             ///< Get custom factor to scale health (default 1, CONFIG_FLOAT_RATE_CREATURE_*_HP)
@@ -760,10 +773,6 @@ class Creature : public Unit
         float GetRespawnRadius() const { return m_respawnradius; }
         void SetRespawnRadius(float dist) { m_respawnradius = dist; }
 
-        // Functions spawn/remove creature with DB guid in all loaded map copies (if point grid loaded in map)
-        static void AddToRemoveListInMaps(uint32 db_guid, CreatureData const* data);
-        static void SpawnInMaps(uint32 db_guid, CreatureData const* data);
-
         void SendZoneUnderAttackMessage(Player* attacker) const;
 
         void SetInCombatWithZone(bool checkAttackability = true);
@@ -808,13 +817,13 @@ class Creature : public Unit
 
         bool hasWeapon(WeaponAttackType type) const override;
         bool hasWeaponForAttack(WeaponAttackType type) const override { return (Unit::hasWeaponForAttack(type) && hasWeapon(type)); }
-        virtual void SetCanDualWield(bool value);
+        virtual void SetCanDualWield(bool value) override;
 
         void SetInvisible(bool invisible) { m_isInvisible = invisible; }
         bool IsInvisible() const { return m_isInvisible; }
 
         void SetIgnoreMMAP(bool ignore) { m_ignoreMMAP = ignore; }
-        bool IsIgnoringMMAP() const { return m_ignoreMMAP; }
+        virtual MmapForcingStatus IsIgnoringMMAP() const override;
 
         void OnEventHappened(uint16 eventId, bool activate, bool resume) override { return AI()->OnEventHappened(eventId, activate, resume); }
 
@@ -844,7 +853,7 @@ class Creature : public Unit
         void SetNoLoot(bool state);
         bool IsNoReputation() { return m_noReputation; }
         void SetNoReputation(bool state) { m_noReputation = state; }
-        bool IsIgnoringFeignDeath() const;
+        bool IsIgnoringFeignDeath() const override;
         void SetIgnoreFeignDeath(bool state);
 
         void SetNoWoundedSlowdown(bool state);
@@ -870,7 +879,7 @@ class Creature : public Unit
 
         // Spell Lists
         CreatureSpellList const& GetSpellList() const { return m_spellList; }
-        std::vector<uint32> GetCharmSpells() const;
+        std::vector<uint32> GetCharmSpells() const override;
         enum CooldownResult
         {
             COOLDOWN_RESULT_NOT_FOUND       = 0,

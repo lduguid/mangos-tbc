@@ -315,6 +315,19 @@ namespace MaNGOS
         template<class NOT_INTERESTED> void Visit(GridRefManager<NOT_INTERESTED>&) {}
     };
 
+    template<class Check>
+    struct DynamicObjectListSearcher
+    {
+        DynamicObjectList& i_objects;
+        Check& i_check;
+
+        DynamicObjectListSearcher(DynamicObjectList& objects, Check& check) : i_objects(objects), i_check(check) {}
+
+        void Visit(DynamicObjectMapType& m);
+
+        template<class NOT_INTERESTED> void Visit(GridRefManager<NOT_INTERESTED>&) {}
+    };
+
     // Unit searchers
 
     // First accepted by Check Unit if any
@@ -1015,7 +1028,7 @@ namespace MaNGOS
             WorldObject const& GetFocusObject() const { return *i_obj; }
             bool operator()(Unit* u)
             {
-                return u->IsAlive() && i_obj->IsWithinDistInMap(u, i_range, true, i_ignorePhase);
+                return u->IsAlive() && i_obj->IsWithinDistInMap(u, i_range, true, i_ignorePhase) && i_obj->CanAssistSpell(u);
             }
         private:
             WorldObject const* i_obj;

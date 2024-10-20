@@ -68,17 +68,11 @@ struct boss_warp_splinterAI : public CombatAI
 
     bool m_isRegularMode;
 
-    uint32 m_uiWarStompTimer;
-    uint32 m_uiSummonTreantsTimer;
-    uint32 m_uiArcaneVolleyTimer;
-
     GuidVector m_saplings;
 
     void Reset() override
     {
-        m_uiWarStompTimer       = urand(6000, 7000);
-        m_uiSummonTreantsTimer  = urand(25000, 35000);
-        m_uiArcaneVolleyTimer   = urand(12000, 14500);
+        CombatAI::Reset();
         m_saplings.clear();
         m_creature->RemoveGuardians();
     }
@@ -105,7 +99,7 @@ struct boss_warp_splinterAI : public CombatAI
 
     void EnterEvadeMode() override
     {
-        ScriptedAI::EnterEvadeMode();
+        CombatAI::EnterEvadeMode();
         DespawnGuids(m_saplings);
     }
 
@@ -118,50 +112,12 @@ struct boss_warp_splinterAI : public CombatAI
         DoBroadcastText(urand(0, 1) ? SAY_SUMMON_1 : SAY_SUMMON_2, m_creature);
     }
 
-    void OnSpellCast(SpellEntry const* spellInfo, Unit* target) override
+    void OnSpellCast(SpellEntry const* spellInfo, Unit* /*target*/) override
     {
         switch (spellInfo->Id)
         {
             case SPELL_SUMMON_SAPLINGS: SummonTreants(); break;
         }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
-            return;
-
-        // War Stomp
-        if (m_uiWarStompTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(nullptr, SPELL_WAR_STOMP) == CAST_OK)
-                m_uiWarStompTimer = urand(17000, 38000);
-        }
-        else
-            m_uiWarStompTimer -= uiDiff;
-
-        // Arcane Volley
-        if (m_uiArcaneVolleyTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(nullptr, m_isRegularMode ? SPELL_ARCANE_VOLLEY : SPELL_ARCANE_VOLLEY_H) == CAST_OK)
-                m_uiArcaneVolleyTimer = urand(16000, 38000);
-        }
-        else
-            m_uiArcaneVolleyTimer -= uiDiff;
-
-        // Summon Treants
-        if (m_uiSummonTreantsTimer < uiDiff)
-        {
-            if (DoCastSpellIfCan(nullptr, SPELL_SUMMON_SAPLINGS, CAST_TRIGGERED) == CAST_OK)
-            {
-                SummonTreants();
-                m_uiSummonTreantsTimer = urand(37000, 55000);
-            }
-        }
-        else
-            m_uiSummonTreantsTimer -= uiDiff;
-
-        DoMeleeAttackIfReady();
     }
 };
 

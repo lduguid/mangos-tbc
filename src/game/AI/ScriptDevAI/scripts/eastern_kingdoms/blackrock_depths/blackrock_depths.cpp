@@ -734,7 +734,7 @@ struct npc_mistress_nagmaraAI : public ScriptedAI
         pRocknot->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
 
         m_creature->GetMotionMaster()->MoveIdle();
-        m_creature->GetMotionMaster()->MoveFollow(pRocknot, 2.0f, 0);
+        m_creature->GetMotionMaster()->MoveChase(pRocknot, 2.0f, 0);
         m_uiPhase = 1;
     }
 
@@ -769,7 +769,7 @@ struct npc_mistress_nagmaraAI : public ScriptedAI
                     m_uiPhaseTimer = 5000;
                 }
                 else
-                    m_creature->GetMotionMaster()->MoveFollow(pRocknot, 2.0f, 0);
+                    m_creature->GetMotionMaster()->MoveChase(pRocknot, 2.0f, 0);
                 break;
             case 2:     // Phase 2 : Nagmara is "seducing" Rocknot
                 DoScriptText(SAY_NAGMARA_2, m_creature);
@@ -952,7 +952,7 @@ struct npc_rocknotAI : public npc_escortAI
                     SetCurrentWaypoint(9);
                 }
                 else
-                    pNagmara->GetMotionMaster()->MoveFollow(m_creature, 2.0f, 0);
+                    pNagmara->GetMotionMaster()->MoveChase(m_creature, 2.0f, 0);
                 break;
             case 17:
                 // Open the bar back door if relevant
@@ -963,7 +963,7 @@ struct npc_rocknotAI : public npc_escortAI
                     m_pInstance->SetBarDoorIsOpen();
                 }
                 if (pNagmara)
-                    pNagmara->GetMotionMaster()->MoveFollow(m_creature, 2.0f, 0);
+                    pNagmara->GetMotionMaster()->MoveChase(m_creature, 2.0f, 0);
                 break;
             case 34: // Reach under the stair, make Nagmara move to her position and give the handle back to Nagmara AI script
                 if (!pNagmara)
@@ -1898,6 +1898,40 @@ UnitAI* GetAI_npc_ironhand_guardian(Creature* creature)
     return new npc_ironhand_guardianAI(creature);
 }
 
+// 27673 - Five Fat Finger Exploding Heart Technique
+struct FiveFatFingerExplodingHeartTechnique : public AuraScript
+{
+    struct FatFingerStorage : public ScriptStorage
+    {
+        Position pos;
+    };
+
+    void OnAuraInit(Aura* aura) const override
+    {
+        FatFingerStorage* storage = new FatFingerStorage();
+        storage->pos = aura->GetTarget()->GetPosition();
+        aura->SetScriptStorage(storage);
+    }
+
+    void OnPeriodicTrigger(Aura* aura, PeriodicTriggerData& data) const override
+    {
+        if (aura->GetStackAmount() < 5)
+            return;
+        // 5 steps 5 yards?
+        if (static_cast<FatFingerStorage*>(aura->GetScriptStorage())->pos.GetDistance(aura->GetTarget()->GetPosition()) >= 5.f)
+            data.spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(27676); // Exploding Heart
+    }
+
+    void OnPeriodicTickEnd(Aura* aura) const override
+    {
+        if (aura->GetStackAmount() < 5)
+            return;
+        // 5 steps 5 yards?
+        if (static_cast<FatFingerStorage*>(aura->GetScriptStorage())->pos.GetDistance(aura->GetTarget()->GetPosition()) >= 5.f)
+            aura->GetTarget()->RemoveAurasDueToSpell(aura->GetId());
+    }
+};
+
 void AddSC_blackrock_depths()
 {
     Script* pNewScript = new Script;
@@ -1997,4 +2031,6 @@ void AddSC_blackrock_depths()
     pNewScript->Name = "npc_ironhand_guardian";
     pNewScript->GetAI = &GetAI_npc_ironhand_guardian;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<FiveFatFingerExplodingHeartTechnique>("spell_five_fat_finger_exploding_heart_technique");
 }

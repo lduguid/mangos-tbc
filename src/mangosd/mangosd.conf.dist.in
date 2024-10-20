@@ -1,9 +1,19 @@
 #####################################
-# MaNGOS Configuration file         #
+# MaNGOS Configuration file         
+# 
+# 	To overwrite configuration fields with environment variables
+# 	use the following pattern to generate environment variable names:
+#
+# 		For Rate.Health:
+# 			export Mangosd_Rate_Health=1.2
+#
+# 		For DataDir:
+# 			export Mangosd_DataDir=/tmp
+#
 #####################################
 
 [MangosdConf]
-ConfVersion=2022012301
+ConfVersion=2024020101
 
 ###################################################################################################################
 # CONNECTIONS AND DIRECTORIES
@@ -185,6 +195,11 @@ SD2ErrorLogFile = "SD2Errors.log"
 #        Disable mmap pathfinding on the listed maps.
 #        List of map ids with delimiter ','
 #
+#    mmap.preload
+#        Enable/Disable preloading on first mapId load - expensive but thread safe - use only for big servers
+#                 1 (enable)
+#        Default: 0 (disable)
+#
 #    PathFinder.OptimizePath
 #        Use or not path finder path optimization (cut calculated points).
 #                 0  (disable)
@@ -251,6 +266,7 @@ vmap.enableIndoorCheck = 1
 DetectPosCollision = 1
 mmap.enabled = 1
 mmap.ignoreMapIds = ""
+mmap.preload = 0
 PathFinder.OptimizePath = 1
 PathFinder.NormalizeZ = 0
 UpdateUptimeInterval = 10
@@ -597,6 +613,12 @@ LogColors = ""
 #        Enable or disable Waterbreathing
 #        Default: 4 (Console as noneone)
 #
+#    AlwaysShowQuestGreeting
+#        Controls whether quest greetings (used when NPC is a quest giver but does not have UNIT_NPC_FLAG_GOSSIP) is always
+#        shown, or is shown only if there are more than one menu items available to the player.
+#        Default: 0 (disabled, original behavior)
+#                 1 (enabled)
+#
 #    TaxiFlightChatFix
 #        Workaround for client bug: resuming taxi flight on login causes missing chat channels until the flight ends.
 #        When enabled allows clients to join local channels of the zone they are flying over on login and all custom channels.
@@ -662,6 +684,11 @@ LogColors = ""
 #        Unload the instance map from memory after some time if no players are inside.
 #        Default: 1800000 (miliseconds, i.e 30 minutes)
 #                 0 (instance maps are kept in memory until they are reset)
+#
+#    Instance.DisableRelocate
+#        Disables relocation of player upon entering instance after 15 minutes or instance reset
+#        Default: 0 - false - relocates player after being logged out in instance for more than 15 minutes or instance reset
+#                 1 - true - location is kept
 #
 #    Quests.LowLevelHideDiff
 #        Quest level difference to hide for player low level quests:
@@ -838,6 +865,7 @@ MaxArenaPoints = 5000
 StartArenaPoints = 0
 InstantLogout = 1
 DisableWaterBreath = 4
+AlwaysShowQuestGreeting = 0
 TaxiFlightChatFix = 0
 LongFlightPathsPersistence = 0
 AllFlightPaths = 0
@@ -851,6 +879,7 @@ Instance.IgnoreRaid = 0
 Instance.StrictCombatLockdown = 1
 Instance.ResetTimeHour = 4
 Instance.UnloadDelay = 1800000
+Instance.DisableRelocate = 0
 Quests.LowLevelHideDiff = 5
 Quests.HighLevelHideDiff = 7
 Quests.Daily.ResetHour = 6
@@ -961,7 +990,7 @@ TalentsInspecting = 1
 #
 #    CreatureFamilyAssistanceRadius
 #        Radius which creature will use to call assistance without moving
-#        Default: 10
+#        Default: 5
 #                 0   - off
 #
 #    CreatureFamilyAssistanceDelay
@@ -974,6 +1003,10 @@ TalentsInspecting = 1
 #
 #    CreatureCheckForHelpAggroDelay
 #        Time during which at combat start check for help is disabled
+#        Default: 2000 (2 seconds)
+#
+#    CreatureLinkingAggroDelay
+#        Time after which spawn_group and linking aggro is triggered
 #        Default: 2000 (2 seconds)
 #
 #    CreatureFamilyFleeDelay
@@ -1060,7 +1093,7 @@ Rate.Creature.Aggro = 1
 CreatureRespawnAggroDelay = 5000
 LeashRadius = 30
 CreatureFamilyFleeAssistanceRadius = 30
-CreatureFamilyAssistanceRadius = 10
+CreatureFamilyAssistanceRadius = 5
 CreatureFamilyAssistanceDelay = 1500
 CreatureCheckForHelpRadius = 5
 CreatureCheckForHelpAggroDelay = 2000
@@ -1373,6 +1406,17 @@ Visibility.AIRelocationNotifyDelay = 1000
 #        XP rates
 #        Default: 1
 #
+#    Rate.Pet.XP.Kill.Vanilla
+#    Rate.Pet.XP.Kill.BC
+#    Rate.XP.Kill.Vanilla
+#    Rate.XP.Kill.BC
+#    Rate.XP.Quest.Vanilla
+#    Rate.XP.Quest.BC
+#    Rate.XP.Explore.Vanilla
+#    Rate.XP.Explore.BC
+#        XP rates for map areas belonging to each expansion (cumulative with generic XP modifiers)
+#        Default: 1
+#
 #    Rate.Rest.InGame
 #    Rate.Rest.Offline.InTavernOrCity
 #    Rate.Rest.Offline.InWilderness
@@ -1516,6 +1560,14 @@ Rate.Pet.XP.Kill = 1
 Rate.XP.Kill    = 1
 Rate.XP.Quest   = 1
 Rate.XP.Explore = 1
+Rate.Pet.XP.Kill.Vanilla = 1
+Rate.Pet.XP.Kill.BC      = 1
+Rate.XP.Kill.Vanilla  = 1
+Rate.XP.Kill.BC       = 1
+Rate.XP.Quest.Vanilla = 1
+Rate.XP.Quest.BC      = 1
+Rate.XP.Explore.Vanilla = 1
+Rate.XP.Explore.BC      = 1
 Rate.Rest.InGame = 1
 Rate.Rest.Offline.InTavernOrCity = 1
 Rate.Rest.Offline.InWilderness = 1
@@ -1556,6 +1608,18 @@ Death.Bones.World = 1
 Death.Bones.BattlegroundOrArena = 1
 Death.Ghost.RunSpeed.World = 1.0
 Death.Ghost.RunSpeed.Battleground = 1.0
+
+###################################################################################################################
+# LFG CONFIG
+#
+#    Lfg.Enabled
+#        Lfg is enabled
+#        Default: 1 (enable)
+#                 0 (disable)
+#
+###################################################################################################################
+
+Lfg.Enabled = 1
 
 ###################################################################################################################
 # BATTLEGROUND CONFIG

@@ -589,6 +589,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 9205:          // Hate to Zero (Hate to Zero)
         case 9460:          // Corrosive Ooze
         case 9464:          // Barbs
+        case 9617:          // Ghost Visual
         case 9769:          // Radiation
         case 9941:          // Spell Reflection
         case 10022:         // Deadly Poison
@@ -613,6 +614,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 12627:         // Disease Cloud
         case 12787:         // Thrash
         case 12898:         // Smoke Aura Visual
+        case 13260:         // Pet Bomb Passive
         case 13299:         // Poison Proc
         case 13616:         // Wracking Pains Proc
         case 13767:         // Hate to Zero (Hate to Zero)
@@ -653,6 +655,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 21862:         // Radiation
         case 22128:         // Thorns
         case 22578:         // Glowy (Black)
+        case 22650:         // Ghost Visual
         case 22735:         // Spirit of Runn Tum
         case 22781:         // Thornling
         case 22788:         // Grow
@@ -665,6 +668,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 27578:         // Battle Shout
         case 27793:         // Disease Cloud
         case 27987:         // Unholy Aura
+        case 28002:         // Ghost Visual
         case 28126:         // Spirit Particles (purple)
         case 28156:         // Disease Cloud
         case 28362:         // Disease Cloud
@@ -675,6 +679,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 30074:         // Toxic Gas
         case 30205:         // Shadow Cage - Magtheridon
         case 30982:         // Crippling Poison
+        case 30987:         // Ghost Visual (Red)
         case 31332:         // Dire Wolf Visual
         case 31387:         // Time Rift Channel
         case 31607:         // Disease Cloud
@@ -691,6 +696,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 32942:         // Phasing Invisibility
         case 33460:         // Inhibit Magic
         case 33483:         // Mana Tap
+        case 33839:         // Vir'aani Concentration
         case 33900:         // Shroud of Death
         case 33908:         // Burning Spikes
         case 34343:         // Thorns
@@ -703,7 +709,9 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 35408:         // Fear Proc
         case 35596:         // Power of the Legion
         case 35747:         // Flame Buffet
+        case 35838:         // Ghost Visual
         case 35841:         // Draenei Spirit Visual
+        case 35847:         // Ghost Visual Red
         case 35850:         // Draenei Spirit Visual 2
         case 35917:         // Firey Intellect
         case 36006:         // Fel Fire Aura
@@ -1397,9 +1405,6 @@ inline bool IsPositiveEffect(const SpellEntry* spellproto, SpellEffectIndex effI
         case 34190: // Arcane Orb - should be negative
                     /*34172 is cast onto friendly target, and fails bcs its delayed and we remove negative delayed on friendlies due to Duel code, if we change target pos code
                     bcs 34190 will be evaled as neg, 34172 will be evaled as neg, and hence be removed cos its negative delayed on a friendly*/
-        case 35941: // Gravity Lapse - Neutral spell with TARGET_ONLY_PLAYER attribute, should hit all players in the room
-        case 39495: // Remove Tainted Cores
-        case 39497: // Remove Enchanted Weapons - both should hit all players in zone with the given items, uses a neutral target type
         case 34700: // Allergic Reaction - Neutral target type - needs to be a debuff
         case 36717: // Neutral spells with SPELL_ATTR_EX3_TARGET_ONLY_PLAYER as a filter
         case 38829:
@@ -1757,7 +1762,12 @@ inline bool IsIgnoreLosSpell(SpellEntry const* spellInfo)
     return spellInfo->HasAttribute(SPELL_ATTR_EX2_IGNORE_LINE_OF_SIGHT);
 }
 
-inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex effIdx)
+inline bool IsIgnoreLosSpellCast(SpellEntry const* spellInfo)
+{
+    return spellInfo->rangeIndex == 13 || IsIgnoreLosSpell(spellInfo);
+}
+
+inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex effIdx, bool targetB)
 {
     if (spellInfo->HasAttribute(SPELL_ATTR_EX5_ALWAYS_LINE_OF_SIGHT))
         return false;
@@ -1769,15 +1779,13 @@ inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex
         case TARGET_UNIT_FRIEND_AND_PARTY:
         case TARGET_UNIT_RAID_AND_CLASS:
         case TARGET_ENUM_UNITS_PARTY_WITHIN_CASTER_RANGE: return true;
-        default: break;
+        default:
+            if (IsCheckCastTarget(targetB ? spellInfo->EffectImplicitTargetB[effIdx] : spellInfo->EffectImplicitTargetA[effIdx]))
+                return IsIgnoreLosSpellCast(spellInfo);
+            break;
     }
 
     return spellInfo->EffectRadiusIndex[effIdx] == 28 || IsIgnoreLosSpell(spellInfo);
-}
-
-inline bool IsIgnoreLosSpellCast(SpellEntry const* spellInfo)
-{
-    return spellInfo->rangeIndex == 13 || IsIgnoreLosSpell(spellInfo);
 }
 
 // applied when item is received/looted/equipped
@@ -1851,6 +1859,12 @@ inline bool IsIgnoreRootSpell(SpellEntry const* spellInfo)
             return true;
 
     return false;
+}
+
+inline bool IsSpellUseWeaponSkill(SpellEntry const* spellInfo)
+{
+    // note: this is not a mirror of client function - that function does not work for Bloodthirst edgecase
+    return spellInfo->EquippedItemClass == ITEM_CLASS_WEAPON || spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MELEE || spellInfo->DmgClass == SPELL_DAMAGE_CLASS_RANGED && spellInfo->HasAttribute(SPELL_ATTR_USES_RANGED_SLOT);
 }
 
 inline uint32 GetDispellMask(DispelType dispel)
@@ -2447,15 +2461,15 @@ enum ProcFlagsEx
     PROC_EX_DEFLECT             = 0x0000200,
     PROC_EX_ABSORB              = 0x0000400,
     PROC_EX_REFLECT             = 0x0000800,
-    PROC_EX_INTERRUPT           = 0x0001000,                // Melee hit result can be Interrupt (not used)
+    PROC_EX_INTERRUPT           = 0x0001000,                // melee hit result can be Interrupt (not used)
     PROC_EX_RESERVED1           = 0x0002000,
     PROC_EX_RESERVED2           = 0x0004000,
     PROC_EX_RESERVED3           = 0x0008000,
-    PROC_EX_EX_TRIGGER_ALWAYS   = 0x0010000,                // If set trigger always ( no matter another flags) used for drop charges
-    PROC_EX_EX_ONE_TIME_TRIGGER = 0x0020000,                // If set trigger always but only one time (not used)
-    PROC_EX_PERIODIC_POSITIVE   = 0x0040000,                // For periodic heal
+    PROC_EX_EX_TRIGGER_ON_NO_DAMAGE = 0x0010000,            // if set, hits trigger even if no damage/healing is dealt
+    PROC_EX_EX_ONE_TIME_TRIGGER = 0x0020000,                // if set trigger always but only one time (not used)
+    PROC_EX_PERIODIC_POSITIVE   = 0x0040000,                // for periodic heal
     PROC_EX_CAST_END            = 0x0080000,                // procs on end of cast
-    PROC_EX_MAGNET              = 0x0100000,                // For grounding totem hit
+    PROC_EX_MAGNET              = 0x0100000,                // for grounding totem hit
 
     // Flags for internal use - do not use these in db!
     PROC_EX_INTERNAL_HOT        = 0x2000000
@@ -2473,16 +2487,7 @@ struct SpellProcEventEntry
     uint32      cooldown;                                   // hidden cooldown used for some spell proc events, applied to _triggered_spell_
 };
 
-struct SpellBonusEntry
-{
-    float  direct_damage;
-    float  dot_damage;
-    float  ap_bonus;
-    float  ap_dot_bonus;
-};
-
 typedef std::unordered_map<uint32, SpellProcEventEntry> SpellProcEventMap;
-typedef std::unordered_map<uint32, SpellBonusEntry>     SpellBonusMap;
 
 #define ELIXIR_BATTLE_MASK    0x01
 #define ELIXIR_GUARDIAN_MASK  0x02
@@ -2671,7 +2676,6 @@ inline bool IsProfessionOrRidingSkill(uint32 skill)
 
 class SpellMgr
 {
-        friend struct DoSpellBonuses;
         friend struct DoSpellProcEvent;
         friend struct DoSpellProcItemEnchant;
 
@@ -2941,17 +2945,6 @@ class SpellMgr
         }
 
         static bool IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const* spellProcEvent, uint32 EventProcFlag, SpellEntry const* spellInfo, uint32 procFlags, uint32 procExtra);
-
-        // Spell bonus data
-        SpellBonusEntry const* GetSpellBonusData(uint32 spellId) const
-        {
-            // Lookup data
-            SpellBonusMap::const_iterator itr = mSpellBonusMap.find(spellId);
-            if (itr != mSpellBonusMap.end())
-                return &itr->second;
-
-            return nullptr;
-        }
 
         // Spell target coordinates
         SpellTargetPosition const* GetSpellTargetPosition(uint32 spell_id) const
@@ -3246,7 +3239,6 @@ class SpellMgr
         void LoadSpellElixirs();
         void LoadSpellProcEvents();
         void LoadSpellProcItemEnchant();
-        void LoadSpellBonuses();
         void LoadSpellTargetPositions();
         void LoadSpellThreats();
         void LoadSkillLineAbilityMaps();
@@ -3265,7 +3257,6 @@ class SpellMgr
         SpellThreatMap     mSpellThreatMap;
         SpellProcEventMap  mSpellProcEventMap;
         SpellProcItemEnchantMap mSpellProcItemEnchantMap;
-        SpellBonusMap      mSpellBonusMap;
         SkillLineAbilityMap mSkillLineAbilityMapBySpellId;
         SkillLineAbilityMap mSkillLineAbilityMapBySkillId;
         SkillRaceClassInfoMap mSkillRaceClassInfoMap;

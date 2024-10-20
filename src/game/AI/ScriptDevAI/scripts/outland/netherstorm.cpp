@@ -2826,7 +2826,7 @@ struct npc_scrap_reaverAI : ScriptedPetAI
         }
     }
 
-    void UpdateTimers(const uint32 diff)
+    void UpdateTimers(const uint32 diff) override
     {
         if (m_despawnTimer)
         {
@@ -2929,7 +2929,7 @@ struct npc_scrap_reaverAI : ScriptedPetAI
 
 struct ScrapReaverSpell : public SpellScript, public AuraScript
 {
-    bool OnCheckTarget(const Spell* /*spell*/, Unit* target, SpellEffectIndex /*eff*/) const
+    bool OnCheckTarget(const Spell* /*spell*/, Unit* target, SpellEffectIndex /*eff*/) const override
     {
         // Only one player can control the scrap reaver
         if (target->HasAura(SPELL_SCRAP_REAVER))
@@ -3129,7 +3129,7 @@ struct npc_scrapped_fel_reaverAI : ScriptedAI
         }
     }
 
-    void UpdateAI(const uint32 diff)
+    void UpdateAI(const uint32 diff) override
     {
         if (m_eventStarted)
         {
@@ -3300,7 +3300,7 @@ struct npc_adyen_the_lightwardenAI : public ScriptedAI
         m_timers[id] = timer;
     }
 
-    void UpdateTimers(const uint32 diff)
+    void UpdateTimers(const uint32 diff) override
     {
         std::vector<uint32> removedTimers;
 
@@ -3821,7 +3821,7 @@ struct npc_kaylaan_the_lostAI : public ScriptedAI
                 m_actionReadyStatus[KAYLAAN_ACTION_HEAL] = true;
     }
 
-    void ExecuteActions()
+    void ExecuteActions() override
     {
         if (m_creature->IsNonMeleeSpellCasted(false) || m_combatScriptHappening)
             return;
@@ -4040,6 +4040,19 @@ struct RingOfFlame : public AuraScript
     }
 };
 
+
+struct MentalInterferenceSpellScript : public SpellScript
+{
+    SpellCastResult OnCheckCast(Spell* spell, bool /*strict*/) const override
+    {
+        if (ObjectGuid target = spell->m_targets.getUnitTargetGuid())
+            if (target.GetEntry() != 16943 && target.GetEntry() != 20928)  // Mental Interference can be cast only on these two targets
+                return SPELL_FAILED_BAD_TARGETS;
+
+        return SPELL_CAST_OK;
+    }
+};
+
 void AddSC_netherstorm()
 {
     Script* pNewScript = new Script;
@@ -4160,4 +4173,5 @@ void AddSC_netherstorm()
     RegisterSpellScript<UltraDeconsolodationZapper>("spell_ultra_deconsolodation_zapper");
     RegisterSpellScript<ThrowBoomsDoom>("spell_throw_booms_doom");
     RegisterSpellScript<ScrapReaverSpell>("spell_scrap_reaver_spell");
+    RegisterSpellScript<MentalInterferenceSpellScript>("spell_mental_interference");
 }

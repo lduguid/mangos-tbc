@@ -269,6 +269,7 @@ enum AuraScriptLocation : uint32
     SCRIPT_LOCATION_SPELL_DAMAGE_TAKEN,
     SCRIPT_LOCATION_SPELL_HEALING_DONE,
     SCRIPT_LOCATION_SPELL_HEALING_TAKEN,
+    SCRIPT_LOCATION_CRIT_CHANCE,
     SCRIPT_LOCATION_MAX,
 };
 
@@ -766,6 +767,7 @@ struct ProcSystemArguments
     uint32 procExtra;
 
     uint32 damage; // contains full heal or full damage
+    uint32 absorb; // absorbed damage
     SpellEntry const* spellInfo;
     WeaponAttackType attType;
 
@@ -775,9 +777,9 @@ struct ProcSystemArguments
     uint32 healthGain;
     bool isHeal;
 
-    explicit ProcSystemArguments(Unit* attacker, Unit* victim, uint32 procFlagsAttacker, uint32 procFlagsVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType = BASE_ATTACK,
+    explicit ProcSystemArguments(Unit* attacker, Unit* victim, uint32 procFlagsAttacker, uint32 procFlagsVictim, uint32 procExtra, uint32 amount, uint32 absorb, WeaponAttackType attType = BASE_ATTACK,
         SpellEntry const* spellInfo = nullptr, Spell* spell = nullptr, uint32 healthGain = 0, bool isHeal = false) : attacker(attacker), victim(victim), procFlagsAttacker(procFlagsAttacker), procFlagsVictim(procFlagsVictim), procExtra(procExtra), damage(amount),
-        spellInfo(spellInfo), attType(attType), spell(spell), healthGain(healthGain), isHeal(isHeal)
+        absorb(absorb), spellInfo(spellInfo), attType(attType), spell(spell), healthGain(healthGain), isHeal(isHeal)
     {
     }
 };
@@ -799,6 +801,7 @@ struct ProcExecutionData
 
     WeaponAttackType attType;
     uint32 damage; // contains full heal or full damage
+    uint32 absorb; // absorbed damage
     SpellEntry const* spellInfo; // filled always even on aura tick
 
     Spell* spell; // only filled on direct spell execution
@@ -1218,7 +1221,7 @@ class Unit : public WorldObject
          */
         bool CanUseEquippedWeapon(WeaponAttackType attackType) const
         {
-            if (IsNoWeaponShapeShift())
+            if (IsAttackSpeedOverridenShapeShift())
                 return false;
 
             switch (attackType)
@@ -1436,7 +1439,8 @@ class Unit : public WorldObject
         virtual bool CanAssistSpell(Unit const* target, SpellEntry const* spellInfo = nullptr) const override;
 
         bool CanAttackOnSight(Unit const* target) const; // Used in MoveInLineOfSight checks
-        bool CanAttackInCombat(Unit const* target) const;
+        bool CanAttackInCombat(Unit const* target, bool ignoreFlagsSource, bool ignoreFlagsTarget) const;
+        bool CanAttackServerside(Unit const* unit, bool ignoreFlagsSource, bool ignoreFlagsTarget) const;
         bool CanAssistInCombatAgainst(Unit const* who, Unit const* enemy) const;
         bool CanJoinInAttacking(Unit const* enemy) const;
 
@@ -1504,7 +1508,7 @@ class Unit : public WorldObject
 
         static bool IsAllowedDamageInArea(Unit* attacker, Unit* victim);
 
-        void CalculateSpellDamage(SpellNonMeleeDamage* spellDamageInfo, int32 damage, SpellEntry const* spellInfo, WeaponAttackType attackType = BASE_ATTACK);
+        void CalculateSpellDamage(SpellNonMeleeDamage* spellDamageInfo, int32 damage, SpellEntry const* spellInfo, SpellEffectIndex effectIndex, WeaponAttackType attackType = BASE_ATTACK);
         static void DealSpellDamage(Unit* affectiveCaster, SpellNonMeleeDamage* spellDamageInfo, bool durabilityLoss, bool resetLeash);
 
         uint32 GetResilienceRatingDamageReduction(uint32 damage, SpellDmgClass dmgClass, bool periodic = false, Powers pwrType = POWER_HEALTH) const;
@@ -1814,6 +1818,15 @@ class Unit : public WorldObject
         bool IsJumping() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_JUMPING); }
         bool IsFalling() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_FALLING); }
 
+        enum class MmapForcingStatus
+        {
+            FORCED,
+            DEFAULT,
+            IGNORED
+        };
+
+        virtual MmapForcingStatus IsIgnoringMMAP() const;
+
         bool IsDebuggingMovement() const { return m_debuggingMovement; }
         void SetDebuggingMovement(bool state) { m_debuggingMovement = state; }
 
@@ -2014,6 +2027,7 @@ class Unit : public WorldObject
 
         bool IsShapeShifted() const;
         bool IsNoWeaponShapeShift() const;
+        bool IsAttackSpeedOverridenShapeShift() const;
 
         bool IsInDisallowedMountForm() const
         {
@@ -2022,8 +2036,7 @@ class Unit : public WorldObject
                    form != FORM_SHADOW && form != FORM_STEALTH;
         }
 
-        float m_modMeleeHitChance;
-        float m_modRangedHitChance;
+        float m_modWeaponHitChance[MAX_ATTACK];
         float m_modSpellHitChance;
         float m_modSpellCritChance[MAX_SPELL_SCHOOL];
 
@@ -2048,12 +2061,18 @@ class Unit : public WorldObject
         Powers GetPowerTypeByAuraGroup(UnitMods unitMod) const;
         bool CanModifyStats() const { return m_canModifyStats; }
         void SetCanModifyStats(bool modifyStats) { m_canModifyStats = modifyStats; }
+
+        static float GetHealthBonusFromStamina(float stamina);
+        virtual float GetHealthBonusFromStamina() const;
+        static float GetManaBonusFromIntellect(float intellect);
+        float GetManaBonusFromIntellect() const;
+
         virtual bool UpdateStats(Stats stat) = 0;
         virtual bool UpdateAllStats() = 0;
         virtual void UpdateResistances(uint32 school) = 0;
         virtual void UpdateArmor() = 0;
-        virtual void UpdateMaxHealth() = 0;
-        virtual void UpdateMaxPower(Powers power) = 0;
+        virtual void UpdateMaxHealth();
+        virtual void UpdateMaxPower(Powers power);
         virtual void UpdateAttackPowerAndDamage(bool ranged = false) = 0;
         virtual void UpdateDamagePhysical(WeaponAttackType attType) = 0;
         float GetTotalAttackPowerValue(WeaponAttackType attType) const;
@@ -2126,6 +2145,7 @@ class Unit : public WorldObject
         void EvadeTimerExpired();
 
         Aura* GetAura(uint32 spellId, SpellEffectIndex effindex);
+        Aura const* GetAura(uint32 spellId, SpellEffectIndex effindex) const;
         Aura* GetAura(AuraType type, SpellFamily family, uint64 familyFlag, ObjectGuid casterGuid = ObjectGuid());
         SpellAuraHolder* GetSpellAuraHolder(uint32 spellid) const;
         SpellAuraHolder* GetSpellAuraHolder(uint32 spellid, ObjectGuid casterGuid) const;
@@ -2188,17 +2208,17 @@ class Unit : public WorldObject
         void UnsummonAllTotems() const;
         Unit* SelectMagnetTarget(Unit* victim, Spell* spell = nullptr);
 
-        int32 SpellBonusWithCoeffs(SpellEntry const* spellProto, int32 total, int32 benefit, int32 ap_benefit, DamageEffectType damagetype, bool donePart);
+        int32 SpellBonusWithCoeffs(SpellEntry const* spellProto, SpellEffectIndex effectIndex, int32 total, int32 benefit, int32 ap_benefit, DamageEffectType damagetype, bool donePart);
         int32 SpellBaseDamageBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask) const;
-        uint32 SpellDamageBonusDone(Unit* victim, SpellSchoolMask schoolMask, SpellEntry const* spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
-        uint32 SpellDamageBonusTaken(Unit* caster, SpellSchoolMask schoolMask, SpellEntry const* spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
+        uint32 SpellDamageBonusDone(Unit* victim, SpellSchoolMask schoolMask, SpellEntry const* spellProto, SpellEffectIndex effectIndex, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
+        uint32 SpellDamageBonusTaken(Unit* caster, SpellSchoolMask schoolMask, SpellEntry const* spellProto, SpellEffectIndex effectIndex, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
         int32 SpellBaseHealingBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseHealingBonusTaken(SpellSchoolMask schoolMask) const;
-        uint32 SpellHealingBonusDone(Unit* victim, SpellEntry const* spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack = 1);
-        uint32 SpellHealingBonusTaken(Unit* caster, SpellEntry const* spellProto, int32 healamount, DamageEffectType damagetype, uint32 stack = 1);
-        uint32 MeleeDamageBonusDone(Unit* victim, uint32 damage, WeaponAttackType attType, SpellSchoolMask schoolMask, SpellEntry const* spellProto = nullptr, DamageEffectType damagetype = DIRECT_DAMAGE, uint32 stack = 1, bool flat = true);
-        uint32 MeleeDamageBonusTaken(Unit* caster, uint32 pdamage, WeaponAttackType attType, SpellSchoolMask schoolMask, SpellEntry const* spellProto = nullptr, DamageEffectType damagetype = DIRECT_DAMAGE, uint32 stack = 1, bool flat = true);
+        uint32 SpellHealingBonusDone(Unit* victim, SpellEntry const* spellProto, SpellEffectIndex effectIndex, int32 healamount, DamageEffectType damagetype, uint32 stack = 1);
+        uint32 SpellHealingBonusTaken(Unit* caster, SpellEntry const* spellProto, SpellEffectIndex effectIndex, int32 healamount, DamageEffectType damagetype, uint32 stack = 1);
+        uint32 MeleeDamageBonusDone(Unit* victim, uint32 damage, WeaponAttackType attType, SpellSchoolMask schoolMask, SpellEntry const* spellProto = nullptr, SpellEffectIndex effectIndex = EFFECT_INDEX_0, DamageEffectType damagetype = DIRECT_DAMAGE, uint32 stack = 1, bool flat = true);
+        uint32 MeleeDamageBonusTaken(Unit* caster, uint32 pdamage, WeaponAttackType attType, SpellSchoolMask schoolMask, SpellEntry const* spellProto = nullptr, SpellEffectIndex effectIndex = EFFECT_INDEX_0, DamageEffectType damagetype = DIRECT_DAMAGE, uint32 stack = 1, bool flat = true);
 
         enum class SpellProcEventTriggerCheck
         {
@@ -2207,7 +2227,7 @@ class Unit : public WorldObject
             SPELL_PROC_TRIGGER_OK = 2,
         };
 
-        SpellProcEventTriggerCheck IsTriggeredAtSpellProcEvent(ProcExecutionData& data, SpellAuraHolder* holder, SpellProcEventEntry const*& spellProcEvent);
+        SpellProcEventTriggerCheck IsTriggeredAtSpellProcEvent(ProcExecutionData& data, SpellAuraHolder* holder, SpellProcEventEntry const*& spellProcEvent, bool (&canProc)[MAX_EFFECT_INDEX]);
         // only to be used in proc handlers - basepoints is expected to be a MAX_EFFECT_INDEX sized array
         SpellAuraProcResult TriggerProccedSpell(Unit* target, std::array<int32, MAX_EFFECT_INDEX>& basepoints, uint32 triggeredSpellId, Item* castItem, Aura* triggeredByAura, uint32 cooldown, ObjectGuid originalCaster);
         SpellAuraProcResult TriggerProccedSpell(Unit* target, std::array<int32, MAX_EFFECT_INDEX>& basepoints, SpellEntry const* spellInfo, Item* castItem, Aura* triggeredByAura, uint32 cooldown, ObjectGuid originalCaster);
@@ -2230,6 +2250,7 @@ class Unit : public WorldObject
         SpellAuraProcResult HandleRemoveByDamageChanceProc(ProcExecutionData& data);
         SpellAuraProcResult HandleInvisibilityAuraProc(ProcExecutionData& data);
         SpellAuraProcResult HandlePeriodicAuraProc(ProcExecutionData& data);
+        SpellAuraProcResult HandleSpellModProc(ProcExecutionData& data);
         SpellAuraProcResult HandleNULLProc(ProcExecutionData& /*data*/)
         {
             // no proc handler for this aura type
@@ -2452,7 +2473,7 @@ class Unit : public WorldObject
         Aura* GetOverrideScript(uint32 id) const;
         void RegisterOverrideScriptAura(Aura* aura, uint32 id, bool apply);
         void RegisterScriptedLocationAura(Aura* aura, AuraScriptLocation location, bool apply); // Spell scripting - requires correctly set spell_affect
-        std::vector<Aura*>& GetScriptedLocationAuras(AuraScriptLocation location) { return m_scriptedLocations[location]; }
+        std::vector<Aura*> const& GetScriptedLocationAuras(AuraScriptLocation location) const;
 
         uint8 GetComboPoints() const { return m_comboPoints; }
         ObjectGuid const& GetComboTargetGuid() const { return m_comboTargetGuid; }
@@ -2542,6 +2563,21 @@ class Unit : public WorldObject
         AuraList m_modAuras[TOTAL_AURAS];
         float m_auraModifiersGroup[UNIT_MOD_END][MODIFIER_TYPE_END];
 
+        enum class AttackPowerMod
+        {
+            MELEE_ATTACK_POWER  = 0,
+            RANGED_ATTACK_POWER = 1,
+            ATTACK_POWER_MOD_MAX
+        };
+
+        enum class AttackPowerModSign
+        {
+            MOD_SIGN_POS,
+            MOD_SIGN_NEG,
+            MOD_SIGN_MAX
+        };
+        float m_attackPowerMod[size_t(AttackPowerMod::ATTACK_POWER_MOD_MAX)][size_t(AttackPowerModSign::MOD_SIGN_MAX)];
+
         WeaponDamageInfo m_weaponDamageInfo;
 
         bool m_canModifyStats;
@@ -2564,6 +2600,7 @@ class Unit : public WorldObject
         bool m_canDualWield = false;
 
         void DisableSpline();
+        void EndSpline();
         bool m_isCreatureLinkingTrigger;
         bool m_isSpawningLinked;
 

@@ -204,7 +204,7 @@ struct world_map_kalimdor : public ScriptedMap
         switch (pGo->GetEntry())
         {
             case GO_GHOST_MAGNET:
-                m_vGOEvents.push_back({ pGo->GetObjectGuid(), 0, 0 }); // insert new event with 0 timer
+                m_vGOEvents.push_back({ pGo->GetObjectGuid(), 0, 0, {} }); // insert new event with 0 timer
                 pGo->SetActiveObjectState(true);
                 break;
             case GO_ROCKET_CLUSTER:
@@ -355,7 +355,7 @@ struct world_map_kalimdor : public ScriptedMap
             m_brewfestEvent.Update(diff);
     }
 
-    void SetData(uint32 uiType, uint32 uiData)
+    void SetData(uint32 uiType, uint32 uiData) override
     {
         switch (uiType)
         {
@@ -401,6 +401,7 @@ struct world_map_kalimdor : public ScriptedMap
                         m_uiOmenResetTimer = 5 * MINUTE * IN_MILLISECONDS;       // Prevent another summoning of Omen for 5 minutes (based on spell duration)
                         break;
                 }
+                break;
             }
             case TYPE_TETHYR:
             {
@@ -421,6 +422,7 @@ struct world_map_kalimdor : public ScriptedMap
                         instance->SetZoneWeather(0, AREAID_THERAMORE_ISLE, 3, 0.5f);
                         break;
                 }
+                break;
             }
             case TYPE_HIVE:
             {
@@ -438,6 +440,7 @@ struct world_map_kalimdor : public ScriptedMap
                     if (m_freedSpriteDarter >= 6)
                         uiData = DONE;
                 }
+                break;
             }
             case TYPE_GONG_TIME:
                 // TODO: Handle initial first gong only

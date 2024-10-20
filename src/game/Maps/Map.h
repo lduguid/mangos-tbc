@@ -94,6 +94,15 @@ enum LevelRequirementVsMode
     LEVELREQUIREMENT_HEROIC = 70
 };
 
+enum class RateModType
+{
+    KILL    = 0,
+    QUEST   = 1,
+    EXPLORE = 2,
+    PETKILL = 3,
+    MAX     = 4
+};
+
 struct ZoneDynamicInfo
 {
     ZoneDynamicInfo() : musicId(0), weatherId(0), weatherGrade(0.0f),
@@ -218,6 +227,10 @@ class Map : public GridRefManager<NGridType>
         uint32 GetMaxPlayers() const;
         uint32 GetMaxResetDelay() const;
 
+        uint32 GetExpansion() const { return (i_mapEntry) ? i_mapEntry->Expansion() : 0u; }
+        float GetXPModRate(RateModType type) const;
+
+        MapEntry const* GetEntry() const { return i_mapEntry; }
         bool Instanceable() const { return i_mapEntry && i_mapEntry->Instanceable(); }
         bool IsDungeon() const { return i_mapEntry && i_mapEntry->IsDungeon(); }
         bool IsRaid() const { return i_mapEntry && i_mapEntry->IsRaid(); }
@@ -404,8 +417,16 @@ class Map : public GridRefManager<NGridType>
         WorldStateVariableManager& GetVariableManager() { return m_variableManager; }
         WorldStateVariableManager const& GetVariableManager() const { return m_variableManager; }
 
+        virtual BattleGround* GetBG() const { return nullptr; }
+
         // debug
         std::set<ObjectGuid> m_objRemoveList; // this will eventually eat up too much memory - only used for debugging VisibleNotifier::Notify() customlog leak
+
+#ifdef ENABLE_PLAYERBOTS
+        bool HasRealPlayers() { return hasRealPlayers; }
+        bool HasActiveZones() { return !m_activeZones.empty(); }
+        bool HasActiveZone(uint32 zoneId) { return find(m_activeZones.begin(), m_activeZones.end(), zoneId) != m_activeZones.end(); }
+#endif
 
     private:
         void LoadMapAndVMap(int gx, int gy);
@@ -535,6 +556,12 @@ class Map : public GridRefManager<NGridType>
 
         WorldStateVariableManager m_variableManager;
 
+#ifdef ENABLE_PLAYERBOTS
+        std::vector<uint32> m_activeZones;
+        uint32 m_activeZonesTimer;
+        bool hasRealPlayers;
+#endif
+
         ZoneDynamicInfoMap m_zoneDynamicInfo;
         ZoneDynamicInfoMap m_areaDynamicInfo;
         uint32 m_defaultLight;
@@ -545,7 +572,7 @@ class WorldMap : public Map
     private:
         using Map::GetPersistentState;                      // hide in subclass for overwrite
     public:
-        WorldMap(uint32 id, time_t expiry) : Map(id, expiry, 0, REGULAR_DIFFICULTY) {}
+        WorldMap(uint32 id, time_t expiry, uint32 InstanceId) : Map(id, expiry, InstanceId, REGULAR_DIFFICULTY) {}
         ~WorldMap() {}
 
         // can't be nullptr for loaded map
@@ -597,7 +624,7 @@ class BattleGroundMap : public Map
         void UnloadAll(bool pForce) override;
 
         virtual void InitVisibilityDistance() override;
-        BattleGround* GetBG() const { return m_bg; }
+        BattleGround* GetBG() const override { return m_bg; }
         void SetBG(BattleGround* bg) { m_bg = bg; }
 
         // can't be nullptr for loaded map

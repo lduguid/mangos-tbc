@@ -752,7 +752,7 @@ class GameObject : public WorldObject
 
         ObjectGuid const& GetOwnerGuid() const override { return GetGuidValue(OBJECT_FIELD_CREATED_BY); }
         void SetOwnerGuid(ObjectGuid guid) override;
-        ObjectGuid const GetSpawnerGuid() const { return m_spawnerGuid; }
+        ObjectGuid const GetSpawnerGuid() const override { return m_spawnerGuid; }
         void SetSpawnerGuid(ObjectGuid guid) { m_spawnerGuid = guid; }
 
         Unit* GetOwner() const;
@@ -792,12 +792,9 @@ class GameObject : public WorldObject
         uint32 GetRespawnDelay() const { return m_respawnDelay; }
         void SetRespawnDelay(uint32 delay, bool once = false) { m_respawnDelay = delay; m_respawnOverriden = true; m_respawnOverrideOnce = once; }
         void SetForcedDespawn() { m_forcedDespawn = true; };
+        void SetChestDespawn();
         void Refresh();
         void Delete();
-
-        // Functions spawn/remove gameobject with DB guid in all loaded map copies (if point grid loaded in map)
-        static void AddToRemoveListInMaps(uint32 db_guid, GameObjectData const* data);
-        static void SpawnInMaps(uint32 db_guid, GameObjectData const* data);
 
         GameobjectTypes GetGoType() const { return GameobjectTypes(GetUInt32Value(GAMEOBJECT_TYPE_ID)); }
         void SetGoType(GameobjectTypes type) { SetUInt32Value(GAMEOBJECT_TYPE_ID, type); }
@@ -968,7 +965,7 @@ class GameObject : public WorldObject
         // Used for chest type
         bool m_isInUse;                                     // only one player at time are allowed to open chest
         time_t m_reStockTimer;                              // timer to refill the chest
-        time_t m_despawnTimer;                              // timer to despawn the chest if something changed in it
+        TimePoint m_despawnTimer;                           // timer to despawn the chest if something changed in it
 
         void TriggerSummoningRitual();
         void TriggerDelayedAction();

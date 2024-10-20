@@ -940,6 +940,28 @@ GameObjectAI* GetAI_go_dragon_head(GameObject* go)
     return new go_dragon_head(go);
 }
 
+enum class GoBubblyFissure
+{
+    SPELL_BUBBLY_FISSURE = 17775,
+};
+
+struct go_bubbly_fissure_caster : public GameObjectAI, public TimerManager
+{
+    go_bubbly_fissure_caster(GameObject* go) : GameObjectAI(go)
+    {
+        AddCustomAction(1, 2000u, [&]()
+        {
+            m_go->CastSpell(nullptr, nullptr, (uint32)GoBubblyFissure::SPELL_BUBBLY_FISSURE, TRIGGERED_OLD_TRIGGERED);
+            ResetTimer(1, 2000);
+        });
+    }
+
+    void UpdateAI(const uint32 diff)
+    {
+        UpdateTimers(diff);
+    }
+};
+
 enum
 {
     SPELL_WARCHIEFS_BLESSING = 16609,
@@ -1100,6 +1122,24 @@ struct go_aura_generator : public GameObjectAI
     }
 };
 
+struct go_ai_ectoplasmic_distiller_trap : public GameObjectAI
+{
+    go_ai_ectoplasmic_distiller_trap(GameObject* go) : GameObjectAI(go), m_castTimer(1000) {}
+
+    uint32 m_castTimer;
+
+    void UpdateAI(const uint32 uiDiff) override
+    {
+        if (m_castTimer <= uiDiff)
+        {
+            m_go->CastSpell(nullptr, nullptr, m_go->GetGOInfo()->trap.spellId, TRIGGERED_OLD_TRIGGERED);
+            m_castTimer = 2 * IN_MILLISECONDS;
+        }
+        else
+            m_castTimer -= uiDiff;
+    }
+};
+
 void AddSC_go_scripts()
 {
     Script* pNewScript = new Script;
@@ -1178,6 +1218,11 @@ void AddSC_go_scripts()
     pNewScript->RegisterSelf();
 
     pNewScript = new Script;
+    pNewScript->Name = "go_bubbly_fissure";
+    pNewScript->GetGameObjectAI = &GetNewAIInstance<go_bubbly_fissure_caster>;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
     pNewScript->Name = "go_unadorned_spike";
     pNewScript->GetGameObjectAI = &GetAI_go_unadorned_spike;
     pNewScript->RegisterSelf();
@@ -1190,5 +1235,10 @@ void AddSC_go_scripts()
     pNewScript = new Script;
     pNewScript->Name = "go_aura_generator";
     pNewScript->GetGameObjectAI = &GetNewAIInstance<go_aura_generator>;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "go_ectoplasmic_distiller_trap";
+    pNewScript->GetGameObjectAI = &GetNewAIInstance<go_ai_ectoplasmic_distiller_trap>;
     pNewScript->RegisterSelf();
 }

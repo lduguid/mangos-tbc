@@ -380,6 +380,21 @@ struct EmotesTextEntry
     //          m_emoteText
 };
 
+#ifdef ENABLE_PLAYERBOTS
+/**
+* \struct EmotesTextSoundEntry
+* \brief Entry resenting the text sound for given emote.
+*/
+struct EmotesTextSoundEntry
+{
+    uint32 Id;                                              // 0
+    uint32 EmotesTextId;                                    // 1
+    uint32 RaceId;                                          // 2
+    uint32 SexId;                                           // 3, 0 male / 1 female
+    uint32 SoundId;                                         // 4
+};
+#endif
+
 struct FactionEntry
 {
     uint32      ID;                                         // 0        m_ID
@@ -684,6 +699,19 @@ struct LightEntry
     //uint32 deathParams;                                   // 11
 };
 
+#ifdef ENABLE_PLAYERBOTS
+struct LFGDungeonEntry
+{
+    uint32  ID;                                             // 0     m_ID
+    char* name[16];                                       // 1-17  m_name_lang
+    //uint32 mask                                           // 18    m_name_lang_mask
+    uint32  minlevel;                                       // 19    m_minLevel
+    uint32  maxlevel;                                       // 20    m_maxLevel
+    uint32  type;                                           // 21    m_typeId
+    uint32  faction;                                        // 22    m_faction
+};
+#endif
+
 struct LiquidTypeEntry
 {
     uint32 Id;                                              // 0
@@ -983,10 +1011,12 @@ struct SpellEntry
         uint32    TotemCategory[MAX_SPELL_TOTEM_CATEGORIES];// 212-213  m_requiredTotemCategoryID
         uint32    AreaId;                                   // 214
         uint32    SchoolMask;                               // 215      m_schoolMask
+        float     effectBonusCoefficient[MAX_EFFECT_INDEX]; // 216-218  m_effectBonusCoefficient
+        float     effectBonusCoefficientFromAP[MAX_EFFECT_INDEX]; // 232-234
 
         // custom
-        uint32    IsServerSide;                             // 216
-        uint32    AttributesServerside;                     // 217
+        uint32    IsServerSide;                             // 219
+        uint32    AttributesServerside;                     // 220
 
         // helpers
         int32 CalculateSimpleValue(SpellEffectIndex eff) const { return EffectBasePoints[eff] + int32(EffectBaseDice[eff]); }

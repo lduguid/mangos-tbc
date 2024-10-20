@@ -146,7 +146,7 @@ struct boss_teron_gorefiendAI : public CombatAI
             m_instance->SetData(TYPE_GOREFIEND, FAIL);
         DespawnSummons();
         DoCastSpellIfCan(nullptr, SPELL_DESTROY_ALL_SPIRITS);
-        ScriptedAI::EnterEvadeMode();
+        CombatAI::EnterEvadeMode();
     }
 
     void Aggro(Unit* /*pWho*/) override
@@ -374,7 +374,7 @@ bool AreaTrigger_at_teron_gorefiend(Player* player, AreaTriggerEntry const* /*at
 
 struct ShadowOfDeath : public AuraScript
 {
-    void OnAbsorb(Aura* /*aura*/, int32& currentAbsorb, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& preventedDeath, bool& /*dropCharge*/) const override
+    void OnAbsorb(Aura* /*aura*/, int32& currentAbsorb, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& preventedDeath, bool& /*dropCharge*/, DamageEffectType /*damageType*/) const override
     {
         preventedDeath = true;
         currentAbsorb = 0;

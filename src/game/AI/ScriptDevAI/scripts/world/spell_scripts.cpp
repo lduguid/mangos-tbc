@@ -766,12 +766,25 @@ struct SpellHasteHealerTrinket : public AuraScript
 
 struct IncreasedHealingDoneDummy : public AuraScript
 {
-    void OnApply(Aura* aura, bool apply) const
+    void OnApply(Aura* aura, bool apply) const override
     {
         aura->GetTarget()->RegisterScriptedLocationAura(aura, SCRIPT_LOCATION_SPELL_HEALING_DONE, apply);
     }
 
-    void OnDamageCalculate(Aura* aura, Unit* /*victim*/, int32& advertisedBenefit, float& /*totalMod*/) const override
+    void OnDamageCalculate(Aura* aura, Unit* /*attacker*/, Unit* /*victim*/, int32& advertisedBenefit, float& /*totalMod*/) const override
+    {
+        advertisedBenefit += aura->GetModifier()->m_amount;
+    }
+};
+
+struct IncreasedSpellDamageDoneDummy : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        aura->GetTarget()->RegisterScriptedLocationAura(aura, SCRIPT_LOCATION_SPELL_DAMAGE_DONE, apply);
+    }
+
+    void OnDamageCalculate(Aura* aura, Unit* /*attacker*/, Unit* /*victim*/, int32& advertisedBenefit, float& /*totalMod*/) const override
     {
         advertisedBenefit += aura->GetModifier()->m_amount;
     }
@@ -1072,7 +1085,7 @@ struct ForgetAxesmith : public SpellScript
 
         Player* player = static_cast<Player*>(spell->GetUnitTarget());
         player->removeSpell(36260);   // Wicked Edge of the Planes
-        player->removeSpell(34562);   // Black Planar Edge
+        player->removeSpell(34542);   // Black Planar Edge
         player->removeSpell(34541);   // The Planar Edge
         player->removeSpell(36134);   // Stormforged Axe
         player->removeSpell(36135);   // Skyforged Great Axe
@@ -1096,7 +1109,7 @@ struct ForgetHammersmith : public SpellScript
         player->removeSpell(34545);   // Drakefist Hammer
         player->removeSpell(36136);   // Lavaforged Warhammer
         player->removeSpell(34547);   // Thunder
-        player->removeSpell(34567);   // Deep Thunder
+        player->removeSpell(34548);   // Deep Thunder
         player->removeSpell(36263);   // Stormherald
         player->removeSpell(36137);   // Great Earthforged Hammer
     }
@@ -1150,6 +1163,18 @@ struct Stand : public SpellScript
     }
 };
 
+// s.7131 - npc 2638,4785,5097,6493,6932,11027,11263 - might be different delay per npc!
+struct IllusionPassive : public AuraScript
+{
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& /*procData*/) const override
+    {
+        if (Unit* caster = aura->GetCaster())
+            if (caster->IsCreature())
+                static_cast<Creature*>(caster)->ForcedDespawn(1000);
+        return SPELL_AURA_PROC_OK;
+    }
+};
+
 void AddSC_spell_scripts()
 {
     Script* pNewScript = new Script;
@@ -1184,6 +1209,7 @@ void AddSC_spell_scripts()
     RegisterSpellScript<spell_effect_summon_no_follow_movement>("spell_effect_summon_no_follow_movement");
     RegisterSpellScript<SpellHasteHealerTrinket>("spell_spell_haste_healer_trinket");
     RegisterSpellScript<IncreasedHealingDoneDummy>("spell_increased_healing_done_dummy");
+    RegisterSpellScript<IncreasedSpellDamageDoneDummy>("spell_increased_spell_damage_done_dummy");
     RegisterSpellScript<spell_scourge_strike>("spell_scourge_strike");
     RegisterSpellScript<TribalDeath>("spell_tribal_death");
     RegisterSpellScript<PreventSpellIfSameAuraOnCaster>("spell_prevent_spell_if_same_aura_on_caster");
@@ -1204,4 +1230,5 @@ void AddSC_spell_scripts()
     RegisterSpellScript<GameobjectCallForHelpOnUsage>("spell_gameobject_call_for_help_on_usage");
     RegisterSpellScript<Submerged>("spell_submerged");
     RegisterSpellScript<Stand>("spell_stand");
+    RegisterSpellScript<IllusionPassive>("spell_illusion_passive");
 }

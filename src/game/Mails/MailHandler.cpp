@@ -27,7 +27,7 @@
 
 #include "Mails/Mail.h"
 #include "Tools/Language.h"
-#include "Log.h"
+#include "Log/Log.h"
 #include "Entities/ObjectGuid.h"
 #include "Globals/ObjectMgr.h"
 #include "Entities/Item.h"
@@ -169,11 +169,10 @@ void WorldSession::HandleSendMail(WorldPacket& recv_data)
     else
     {
         rc_team = sObjectMgr.GetPlayerTeamByGUID(rc);
-        if (QueryResult* result = CharacterDatabase.PQuery("SELECT COUNT(*) FROM mail WHERE receiver = '%u'", rc.GetCounter()))
+        if (auto queryResult = CharacterDatabase.PQuery("SELECT COUNT(*) FROM mail WHERE receiver = '%u'", rc.GetCounter()))
         {
-            Field* fields = result->Fetch();
+            Field* fields = queryResult->Fetch();
             mails_count = fields[0].GetUInt32();
-            delete result;
         }
     }
 
@@ -799,32 +798,24 @@ void WorldSession::HandleQueryNextMailTime(WorldPacket& /**recv_data*/)
             if (now < m->deliver_time)
                 continue;
 
-            data << ObjectGuid(HIGHGUID_PLAYER, m->sender); // sender guid
+            HighGuid guidType = m->messageType == MAIL_CREATURE ? HIGHGUID_UNIT : HIGHGUID_PLAYER;
 
-            switch (m->messageType)
-            {
-                case MAIL_AUCTION:
-                    data << uint32(m->sender);              // auction house id
-                    data << uint32(MAIL_AUCTION);           // message type
-                    break;
-                default:
-                    data << uint32(0);
-                    data << uint32(0);
-                    break;
-            }
+            data << ObjectGuid(guidType, m->sender);     // sender guid
+            data << static_cast<uint32>(m->sender);      // sender id
+            data << static_cast<uint32>(m->messageType); // message type
 
             data << uint32(m->stationery);
-            data << uint32(0xC6000000);                     // float unk, time or something
+            data << float(0);                            // delay hiding the sender (hide sender when hovering mail icon)
 
             ++count;
-            if (count == 2)                                 // do not display more than 2 mails
+            if (count == 2)                              // do not display more than 2 mails
                 break;
         }
         data.put<uint32>(4, count);
     }
     else
     {
-        data << uint32(0xC7A8C000);
+        data << float(-86400);
         data << uint32(0x00000000);
     }
     SendPacket(data);
