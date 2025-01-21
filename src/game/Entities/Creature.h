@@ -723,7 +723,7 @@ class Creature : public Unit
         virtual void DeleteFromDB();                        // overwrited in Pet
         static void DeleteFromDB(uint32 lowguid, CreatureData const* data);
 
-        void PrepareBodyLootState();
+        void PrepareBodyLootState(Unit* killer);
         CreatureLootStatus GetLootStatus() const { return m_lootStatus; }
         virtual void InspectingLoot() override;
         void SetLootStatus(CreatureLootStatus status, bool forced = false);
@@ -744,7 +744,8 @@ class Creature : public Unit
         SpellEntry const* ReachWithSpellCure(Unit* pVictim);
 
         void CallForHelp(float radius);
-        void CallAssistance(Unit* enemy = nullptr);
+        void CallAssistance();
+        void CallAssistance(Unit* enemy);
         void SetNoCallAssistance(bool val) { m_AlreadyCallAssistance = val; }
         bool CanAssistTo(const Unit* u, const Unit* enemy, bool checkfaction = true) const;
         bool CanInitiateAttack() const;
@@ -760,6 +761,7 @@ class Creature : public Unit
         void RemoveCorpse(bool inPlace = false);
 
         virtual void ForcedDespawn(uint32 timeMSToDespawn = 0, bool onlyAlive = false);
+        virtual void ForcedDespawn(std::chrono::milliseconds timeToDespawn, bool onlyAlive = false) { ForcedDespawn(timeToDespawn.count(), onlyAlive); }
 
         time_t const& GetRespawnTime() const { return m_respawnTime; }
         time_t GetRespawnTimeEx() const;
@@ -767,8 +769,9 @@ class Creature : public Unit
         void Respawn();
         void SaveRespawnTime() override;
 
-        uint32 GetRespawnDelay() const { return m_respawnDelay; }
+        uint32 GetRespawnDelay() const override { return m_respawnDelay; }
         void SetRespawnDelay(uint32 delay, bool once = false) { m_respawnDelay = delay; m_respawnOverriden = true; m_respawnOverrideOnce = once; } // in seconds
+        void SetRespawnDelay(std::chrono::seconds delay, bool once = false) { SetRespawnDelay(delay.count(), once); }
 
         float GetRespawnRadius() const { return m_respawnradius; }
         void SetRespawnRadius(float dist) { m_respawnradius = dist; }
@@ -819,6 +822,8 @@ class Creature : public Unit
         bool hasWeaponForAttack(WeaponAttackType type) const override { return (Unit::hasWeaponForAttack(type) && hasWeapon(type)); }
         virtual void SetCanDualWield(bool value) override;
 
+        virtual bool CanDaze() const override;
+
         void SetInvisible(bool invisible) { m_isInvisible = invisible; }
         bool IsInvisible() const { return m_isInvisible; }
 
@@ -855,6 +860,8 @@ class Creature : public Unit
         void SetNoReputation(bool state) { m_noReputation = state; }
         bool IsIgnoringFeignDeath() const override;
         void SetIgnoreFeignDeath(bool state);
+        bool IsIgnoringSanctuary() const override;
+        void SetIgnoreSanctuary(bool state);
 
         void SetNoWoundedSlowdown(bool state);
         bool IsNoWoundedSlowdown() const;
@@ -864,6 +871,8 @@ class Creature : public Unit
         bool IsNoWeaponSkillGain() const override;
 
         bool IsPreventingDeath() const override;
+
+        bool IsIgnoringMisdirection() const override;
 
         virtual void AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* itemProto = nullptr, bool permanent = false, uint32 forcedDuration = 0, bool ignoreCat = false) override;
 
@@ -899,6 +908,11 @@ class Creature : public Unit
 
         ObjectGuid GetKillerGuid() const { return m_killer; }
         void SetKillerGuid(ObjectGuid guid) { m_killer = guid; }
+
+        CreatureInfo const* GetMountInfo() const override{ return m_mountInfo; }
+        void SetMountInfo(CreatureInfo const* info) override;
+
+        void SetModelRunSpeed(float runSpeed) override { m_modelRunSpeed = runSpeed; }
 
     protected:
         bool CreateFromProto(uint32 dbGuid, uint32 guidlow, CreatureInfo const* cinfo, const CreatureData* data = nullptr, GameEventCreatureData const* eventData = nullptr);
@@ -980,6 +994,9 @@ class Creature : public Unit
     private:
         GridReference<Creature> m_gridRef;
         CreatureInfo const* m_creatureInfo;                 // in heroic mode can different from sObjectMgr::GetCreatureTemplate(GetEntry())
+
+        CreatureInfo const* m_mountInfo;
+        float m_modelRunSpeed;
 };
 
 class ForcedDespawnDelayEvent : public BasicEvent

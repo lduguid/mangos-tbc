@@ -692,8 +692,12 @@ void GameObject::Update(const uint32 diff)
             {
                 // since pool system can fail to roll unspawned object, this one can remain spawned, so must set respawn nevertheless
                 if (IsSpawnedByDefault())
-                    if (GameObjectData const* data = sObjectMgr.GetGOData(GetDbGuid()))
+                {
+                    if (GetGameObjectGroup() && GetGameObjectGroup()->IsRespawnOverriden())
+                        m_respawnDelay = GetGameObjectGroup()->GetRandomRespawnTime();
+                    else if (GameObjectData const* data = sObjectMgr.GetGOData(GetDbGuid()))
                         m_respawnDelay = data->GetRandomRespawnTime();
+                }
             }
             else if (m_respawnOverrideOnce)
                 m_respawnOverriden = false;
@@ -906,6 +910,9 @@ bool GameObject::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, uint32 forc
             entry = group->GetGuidEntry(dbGuid);
     }
 
+    if (uint32 randomEntry = sObjectMgr.GetRandomGameObjectEntry(dbGuid))
+        entry = randomEntry;
+
     bool dynguid = false;
     if (map->IsDynguidForced())
         dynguid = true;
@@ -918,9 +925,6 @@ bool GameObject::LoadFromDB(uint32 dbGuid, Map* map, uint32 newGuid, uint32 forc
 
     if (dynguid || newGuid == 0)
         newGuid = map->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT);
-
-    if (uint32 randomEntry = sObjectMgr.GetRandomGameObjectEntry(dbGuid))
-        entry = randomEntry;
 
     if (!Create(dbGuid, newGuid, entry, map, x, y, z, ang, rotation0, rotation1, rotation2, rotation3, animprogress, GO_STATE_READY))
         return false;
@@ -1526,7 +1530,7 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
             float radius = float(goInfo->trap.diameter) / 2.0f;
             bool IsBattleGroundTrap = !radius && goInfo->trap.cooldown == 3 && m_respawnTime == 0;
 
-            if (goInfo->trap.spellId == 6636)
+            if (goInfo->trap.spellId == 6636 || goInfo->trap.spellId == 8733)
                 caster = nullptr;
 
             if (goInfo->trap.spellId)
@@ -1563,8 +1567,6 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
 
             if (user->GetTypeId() != TYPEID_PLAYER)
                 return;
-
-            Player* player = (Player*)user;
 
             // a chair may have n slots. we have to calculate their positions and teleport the player to the nearest one
             float slotX, slotY;
@@ -2315,7 +2317,7 @@ void GameObject::TickCapturePoint()
 
     /* PROGRESS EVENTS */
     // alliance takes the tower from neutral, contested or horde (if there is no neutral area) to alliance
-    else if (m_captureState != CAPTURE_STATE_PROGRESS_ALLIANCE && m_captureSlider > CAPTURE_SLIDER_MIDDLE + neutralPercent * 0.5f && progressFaction == ALLIANCE)
+    else if ((m_captureState != CAPTURE_STATE_PROGRESS_ALLIANCE && m_captureState != CAPTURE_STATE_CONTEST_ALLIANCE) && m_captureSlider > CAPTURE_SLIDER_MIDDLE + neutralPercent * 0.5f && progressFaction == ALLIANCE)
     {
         eventId = info->capturePoint.progressEventID1;
 
@@ -2328,7 +2330,7 @@ void GameObject::TickCapturePoint()
         m_captureState = CAPTURE_STATE_PROGRESS_ALLIANCE;
     }
     // horde takes the tower from neutral, contested or alliance (if there is no neutral area) to horde
-    else if (m_captureState != CAPTURE_STATE_PROGRESS_HORDE && m_captureSlider < CAPTURE_SLIDER_MIDDLE - neutralPercent * 0.5f && progressFaction == HORDE)
+    else if ((m_captureState != CAPTURE_STATE_PROGRESS_HORDE && m_captureState != CAPTURE_STATE_CONTEST_HORDE) && m_captureSlider < CAPTURE_SLIDER_MIDDLE - neutralPercent * 0.5f && progressFaction == HORDE)
     {
         eventId = info->capturePoint.progressEventID2;
 

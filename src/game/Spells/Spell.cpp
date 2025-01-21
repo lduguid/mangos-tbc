@@ -382,7 +382,7 @@ void SpellLog::SendToSet()
 Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags, ObjectGuid originalCasterGUID, SpellEntry const* triggeredBy) :
     m_partialApplicationMask(0), m_spellScript(SpellScriptMgr::GetSpellScript(info->Id)), m_auraScript(SpellScriptMgr::GetAuraScript(info->Id)),
     m_effectSkipMask(0),
-    m_spellLog(this), m_param1(0), m_param2(0), m_trueCaster(caster)
+    m_spellEvent(nullptr), m_spellLog(this), m_param1(0), m_param2(0), m_trueCaster(caster)
 {
     MANGOS_ASSERT(caster != nullptr && info != nullptr);
     MANGOS_ASSERT(info == sSpellTemplate.LookupEntry<SpellEntry>(info->Id) && "`info` must be pointer to sSpellTemplate element");
@@ -462,7 +462,7 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     m_petCast = (triggeredFlags & TRIGGERED_PET_CAST) != 0;
     m_notifyAI = (triggeredFlags & TRIGGERED_NORMAL_COMBAT_CAST) != 0;
     m_ignoreGCD = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_GCD) != 0);
-    m_ignoreCosts = ((triggeredFlags & TRIGGERED_IGNORE_COSTS) != 0);
+    m_ignoreCosts = (m_IsTriggeredSpell && (triggeredFlags & TRIGGERED_FORCE_COSTS) == 0) || ((triggeredFlags & TRIGGERED_IGNORE_COSTS) != 0);
     m_ignoreCooldowns = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_COOLDOWNS) != 0);
     m_ignoreConcurrentCasts = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_CURRENT_CASTED_SPELL) != 0) || m_spellInfo->HasAttribute(SPELL_ATTR_EX4_ALLOW_CAST_WHILE_CASTING);
     m_ignoreCasterAuraState = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_CASTER_AURA_STATE) != 0 || m_spellInfo->HasAttribute(SPELL_ATTR_EX5_IGNORE_CASTER_REQUIREMENTS));
@@ -694,6 +694,7 @@ void Spell::FillTargetMap()
         {
             SendCastResult(SPELL_FAILED_IMMUNE); // guessed error
             finish(false);
+            return;
         }
     }
 
@@ -706,9 +707,10 @@ void Spell::FillTargetMap()
                 for (auto& ihit : m_UniqueTargetInfo)
                 {
                     ihit.effectHitMask = 0;
-                    ihit.effectMask = 0;
+                    ihit.missCondition = SPELL_MISS_IMMUNE2;
+                    ihit.effectDuration = 0;
                 }
-                return;
+                m_duration = 0;
             }
         }
     }
@@ -3099,8 +3101,8 @@ SpellCastResult Spell::SpellStart(SpellCastTargets const* targets, Aura* trigger
         m_triggeredByAuraSpell = triggeredByAura->GetSpellProto();
 
     // create and add update event for this spell
-    SpellEvent* Event = new SpellEvent(this);
-    m_trueCaster->m_events.AddEvent(Event, m_trueCaster->m_events.CalculateTime(1));
+    m_spellEvent = new SpellEvent(this);
+    m_trueCaster->m_events.AddEvent(m_spellEvent, m_trueCaster->m_events.CalculateTime(1));
 
     if (m_trueCaster->IsUnit()) // gameobjects dont have a sense of already casting a spell
     {
@@ -3707,6 +3709,12 @@ void Spell::update(uint32 difftime)
         {
             if (m_timer)
             {
+                if (m_targets.getUnitTarget() && !m_IsTriggeredSpell && !IsAllowingDeadTarget(m_spellInfo) && !m_targets.getUnitTarget()->IsAlive())
+                {
+                    cancel();
+                    return;
+                }
+
                 if (difftime >= m_timer)
                     m_timer = 0;
                 else
@@ -3724,14 +3732,20 @@ void Spell::update(uint32 difftime)
                 {
                     // check if player has jumped before the channeling finished
                     if (m_caster->m_movementInfo.HasMovementFlag(MOVEFLAG_FALLING))
+                    {
                         cancel();
+                        return;
+                    }
 
                     // check for incapacitating player states
                     if (m_caster->IsCrowdControlled())
                     {
                         // certain channel spells are not interrupted
                         if (!m_spellInfo->HasAttribute(SPELL_ATTR_EX_IS_CHANNELED) && !m_spellInfo->HasAttribute(SPELL_ATTR_EX3_IGNORE_CASTER_AND_TARGET_RESTRICTIONS))
+                        {
                             cancel();
+                            return;
+                        }
                     }
 
                     if (m_spellInfo->HasAttribute(SPELL_ATTR_EX2_SPECIAL_TAMING_FLAG)) // these fail on lost target attention (aggro)
@@ -3740,7 +3754,10 @@ void Spell::update(uint32 difftime)
                         {
                             Unit* targetsTarget = target->GetTarget();
                             if (targetsTarget && targetsTarget != m_caster)
+                            {
                                 cancel();
+                                return;
+                            }
                         }
                     }
 
@@ -3789,6 +3806,7 @@ void Spell::update(uint32 difftime)
                             if (!m_caster->IsWithinCombatDistInMap(channelTarget, m_maxRange * 1.5f))
                             {
                                 cancel();
+                                return;
                             }
                         }
                     }
@@ -7491,25 +7509,24 @@ bool Spell::HaveTargetsForEffect(SpellEffectIndex effect) const
 
 SpellEvent::SpellEvent(Spell* spell) : BasicEvent()
 {
-    m_Spell = spell;
+    m_Spell.reset(spell, [](Spell* toDelete)
+    {
+        if (toDelete->IsDeletable() || World::IsStopped())
+        {
+            delete toDelete;
+        }
+        else
+        {
+            sLog.outError("~SpellEvent: %s %u tried to delete non-deletable spell %u. Was not deleted, causes memory leak.",
+                          (toDelete->GetCaster()->GetTypeId() == TYPEID_PLAYER ? "Player" : "Creature"), toDelete->GetCaster()->GetGUIDLow(), toDelete->m_spellInfo->Id);
+        }
+    });
 }
 
 SpellEvent::~SpellEvent()
 {
     if (m_Spell->getState() != SPELL_STATE_FINISHED)
         m_Spell->cancel();
-
-    if (m_Spell->IsDeletable() || World::IsStopped())
-    {
-        delete m_Spell;
-    }
-    else
-    {
-        sLog.outError("~SpellEvent: %s %u tried to delete non-deletable spell %u. Was not deleted, causes memory leak.",
-                      (m_Spell->GetCaster()->GetTypeId() == TYPEID_PLAYER ? "Player" : "Creature"), m_Spell->GetCaster()->GetGUIDLow(), m_Spell->m_spellInfo->Id);
-        sLog.outCustomLog("~SpellEvent: %s %u tried to delete non-deletable spell %u. Was not deleted, causes memory leak.",
-                        (m_Spell->GetCaster()->GetTypeId() == TYPEID_PLAYER ? "Player" : "Creature"), m_Spell->GetCaster()->GetGUIDLow(), m_Spell->m_spellInfo->Id);
-    }
 }
 
 bool SpellEvent::Execute(uint64 e_time, uint32 p_time)
@@ -8813,4 +8830,9 @@ SpellModRAII::~SpellModRAII()
         }
         m_modOwner->SetSpellModSpell(nullptr);
     }
+}
+
+MaNGOS::unique_weak_ptr<Spell> Spell::GetWeakPtr() const
+{
+    return m_spellEvent->GetSpellWeakPtr();
 }

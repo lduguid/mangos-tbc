@@ -320,6 +320,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex eff_idx)
                     // percent from health with min
                     case 25599:                             // Thundercrash
                     {
+                        m_caster->getThreatManager().modifyThreatPercent(unitTarget, 100);
                         damage = unitTarget->GetHealth() / 2;
                         if (damage < 200)
                             damage = 200;
@@ -2896,7 +2897,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                                         + unitTarget->SpellBaseDamageBonusTaken(GetSpellSchoolMask(m_spellInfo));
                     // Does Amplify Magic/Dampen Magic influence flametongue? If not, the above addition must be removed.
                     float weaponSpeed = float(m_CastItem->GetProto()->Delay) / IN_MILLISECONDS;
-                    bonusDamage = m_caster->SpellBonusWithCoeffs(m_spellInfo, eff_idx, 0, bonusDamage, 0, SPELL_DIRECT_DAMAGE, false); // apply spell coeff
+                    bonusDamage = m_caster->SpellBonusWithCoeffs(m_spellInfo, eff_idx, 0, bonusDamage, 0, false); // apply spell coeff
                     int32 totalDamage = (damage * 0.01 * weaponSpeed) + bonusDamage;
 
                     m_caster->CastCustomSpell(unitTarget, 10444, &totalDamage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED, m_CastItem);
@@ -3358,6 +3359,11 @@ void Spell::EffectApplyAura(SpellEffectIndex eff_idx)
 
     // GO auras have caster == nullptr
     Unit* caster = GetAffectiveCaster();
+
+    if (caster && caster->IsPlayerControlled() && unitTarget->IsCreature()
+        && static_cast<Creature*>(unitTarget)->GetSettings().HasFlag(CreatureStaticFlags3::IMMUNE_TO_PLAYER_BUFFS)
+        && IsPositiveAuraEffect(m_spellInfo, eff_idx, caster, unitTarget))
+        return;
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell: Aura is: %u", m_spellInfo->EffectApplyAuraName[eff_idx]);
 
@@ -5866,12 +5872,16 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 case 18945:
                 case 19633:
                 case 20686:
+                case 22920:
                 case 23382:
                 case 25778:
+                case 30013:
                 case 30121:                                 // Forceful Howl - Plagued Deathhound
                 case 31389:                                 // Knock Away
                 case 32077:                                 // Boglord Bash
                 case 32959:                                 // Knock Away
+                case 37102:
+                case 37317:
                 case 37597:                                 // Meat Slap
                 case 40486:                                 // Eject - Bloodboil
                 {
@@ -5890,6 +5900,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         case 40486:
                             pct = -25;
                             break;
+                        case 22920:                                 // Arcane Blast - Prince Tortheldrin 11486
                         case 30013:                                 // Disarm - Ethereal Thief 16544
                         case 37317:                                 // Knockback - Tempest Falconer 20037
                         case 10101:
@@ -8142,6 +8153,9 @@ void Spell::EffectKnockBack(SpellEffectIndex eff_idx)
             break;
     }
 
+    if (unitTarget->hasUnitState(UNIT_STAT_ROOT))
+        return;
+
     unitTarget->KnockBackFrom(m_caster, float(m_spellInfo->EffectMiscValue[eff_idx]) / 10, float(damage) / 10);
 }
 
@@ -8173,14 +8187,11 @@ void Spell::EffectPullTowards(SpellEffectIndex eff_idx)
         dist = sqrt(unitTarget->GetDistance2d(x, y, DIST_CALC_NONE));
     }
 
-    if (damage && dist > damage)
-        dist = float(damage);
-
     if (dist < 0.1f)
         return;
 
     // Projectile motion
-    float speedXY = float(m_spellInfo->EffectMiscValue[eff_idx]) * 0.1f;
+    float speedXY = float(std::max(1, m_spellInfo->EffectMiscValue[eff_idx])) * 0.1f;
     float time = dist / speedXY;
     float speedZ = ((z - unitTarget->GetPositionZ()) + 0.5f * time * time * Movement::gravity) / time;
     float angle = unitTarget->GetAngle(x, y);

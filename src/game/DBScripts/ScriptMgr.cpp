@@ -164,7 +164,7 @@ void ScriptMgr::LoadScripts(ScriptMapType scriptType)
         }
 
         // generic command args check
-        if (tmp.buddyEntry && !(tmp.data_flags & SCRIPT_FLAG_BUDDY_BY_GUID) && (tmp.data_flags & SCRIPT_FLAG_BUDDY_BY_STRING_ID) == 0)
+        if (tmp.buddyEntry && !(tmp.data_flags & SCRIPT_FLAG_BUDDY_BY_GUID) && (tmp.data_flags & SCRIPT_FLAG_BUDDY_BY_SPAWN_GROUP) == 0 && (tmp.data_flags & SCRIPT_FLAG_BUDDY_BY_STRING_ID) == 0)
         {
             if (tmp.IsCreatureBuddy() && !ObjectMgr::GetCreatureTemplate(tmp.buddyEntry))
             {
@@ -2020,7 +2020,6 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
             float z = m_script->z;
             float o = m_script->o;
             bool run = m_script->textId[0] == 1;
-            uint32 relayId = m_script->textId[1];
 
             TempSpawnSettings settings(pSource, m_script->summonCreature.creatureEntry, x, y, z, o, m_script->summonCreature.despawnDelay ? TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN : TEMPSPAWN_DEAD_DESPAWN, m_script->summonCreature.despawnDelay, (m_script->data_flags& SCRIPT_FLAG_COMMAND_ADDITIONAL) != 0, run, m_script->summonCreature.pathId);
             settings.spawnDataEntry = m_script->textId[3];
@@ -2245,7 +2244,6 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                 break;
             }
 
-            uint32 movementType = m_script->movement.movementType;
             uint32 wanderORpathId = m_script->movement.wanderORpathId;
 
             WaypointPathOrigin wp_origin = PATH_NO_PATH;
@@ -2377,27 +2375,25 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                 break;
 
             Creature* creatureSource = static_cast<Creature*>(pSource);
-            if (!m_script->mount.creatureOrModelEntry)
+            if (m_script->mount.speedChange) // new flow
             {
-                creatureSource->Unmount();
-                if (m_script->mount.speedChange)
-                {
-                    creatureSource->SetBaseRunSpeed(creatureSource->GetCreatureInfo()->SpeedRun);
-                    creatureSource->UpdateSpeed(MOVE_RUN, true);
-                }
+                if (m_script->mount.creatureOrModelEntry)
+                    creatureSource->MountEntry(m_script->mount.creatureOrModelEntry);
+                else
+                    creatureSource->UnmountEntry();
             }
-            else if (m_script->data_flags & SCRIPT_FLAG_COMMAND_ADDITIONAL)
-                creatureSource->Mount(m_script->mount.creatureOrModelEntry);
             else
             {
-                CreatureInfo const* ci = ObjectMgr::GetCreatureTemplate(m_script->mount.creatureOrModelEntry);
-                uint32 display_id = Creature::ChooseDisplayId(ci);
-
-                creatureSource->Mount(display_id);
-                if (m_script->mount.speedChange)
+                if (!m_script->mount.creatureOrModelEntry)
+                    creatureSource->Unmount();
+                else if (m_script->data_flags & SCRIPT_FLAG_COMMAND_ADDITIONAL)
+                    creatureSource->Mount(m_script->mount.creatureOrModelEntry);
+                else
                 {
-                    creatureSource->SetBaseRunSpeed(ci->SpeedRun);
-                    creatureSource->UpdateSpeed(MOVE_RUN, true);
+                    CreatureInfo const* ci = ObjectMgr::GetCreatureTemplate(m_script->mount.creatureOrModelEntry);
+                    uint32 display_id = Creature::ChooseDisplayId(ci);
+
+                    creatureSource->Mount(display_id);
                 }
             }
 
@@ -3020,15 +3016,15 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                         break;
                     }
 
-                    FormationEntrySPtr fEntry = std::make_shared<FormationEntry>();
-                    fEntry->GroupId = targetGroup->GetGroupId();
-                    fEntry->Type = static_cast<SpawnGroupFormationType>(m_script->textId[0]);
-                    fEntry->Spread = m_script->x;
-                    fEntry->Options = m_script->textId[1];
-                    fEntry->MovementType = 0;
-                    fEntry->MovementIdOrWander = 0;
-                    fEntry->Comment = "Dynamically created formation!";
-                    fEntry->IsDynamic = true;
+                    FormationEntry fEntry;
+                    fEntry.GroupId = targetGroup->GetGroupId();
+                    fEntry.Type = static_cast<SpawnGroupFormationType>(m_script->textId[0]);
+                    fEntry.Spread = m_script->x;
+                    fEntry.Options = m_script->textId[1];
+                    fEntry.MovementType = 0;
+                    fEntry.MovementIdOrWander = 0;
+                    fEntry.Comment = "Dynamically created formation!";
+                    fEntry.IsDynamic = true;
 
                     targetGroup->SetFormationData(fEntry);
                     break;
@@ -3084,7 +3080,7 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                         break;
                     }
 
-                    targetGroup->SetFormationData(nullptr);
+                    targetGroup->ClearFormationData();
                     break;
                 }
 
@@ -3123,7 +3119,6 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
 
                     Creature* leader = static_cast<Creature*>(pTarget);
 
-                    CreatureGroup* leaderGroup = leader->GetCreatureGroup();
                     FormationSlotDataSPtr leaderSlot = leader->GetFormationSlot();
                     FormationData* leaderFormation = nullptr;
                     if (leaderSlot)
@@ -3157,7 +3152,6 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
 
                     Creature* leader = static_cast<Creature*>(pTarget);
 
-                    CreatureGroup* leaderGroup = leader->GetCreatureGroup();
                     FormationSlotDataSPtr leaderSlot = leader->GetFormationSlot();
                     FormationData* leaderFormation = nullptr;
                     if (leaderSlot)
@@ -3189,7 +3183,6 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
 
                     Creature* leader = static_cast<Creature*>(pTarget);
 
-                    CreatureGroup* leaderGroup = leader->GetCreatureGroup();
                     FormationSlotDataSPtr leaderSlot = leader->GetFormationSlot();
                     FormationData* leaderFormation = nullptr;
                     if (leaderSlot)

@@ -1048,7 +1048,7 @@ struct advisor_base_ai : public CombatAI
         }
     }
 
-    void JustPreventedDeath(Unit* killer) override
+    void JustPreventedDeath(Unit* /*killer*/) override
     {
         m_creature->InterruptNonMeleeSpells(true);
         m_creature->StopMoving();
@@ -1083,7 +1083,7 @@ struct advisor_base_ai : public CombatAI
         }
     }
 
-    void JustDied(Unit* killer) override
+    void JustDied(Unit* /*killer*/) override
     {
         if (m_instance)
         {
@@ -1396,6 +1396,8 @@ struct FlameStrikeKael : public AuraScript
 {
     void OnApply(Aura* aura, bool apply) const override
     {
+        if (apply)
+            return;
         aura->GetTarget()->CastSpell(nullptr, 36731, TRIGGERED_OLD_TRIGGERED, nullptr, aura);
         if (aura->GetTarget()->IsCreature())
             static_cast<Creature*>(aura->GetTarget())->ForcedDespawn(10000);
@@ -1502,7 +1504,7 @@ struct PureNetherBeamParent : public SpellScript
 // 37027 - Remote Toy
 struct RemoteToy : public AuraScript
 {
-    void OnPeriodicTrigger(Aura* aura, PeriodicTriggerData& data) const override
+    void OnPeriodicTrigger(Aura* /*aura*/, PeriodicTriggerData& data) const override
     {
         if (urand(0, 4) == 0) // 20% chance to apply trigger spell
             data.spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(37029); // Remote Toy
