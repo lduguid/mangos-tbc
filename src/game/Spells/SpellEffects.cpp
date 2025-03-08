@@ -7871,9 +7871,6 @@ void Spell::EffectAddExtraAttacks(SpellEffectIndex /*eff_idx*/)
     if (!unitTarget || !unitTarget->IsAlive())
         return;
 
-    if (unitTarget->m_extraAttacks)
-        return;
-
     unitTarget->m_extraAttacks += damage;
     if (unitTarget->m_extraAttacks > 5)
         unitTarget->m_extraAttacks = 5;
@@ -8315,18 +8312,6 @@ void Spell::EffectModifyThreatPercent(SpellEffectIndex /*eff_idx*/)
 void Spell::EffectTransmitted(SpellEffectIndex eff_idx)
 {
     uint32 name_id = m_spellInfo->EffectMiscValue[eff_idx];
-
-    switch (m_spellInfo->Id)
-    {
-        case 29886: // Create Soulwell
-            if (m_caster->HasAura(18692))
-                name_id = 183510;
-            else if (m_caster->HasAura(18693))
-                name_id = 183511;
-            break;
-        default:
-            break;
-    }
 
     GameObjectInfo const* goinfo = ObjectMgr::GetGameObjectInfo(name_id);
 
